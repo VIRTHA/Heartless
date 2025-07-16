@@ -6,3 +6,10 @@ description: Heartless plugin
 api-version: '1.21.4'
 bootstrapper: com.darkbladedev.content.custom.Bootstraps
 #loader:
+
+dependencies:
+  server:
+    PlaceholderAPI:
+      load: BEFORE
+      required: true
+      join-classpath: true

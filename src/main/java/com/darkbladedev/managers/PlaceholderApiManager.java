@@ -13,6 +13,8 @@ import com.darkbladedev.mechanics.AcidWeek;
 import com.darkbladedev.mechanics.BloodAndIronWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
 import com.darkbladedev.mechanics.UndeadWeek;
+import com.darkbladedev.utils.MM;
+
 import me.clip.placeholderapi.PlaceholderAPI;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 
@@ -22,6 +24,17 @@ public class PlaceholderApiManager extends PlaceholderExpansion {
 
     public PlaceholderApiManager(HeartlessMain plugin) {
         this.plugin = plugin;
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            this.register();
+            Bukkit.getConsoleSender().sendMessage(
+                MM.toComponent(plugin.getPrefix() + "<green>PlaceholderAPI integration enabled! 📊")
+            );
+        } else {
+            Bukkit.getConsoleSender().sendMessage(
+                MM.toComponent(plugin.getPrefix() + "<red>PlaceholderAPI not found, placeholders will not be available.")
+            );
+        }
+
     }
 
     @Override
