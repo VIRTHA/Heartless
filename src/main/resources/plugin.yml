@@ -1,0 +1,89 @@
+name: Heartless
+version: ${plugin.version}
+main: com.darkbladedev.HeartlessMain
+description: "Adds a customizable and funny events system to your Minecraft server."
+author: DarkBladeDev
+prefix: Heartless
+api-version: 1.21
+load: POSTWORLD
+softdepend: [UltimateAdvancementAPI]
+
+# Plugin Commands
+commands:
+  virtha_events:
+    description: "Virtha Event main commands."
+    aliases: [ve, virthae]
+    permission: virthaevents.access
+    permission-message: "You do not have permission to use this command."
+  vunban:
+    description: Desbanea a un jugador baneado por el plugin
+    usage: /vunban <jugador>
+    permission: virtha.admin.unban
+    aliases: [virthaevents-unban, vevents-unban]
+    permission-message: "You do not have permission to use this command."
+  vcure:
+    description: Gestiona la cantidad de veces que un jugador se ha curado de la infecci贸n zombie
+    usage: /vcure <set|add|remove|check> [jugador] [cantidad]
+    permission: virthaevents.command.curemanagement
+    aliases: [virthacure, vevents-cure]
+    permission-message: "You do not have permission to use this command."
+  vcuredebug:
+    description: Comando de depuracion para gestionar curas (solo disponible en modo debug)
+    usage: /vcuredebug <set|add|remove|check> [jugador] [cantidad]
+    permission: virthaevents.command.curemanagement
+    aliases: [virthacuredebug, vevents-curedebug]
+    permission-message: "You do not have permission to use this command."
+
+
+# Permissions Statement
+permissions:
+  # Main Permissions
+  virthaevents.access:
+    description: "Allows to use Virtha Events core commands."
+    default: op
+
+  # Command Permissions
+  virthaevents.command.health:
+    description: "Allows to use /virtha_events health command."
+    default: op
+  virthaevents.command.effects.zombieinfection:
+    description: "Allows to use /virtha_events effects zombieinfection command."
+    default: op
+  virthaevents.command.curemanagement:
+    description: "Permite gestionar la cantidad de curas de infecci贸n zombie de los jugadores."
+    default: op
+  virthaevents.admin.zombieinfection:
+    description: "Permite administrar el sistema de infecci贸n zombie."
+    default: op
+  virthaevents.admin.update:
+    description: "Permite recibir notificaciones sobre actualizaciones disponibles."
+    default: op
+  virtha.admin.unban:
+    description: Permite desbanear jugadores
+    default: op
+    
+  # Ban Duration Permissions
+  virtha.ban.duration.exempt:
+    description: Exime al jugador de ser baneado al llegar al minimo de corazones
+    default: false
+  virtha.ban.duration.1:
+    description: Establece la duracion del baneo a 1 hora
+    default: false
+  virtha.ban.duration.2:
+    description: Establece la duracion del baneo a 2 horas
+    default: false
+  virtha.ban.duration.3:
+    description: Establece la duracion del baneo a 3 horas
+    default: false
+  virtha.ban.duration.4:
+    description: Establece la duracion del baneo a 4 horas
+    default: false
+  virtha.ban.duration.6:
+    description: Establece la duracion del baneo a 6 horas
+    default: false
+  virtha.ban.duration.12:
+    description: Establece la duracion del baneo a 12 horas
+    default: false
+  virtha.ban.duration.24:
+    description: Establece la duracion del baneo a 24 horas
+    default: false
