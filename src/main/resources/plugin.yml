@@ -5,7 +5,7 @@ description: "Adds a customizable and funny events system to your Minecraft serv
 author: DarkBladeDev
 prefix: Heartless
 api-version: 1.21
-load: POSTWORLD
+load: STARTUP
 softdepend: [UltimateAdvancementAPI]
 
 # Plugin Commands

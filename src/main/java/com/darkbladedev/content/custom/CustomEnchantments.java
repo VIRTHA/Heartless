@@ -3,16 +3,14 @@ package com.darkbladedev.content.custom;
 import org.bukkit.Registry;
 import org.bukkit.enchantments.Enchantment;
 
-import com.darkbladedev.HeartlessMain;
 
 import net.kyori.adventure.key.Key;
 
 public class CustomEnchantments {
 
-    private static HeartlessMain plugin = HeartlessMain.getInstance();
+    private static String namespace = "heartless";
 
-    public static final Key ACID_RESISTANCE_KEY = Key.key(plugin.getName(), "acid_resistance");
-
+    public static final Key ACID_RESISTANCE_KEY = Key.key(namespace, "acid_resistance");
 
     @SuppressWarnings("deprecation")
     public Enchantment getEnchantment(Key key) {
