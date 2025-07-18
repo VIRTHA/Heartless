@@ -10,6 +10,14 @@ All notable changes to this project will be documented in this file. See [standa
 * implement command system and weekly event mechanics 17feff4
 * **plugin:** add PlaceholderAPI integration and improve logging 576805e
 
+## [1.1.0](///compare/v1.0.1...v1.1.0) (2025-07-18)
+
+
+### ✨ Features
+
+* implement command system and weekly event mechanics 17feff4
+* **plugin:** add PlaceholderAPI integration and improve logging 576805e
+
 ## [1.1.0](///compare/v1.0.1...v1.1.0) (2025-07-16)
 
 
