@@ -11,13 +11,11 @@ import org.bukkit.block.data.Ageable;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.ThrownPotion;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockGrowEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -31,56 +29,37 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-public class AcidWeek implements Listener {
+public class AcidWeek extends WeeklyEvent {
     
-    private final Plugin plugin;
     private final Set<UUID> playersInWater = new HashSet<>();
     private final Set<UUID> playersInRain = new HashSet<>();
 
     private BukkitTask acidTask;
     private BukkitTask weatherTask;
-    private boolean isActive = false;
-    private boolean isPaused = false;
-    private long duration;
-    private String prefix = "<b><gradient:#befd58:#c4fb54:#caf950:#d1f64b:#d7f447:#ddf243:#e3f03f:#e9ee3b:#f0eb36:#f6e932:#fce72e>Semana acida</gradient></b>";
 
-    public AcidWeek(Plugin plugin, long duration) {
-        this.plugin = plugin;
-        this.duration = duration;
+    public AcidWeek(HeartlessMain plugin, long duration) {
+        super(plugin, duration);
+        this.prefix = "<b><gradient:#befd58:#c4fb54:#caf950:#d1f64b:#d7f447:#ddf243:#e3f03f:#e9ee3b:#f0eb36:#f6e932:#fce72e>Semana acida</gradient></b>";
     }
     
-    public void start() {
-        if (isActive) return;
-        
-        isActive = true;
-        isPaused = false;
-        
-        // Register events
-        Bukkit.getPluginManager().registerEvents(this, plugin);
-        
+    @Override
+    protected void startEventTasks() {
         // Start acid damage task
         startAcidDamageTask();
         
         // Start weather control task
         startWeatherControlTask();
-        
-        // Announce the start of the event
+    }
+    
+    @Override
+    protected void announceEventStart() {
         Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La lluvia ácida ha comenzado! Busca refugio y protege tu equipo."));
-        
-        // Schedule the end of the event
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                stop();
-            }
-        }.runTaskLater(plugin, duration);
     }
     
 
     
-    public void stop() {
-        if (!isActive) return;
-        
+    @Override
+    protected void stopEventTasks() {
         // Cancelar tareas
         if (acidTask != null) {
             acidTask.cancel();
@@ -92,17 +71,44 @@ public class AcidWeek implements Listener {
             weatherTask = null;
         }
         
-        // Limpiar conjuntos
-        playersInWater.clear();
-        playersInRain.clear();
-        
         // Restaurar clima normal en todos los mundos
         for (World world : Bukkit.getWorlds()) {
             world.setStorm(false);
             world.setThundering(false);
         }
+    }
+    
+    @Override
+    protected void cleanupEventData() {
+        // Limpiar conjuntos
+        playersInWater.clear();
+        playersInRain.clear();
+    }
+    
+    @Override
+    public String getName() {
+        return "Semana Ácida";
+    }
+    
+    @Override
+    protected void pauseEventTasks() {
+        if (acidTask != null) {
+            acidTask.cancel();
+            acidTask = null;
+        }
         
-        isActive = false;
+        if (weatherTask != null) {
+            weatherTask.cancel();
+            weatherTask = null;
+        }
+    }
+    
+    @Override
+    protected void resumeEventTasks() {
+        if (isActive && isPaused) {
+            startAcidDamageTask();
+            startWeatherControlTask();
+        }
     }
     
     @SuppressWarnings("deprecation")

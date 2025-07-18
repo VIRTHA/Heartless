@@ -1,5 +1,6 @@
 package com.darkbladedev.mechanics;
 
+import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.utils.MM;
 
 import org.bukkit.Bukkit;
@@ -9,7 +10,6 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -17,7 +17,6 @@ import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -26,17 +25,10 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 
-public class BloodAndIronWeek implements Listener {
+public class BloodAndIronWeek extends WeeklyEvent {
 
-    
-    private final Plugin plugin;
-    private final long duration;
-    private boolean isActive = false;
-    private boolean isPaused = false;
     private BukkitTask mainTask;
     private BukkitTask checkKillsTask;
-    private BukkitTask endTask;
-    private String prefix = "<b><gradient:#f82f2f:#f74242:#f75555:#f66869:#f67b7c:#f58f8f:#f4a2a2:#f4b5b5:#f3c8c9:#f3dbdc:#f2eeef:#f2eeef:#f2edee:#f2edee:#f2eded:#f3eded:#f3eced:#f3ecec:#f3ecec:#f3ebeb:#f3ebeb>Semana de Sangre y Hierro</gradient></b>";
     
     // Player tracking maps
     private final Map<UUID, Long> lastHostileMobKillTime = new HashMap<>();
@@ -53,31 +45,20 @@ public class BloodAndIronWeek implements Listener {
     private static final long MOB_KILL_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
     private static final long PLAYER_KILL_TIMEOUT = 60 * 60 * 1000; // 1 hour in milliseconds
     
-    public BloodAndIronWeek(Plugin plugin, long duration) {
-        this.plugin = plugin;
-        this.duration = duration;
+    public BloodAndIronWeek(HeartlessMain plugin, long duration) {
+        super(plugin, duration);
+        this.prefix = "<b><gradient:#f82f2f:#f74242:#f75555:#f66869:#f67b7c:#f58f8f:#f4a2a2:#f4b5b5:#f3c8c9:#f3dbdc:#f2eeef:#f2eeef:#f2edee:#f2edee:#f2eded:#f3eded:#f3eced:#f3ecec:#f3ecec:#f3ebeb:#f3ebeb>Semana de Sangre y Hierro</gradient></b>";
     }
     
-    public void start() {
-        if (isActive) return;
-        
-        isActive = true;
-        isPaused = false;
-
+    @Override
+    protected void startEventTasks() {
         startMainTask();
         startCheckKillsTask();
-            
-        
-        // Register events
-        Bukkit.getPluginManager().registerEvents(this, plugin);
         
         // Add all online players to tracking
         for (Player player : Bukkit.getOnlinePlayers()) {
             initializePlayer(player);
         }
-        
-        // Announce the start of the event
-        Bukkit.broadcast(MM.toComponent(prefix + " <gray>¡<gold>El coliseo del caos está abierto. <red>Elimina o sé eliminado<gray>!"));
         
         // Announce challenges
         announceChallenges();
@@ -92,16 +73,67 @@ public class BloodAndIronWeek implements Listener {
                 checkWeaponEffects();
             }
         }.runTaskTimer(plugin, 0L, 20L); // Every second
-        
-        // Schedule the end of the event
-        endTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                stop();
-            }
-        }.runTaskLater(plugin, duration * 20L);
     }
     
+    @Override
+    protected void announceEventStart() {
+        Bukkit.broadcast(MM.toComponent(prefix + " <gray>¡<gold>El coliseo del caos está abierto. <red>Elimina o sé eliminado<gray>!"));
+    }
+    
+    @Override
+    public String getName() {
+        return "Semana de Sangre y Hierro";
+    }
+    
+    @Override
+    protected void stopEventTasks() {
+        // Cancelar tareas
+        if (mainTask != null) {
+            mainTask.cancel();
+            mainTask = null;
+        }
+        
+        if (checkKillsTask != null) {
+            checkKillsTask.cancel();
+            checkKillsTask = null;
+        }
+    }
+    
+    @Override
+    protected void cleanupEventData() {
+        // Limpiar mapas y conjuntos
+        lastHostileMobKillTime.clear();
+        lastPlayerKillTime.clear();
+        playerKillCount.clear();
+        consecutiveKills.clear();
+        instantDamageKillers.clear();
+        pentakillPlayers.clear();
+        survivedPlayers.clear();
+        deadPlayers.clear();
+        awardedAdrenaline.clear();
+    }
+    
+    @Override
+    protected void pauseEventTasks() {
+        if (mainTask != null) {
+            mainTask.cancel();
+            mainTask = null;
+        }
+        
+        if (checkKillsTask != null) {
+            checkKillsTask.cancel();
+            checkKillsTask = null;
+        }
+    }
+    
+    @Override
+    protected void resumeEventTasks() {
+        if (isActive && isPaused) {
+            startMainTask();
+            startCheckKillsTask();
+        }
+    }
+        
     public void stop() {
         if (!isActive) return;
         

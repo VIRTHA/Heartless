@@ -6,19 +6,18 @@ import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityTransformEvent;
 import org.bukkit.event.player.PlayerBedEnterEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
+import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.utils.MM;
 
 import java.util.*;
@@ -26,12 +25,8 @@ import java.util.*;
 // Add this import at the top with other imports
 import org.bukkit.event.entity.EntitySpawnEvent;
 
-public class UndeadWeek implements Listener {
+public class UndeadWeek extends WeeklyEvent {
 
-    
-    private final Plugin plugin;
-    private final long duration;
-    private boolean isActive = false;
     private boolean isRedMoonActive = false;
     private int nightCounter = 0;
     private BukkitTask mainTask;
@@ -51,23 +46,20 @@ public class UndeadWeek implements Listener {
         EntityType.ZOGLIN
     );
     
-    public UndeadWeek(Plugin plugin, long duration) {
-        this.plugin = plugin;
-        this.duration = duration;
-        
-        // Register events
-        Bukkit.getPluginManager().registerEvents(this, plugin);
+    public UndeadWeek(HeartlessMain plugin, long duration) {
+        super(plugin, duration);
+        this.prefix = "<b><gradient:#58fd90:#56fa96:#54f69b:#51f3a1:#4ff0a7:#4decac:#4be9b2:#49e6b8:#46e2bd:#44dfc3:#42dcc9:#40d9cf:#3dd5d4:#3bd2da:#39cfe0:#37cbe5:#35c8eb:#32c5f1:#30c1f6:#2ebefc>Semana de los No Muertos</gradient></b>";
     }
     
-    public void stop() {
-        if (!isActive) return;
-        
+    @Override
+    protected void stopEventTasks() {
+        // Cancelar la tarea principal
         if (mainTask != null) {
             mainTask.cancel();
             mainTask = null;
         }
         
-        // Restaurar estados normales
+        // Restaurar ciclo día/noche normal
         isRedMoonActive = false;
         for (World world : Bukkit.getWorlds()) {
             if (world.getEnvironment() == World.Environment.NORMAL) {
@@ -75,7 +67,7 @@ public class UndeadWeek implements Listener {
             }
         }
         
-        // Curar a todos los jugadores infectados
+        // Eliminar efectos de jugadores infectados
         for (UUID playerId : infectedPlayers.keySet()) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null && player.isOnline()) {
@@ -83,14 +75,26 @@ public class UndeadWeek implements Listener {
             }
         }
         
-        // Otorgar recompensas finales
+        // Dar recompensas finales
         giveRewards();
-        
-        // Anunciar fin del evento
-        Bukkit.broadcast(MM.toComponent(prefix + " <green>Las hordas de no-muertos se han retirado... por ahora."));
-        
-        isActive = false;
     }
+    
+    @Override
+    protected void cleanupEventData() {
+        // Limpiar datos de seguimiento
+        infectedPlayers.clear();
+        curedInfectionsCount.clear();
+        redMoonKillsCount.clear();
+        curedVillagers.clear();
+        witherKilledInRedMoon.clear();
+        nightCounter = 0;
+        isRedMoonActive = false;
+    }
+    
+    @Override
+     public String getName() {
+         return "Semana de los No Muertos";
+     }
     
     private void checkTime() {
         // Solo verificar en el mundo normal
@@ -387,16 +391,10 @@ public class UndeadWeek implements Listener {
         return isRedMoonActive;
     }
 
-    private boolean isPaused = false;
 
-    private String prefix = "<b><gradient:#58fd90:#56fa96:#54f69b:#51f3a1:#4ff0a7:#4decac:#4be9b2:#49e6b8:#46e2bd:#44dfc3:#42dcc9:#40d9cf:#3dd5d4:#3bd2da:#39cfe0:#37cbe5:#35c8eb:#32c5f1:#30c1f6:#2ebefc>Semana de los No Muertos</gradient></b>";
-
-    public void pause() {
-        if (!isActive || isPaused) return;
-        
-        isPaused = true;
-        
-        // Cancel the main task
+    @Override
+    protected void pauseEventTasks() {
+        // Cancelar la tarea principal
         if (mainTask != null) {
             mainTask.cancel();
             mainTask = null;
@@ -419,15 +417,12 @@ public class UndeadWeek implements Listener {
         }
     }
 
-    public void resume() {
-        if (!isActive || !isPaused) return;
-        
-        isPaused = false;
-        
-        // Restart the main task
+    @Override
+    protected void resumeEventTasks() {
+        // Reiniciar la tarea principal
         startMainTask();
         
-        // Reapply effects to infected players
+        // Reaplicar efectos a jugadores infectados
         for (UUID playerId : infectedPlayers.keySet()) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null && player.isOnline()) {
@@ -464,19 +459,8 @@ public class UndeadWeek implements Listener {
         }.runTaskTimer(plugin, 0L, 20L * 30); // Check every 30 seconds
     }
 
-    // Update start method to use the new task method
+    // Método start original ahora es privado y solo contiene la lógica específica
     public void start() {
-        if (isActive) return;
-        
-        isActive = true;
-        isPaused = false;
-        
-        // Start the main task
-        startMainTask();
-        
-        // Anunciar el inicio del evento
-        Bukkit.broadcast(MM.toComponent(prefix + " <red>Las hordas de no-muertos dominan el mundo..."));
-        
         // Tarea principal que se ejecuta cada tick para verificar condiciones
         mainTask = new BukkitRunnable() {
             @Override
@@ -486,14 +470,6 @@ public class UndeadWeek implements Listener {
                 checkNetheriteArmor();
             }
         }.runTaskTimer(plugin, 0L, 20L); // Cada segundo
-        
-        // Programar el fin del evento
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                stop();
-            }
-        }.runTaskLater(plugin, duration * 20L);
     }
 
     /**
@@ -519,5 +495,36 @@ public class UndeadWeek implements Listener {
             default:
                 return false;
         }
+    }
+
+    @Override
+    protected void startEventTasks() {
+        // Iniciar la tarea principal
+        startMainTask();
+        
+        // Programar el fin del evento
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                stop();
+            }
+        }.runTaskLater(plugin, duration * 20L);
+    }
+
+    @Override
+    protected void announceEventStart() {
+        // Anunciar el inicio del evento
+        Bukkit.broadcast(MM.toComponent(prefix + " <red>Las hordas de no-muertos dominan el mundo..."));
+        Bukkit.broadcast(MM.toComponent(prefix + " <yellow>Desafíos disponibles:"));
+        Bukkit.broadcast(MM.toComponent("<gray>- <white>Curar tu infección 10 veces <gray>(Recompensa: +1 corazón máximo)"));
+        Bukkit.broadcast(MM.toComponent("<gray>- <white>Curar a un aldeano zombificado <gray>(Recompensa: Encantamiento especial)"));
+        Bukkit.broadcast(MM.toComponent("<gray>- <white>Matar 10 no-muertos durante la Noche Roja <gray>(Recompensa: +1 corazón máximo)"));
+        Bukkit.broadcast(MM.toComponent("<gray>- <white>Matar al Wither durante la Noche Roja <gray>(Recompensa: +1 corazón máximo)"));
+    }
+    
+    @Override
+    protected void announceEventEnd() {
+        Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La amenaza de los no-muertos ha sido contenida!"));
+        Bukkit.broadcast(MM.toComponent(prefix + " <yellow>El mundo vuelve a la normalidad... por ahora."));
     }
 }

@@ -3,11 +3,12 @@ package com.darkbladedev.mechanics;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+
+import com.darkbladedev.HeartlessMain;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -15,19 +16,16 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-public class ToxicFog {
+public class ToxicFog extends WeeklyEvent {
     
-    private final Plugin plugin;
     private final Set<UUID> affectedPlayers;
     private BukkitTask toxicFogTask;
     private boolean isActive = false;
     private boolean isPaused = false;
 
-    private final long duration;
     
-    public ToxicFog(Plugin plugin, long duration) {
-        this.plugin = plugin;
-        this.duration = duration;
+    public ToxicFog(HeartlessMain plugin, long duration) {
+        super(plugin, duration);
         this.affectedPlayers = new HashSet<>();
     }
     
@@ -168,5 +166,29 @@ public class ToxicFog {
                 }
             }
         }.runTaskTimer(plugin, 0L, 20L); // Verificar cada 1 segundo (20 ticks)
+    }
+
+
+    @Override
+    public String getName() {
+        return "Niebla Tóxica";
+    }
+
+
+    @Override
+    protected void startEventTasks() {
+        start();
+    }
+
+
+    @Override
+    protected void stopEventTasks() {
+        stop();
+    }
+
+
+    @Override
+    protected void cleanupEventData() {
+        affectedPlayers.clear();
     }
 }

@@ -2,15 +2,18 @@ package com.darkbladedev.utils;
 
 import java.util.List;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
+
+import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.mechanics.*;
 
 /**
  * Enum representing the different types of events that can be created.
  * Each event type corresponds to a mechanic in the mechanics package.
  */
 public enum EventType {
-    SIZE_RANDOMIZER("size_randomizer", "Randomizes the size of players"),
-    TOXIC_FOG("toxic_fog", "Creates a toxic fog that damages players"),
+    TOXIC_FOG_WEEK("toxic_fog", "Creates a toxic fog that damages players"),
     PARANOIA_EFFECT("paranoia_effect", "Players experience a paranoia effect"),
     ACID_WEEK("acid_week", "The atmosphere and water are contaminated with acid"),
     MOB_RAIN("mob_rain", "Mobs rain from the sky periodically"),
@@ -43,8 +46,8 @@ public enum EventType {
     }
 
     /**
-     * Finds an event type by its command name.
-     * @param name The command name to search for
+     * Finds an event type by its event name.
+     * @param name The event name to search for
      * @return The matching EventType or null if not found
      */
     public static EventType getByName(String name) {
@@ -77,5 +80,36 @@ public enum EventType {
             eventNames.add(type.getEventName());
         }
         return eventNames;
+    }
+
+    /**
+     * Convierte este tipo de evento en una instancia de WeeklyEvent.
+     * @param plugin El plugin principal
+     * @param duration Duración del evento en ticks
+     * @return Una nueva instancia de WeeklyEvent correspondiente a este tipo, o null si no está implementado
+     */
+    public WeeklyEvent toEvent(HeartlessMain plugin, long duration) {
+        switch (this.getEventName()) {
+            case "acid_week":
+                return new AcidWeek(plugin, duration);
+                
+            case "toxic_fog":
+                return new ToxicFog(plugin, duration);
+                
+            case "undead_week":
+                return new UndeadWeek(plugin, duration);
+                
+            case "explosive_week":
+                return new ExplosiveWeek(plugin, duration);
+                
+            case "blood_and_iron_week":
+                return new BloodAndIronWeek(plugin, duration);
+                
+            default:
+                Bukkit.getConsoleSender().sendMessage(
+                    MM.toComponent("&cEvento no implementado para ejecución: " + this.getEventName())
+                );
+                return null;
+        }
     }
 }

@@ -2,15 +2,18 @@ package com.darkbladedev.managers;
 
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerLoginEvent.Result;
-import org.bukkit.plugin.Plugin;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.exceptions.ExceptionBuilder;
+import com.darkbladedev.exceptions.NoPlayerFoundedException;
 import com.darkbladedev.utils.MM;
 
 import net.kyori.adventure.text.Component;
@@ -20,16 +23,21 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class BanManager implements Listener {
     private final Map<UUID, Integer> banCountMap = new HashMap<>();
+    private final static Set<UUID> banList = new HashSet<>();
+    @SuppressWarnings("unused")
+    private final HeartlessMain plugin;
     private File banDataFile;
     
-    public BanManager() {
-        Plugin plugin = Bukkit.getPluginManager().getPlugin("virtha-events");
+    public BanManager(HeartlessMain plugin) {
+        this.plugin = plugin;
         if (plugin != null) {
             this.banDataFile = new File(plugin.getDataFolder(), "ban_data.json");
             loadBanData();
@@ -172,5 +180,26 @@ public class BanManager implements Listener {
         }
         
         return sb.toString();
+    }
+
+    public void unBan(Player targetPlayer) {
+        if (!targetPlayer.hasPlayedBefore() && !targetPlayer.isOnline()) {
+            ExceptionBuilder.build(NoPlayerFoundedException.class, targetPlayer, "<red>Se ha intentado desbanear a un jugador pero parece no existir o no estar baneado</red>");
+            return;
+        }
+        try {
+            Bukkit.getServer().unbanIP(targetPlayer.getAddress().getAddress());
+        } catch (Exception e) {
+            ExceptionBuilder.build(e.getClass(), targetPlayer.getAddress().getAddress(), "<red><b>Ha ocurrido un error indefinido al desbanear al jugador " + "<aqua><u>" + targetPlayer.getName() + "</u></aqua>" + "</b></red>");
+        }
+    }
+
+
+    public static Set<UUID> getBanList_() {
+        return banList;
+    }
+
+    public Set<UUID> getBanList() {
+        return banList;
     }
 }

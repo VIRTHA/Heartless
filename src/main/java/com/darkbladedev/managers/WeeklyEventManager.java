@@ -10,7 +10,6 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.json.simple.JSONObject;
@@ -19,19 +18,20 @@ import org.json.simple.parser.ParseException;
 
 import com.darkbladedev.utils.EventType;
 import com.darkbladedev.utils.MM;
+import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.mechanics.AcidWeek;
 import com.darkbladedev.mechanics.BloodAndIronWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
-import com.darkbladedev.mechanics.ParanoiaEffect;
 import com.darkbladedev.mechanics.ToxicFog;
 import com.darkbladedev.mechanics.UndeadWeek;
+import com.darkbladedev.mechanics.WeeklyEvent;
 import com.darkbladedev.utils.TimeConverter;
 
 public class WeeklyEventManager {
     private static final long WEEK_IN_MILLIS = TimeUnit.DAYS.toMillis(7);
     private static final String DATA_FILE = "weekly_event_data.json";
     
-    private final Plugin plugin;
+    private final HeartlessMain plugin;
     private final Random random = new Random();
     private final File dataFile;
     
@@ -39,7 +39,7 @@ public class WeeklyEventManager {
     private long eventStartTime;
     private long eventEndTime;
     private EventType currentEventType;
-    private Object currentEvent;
+    private WeeklyEvent currentEvent;
     private boolean isEventActive = false;
     private boolean isPaused = false;
     private long pauseStartTime = 0;
@@ -48,7 +48,7 @@ public class WeeklyEventManager {
     // Add a lock to prevent multiple events from starting simultaneously
     private boolean isEventStarting = false;
     
-    public WeeklyEventManager(Plugin plugin) {
+    public WeeklyEventManager(HeartlessMain plugin) {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), DATA_FILE);
         
@@ -177,20 +177,8 @@ public class WeeklyEventManager {
             return;
         }
         
-        // Stop the current event based on its type
-        if (currentEvent instanceof AcidWeek) {
-            ((AcidWeek) currentEvent).stop();
-        } else if (currentEvent instanceof ToxicFog) {
-            ((ToxicFog) currentEvent).stop();
-        } else if (currentEvent instanceof UndeadWeek) {
-            ((UndeadWeek) currentEvent).stop();
-        } else if (currentEvent instanceof ParanoiaEffect) {
-            ((ParanoiaEffect) currentEvent).stop();
-        } else if (currentEvent instanceof ExplosiveWeek) {
-            ((ExplosiveWeek) currentEvent).stop();
-        } else if (currentEvent instanceof BloodAndIronWeek) {
-            ((BloodAndIronWeek) currentEvent).stop();
-        }
+        // Stop the current event
+        currentEvent.stop();
         
         isEventActive = false;
         isPaused = false;
@@ -258,38 +246,28 @@ public class WeeklyEventManager {
         eventEndTime = eventStartTime + duration;
         isEventActive = true;
         
-        // Convertir duración a ticks (para Bukkit)
-        long durationTicks = TimeUnit.MILLISECONDS.toSeconds(duration);
+
         
         // Iniciar el evento según su tipo
         switch (eventType.getEventName()) {
             case "acid_week":
-                AcidWeek acidWeek = new AcidWeek(plugin, durationTicks);
-                acidWeek.start();
-                currentEvent = acidWeek;
+                currentEvent = new AcidWeek(plugin, duration);
                 break;
                 
             case "toxic_fog":
-                ToxicFog toxicFog = new ToxicFog(plugin, durationTicks);
-                toxicFog.start();
-                currentEvent = toxicFog;
+                currentEvent = new ToxicFog(plugin, duration);
                 break;
                 
             case "undead_week":
-                UndeadWeek undeadWeek = new UndeadWeek(plugin, durationTicks);
-                undeadWeek.start();
-                currentEvent = undeadWeek;
+                currentEvent = new UndeadWeek(plugin, duration);
                 break;
+                
             case "explosive_week":
-                ExplosiveWeek explosiveWeek = new ExplosiveWeek(plugin, durationTicks);
-                explosiveWeek.start();
-                currentEvent = explosiveWeek;
+                currentEvent = new ExplosiveWeek(plugin, duration);
                 break;
                 
             case "blood_and_iron_week":
-                BloodAndIronWeek bloodAndIronWeek = new BloodAndIronWeek(plugin, durationTicks);
-                bloodAndIronWeek.start();
-                currentEvent = bloodAndIronWeek;
+                currentEvent = new BloodAndIronWeek(plugin, duration);
                 break;
                 
             default:
@@ -299,18 +277,15 @@ public class WeeklyEventManager {
                 isEventActive = false;
                 return;
         }
-        
-        // Anunciar el inicio del evento
-        Bukkit.broadcast(MM.toComponent("<gold><b>¡EVENTO SEMANAL INICIADO!"));
-        Bukkit.broadcast(MM.toComponent("<yellow>" + getEventDisplayName(eventType) + " <gray>estará activo durante 7 días."));
-        
-        // Guardar datos del evento
-        saveEventData();
+    
+    // Iniciar el evento
+    currentEvent.start();
+    saveEventData();
     }
     
+    @SuppressWarnings("unused")
     private String getEventDisplayName(EventType eventType) {
         switch (eventType.getEventName()) {
-            case "size_randomizer": return "Tamaños Aleatorios";
             case "acid_week": return "Ácida";
             case "toxic_fog": return "Niebla Tóxica";
             case "undead_week": return "No-Muertos";
@@ -356,20 +331,8 @@ public class WeeklyEventManager {
         isPaused = true;
         pauseStartTime = System.currentTimeMillis();
         
-        // Pause the event based on its type
-        if (currentEvent instanceof AcidWeek) {
-            ((AcidWeek) currentEvent).pause();
-        } else if (currentEvent instanceof ToxicFog) {
-            ((ToxicFog) currentEvent).pause();
-        } else if (currentEvent instanceof UndeadWeek) {
-            ((UndeadWeek) currentEvent).pause();
-        } else if (currentEvent instanceof ParanoiaEffect) {
-            ((ParanoiaEffect) currentEvent).pause();
-        } else if (currentEvent instanceof ExplosiveWeek) {
-            ((ExplosiveWeek) currentEvent).pause();
-        } else if (currentEvent instanceof BloodAndIronWeek) {
-            ((BloodAndIronWeek) currentEvent).pause();
-        }
+        // Pause the event
+        currentEvent.pause();
         
         // Save the updated event data with pause information
         saveEventData();
@@ -394,20 +357,8 @@ public class WeeklyEventManager {
         
         isPaused = false;
         
-        // Resume the event based on its type
-        if (currentEvent instanceof AcidWeek) {
-            ((AcidWeek) currentEvent).resume();
-        } else if (currentEvent instanceof ToxicFog) {
-            ((ToxicFog) currentEvent).resume();
-        } else if (currentEvent instanceof UndeadWeek) {
-            ((UndeadWeek) currentEvent).resume();
-        } else if (currentEvent instanceof ParanoiaEffect) {
-            ((ParanoiaEffect) currentEvent).resume();
-        } else if (currentEvent instanceof ExplosiveWeek) {
-            ((ExplosiveWeek) currentEvent).resume();
-        } else if (currentEvent instanceof BloodAndIronWeek) {
-            ((BloodAndIronWeek) currentEvent).resume();
-        }
+        // Resume the event
+        currentEvent.resume();
         
         // Save the updated event data after resuming
         saveEventData();
@@ -535,20 +486,8 @@ public class WeeklyEventManager {
             return;
         }
         
-        // Detener el evento según su tipo
-        if (currentEvent instanceof AcidWeek) {
-            ((AcidWeek) currentEvent).stop();
-        } else if (currentEvent instanceof ToxicFog) {
-            ((ToxicFog) currentEvent).stop();
-        } else if (currentEvent instanceof UndeadWeek) {
-            ((UndeadWeek) currentEvent).stop();
-        } else if (currentEvent instanceof ParanoiaEffect) {
-            ((ParanoiaEffect) currentEvent).stop();
-        } else if (currentEvent instanceof ExplosiveWeek) {
-            ((ExplosiveWeek) currentEvent).stop();
-        } else if (currentEvent instanceof BloodAndIronWeek) {
-            ((BloodAndIronWeek) currentEvent).stop();
-        }
+        // Detener el evento
+        currentEvent.stop();
         
         isEventActive = false;
         currentEvent = null;
@@ -581,9 +520,42 @@ public class WeeklyEventManager {
     
     /**
      * Gets the current event object
-     * @return The current event object, or null if no event is active
+     * @return The current Weeklyevent object, or null if no event is active
      */
-    public Object getCurrentEvent() {
+    public WeeklyEvent getCurrentEvent() {
         return currentEvent;
+    }
+
+    
+    /**
+     * Detiene un evento específico si está activo y coincide con el tipo proporcionado.
+     * @param eventType El tipo de evento a detener
+     */
+    public void stopSpecificEvent(EventType eventType) {
+        if (!isEventActive || currentEvent == null || currentEventType == null) {
+            return;
+        }
+        
+        // Verificar si el evento actual coincide con el tipo solicitado
+        if (currentEventType.equals(eventType)) {
+            // Detener el evento actual
+            currentEvent.stop();
+            
+            // Actualizar el estado del gestor
+            isEventActive = false;
+            currentEvent = null;
+            currentEventType = null;
+            
+            // Limpiar los datos del evento
+            clearEventData();
+            
+            // Anunciar que el evento ha sido detenido
+            Bukkit.broadcast(MM.toComponent("<red><b>¡EVENTO SEMANAL DETENIDO!</b>"));
+            Bukkit.broadcast(MM.toComponent("<yellow>El evento '" + eventType.getEventName() + "' ha sido detenido manualmente."));
+            
+            plugin.getLogger().info("Evento '" + eventType.getEventName() + "' detenido manualmente.");
+        } else {
+            plugin.getLogger().warning("Intento de detener un evento que no está activo: " + eventType.getEventName());
+        }
     }
 }

@@ -26,7 +26,6 @@ import org.bukkit.entity.TNTPrimed;
 import org.bukkit.entity.Warden;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -38,17 +37,14 @@ import org.bukkit.event.entity.ExplosionPrimeEvent;
 import org.bukkit.event.weather.ThunderChangeEvent;
 import org.bukkit.event.weather.WeatherChangeEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
+import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.utils.MM;
 
-public class ExplosiveWeek implements Listener {
+public class ExplosiveWeek extends WeeklyEvent {
     
-    private final Plugin plugin;
-    private final long duration;
-    private boolean isActive = false;
     private final Random random = new Random();
     
     // Tasks
@@ -70,39 +66,23 @@ public class ExplosiveWeek implements Listener {
             EntityType.ENDERMAN
     ));
     
-    
-    private boolean isPaused = false;
     private BukkitTask mainTask;
     
-    public ExplosiveWeek(Plugin plugin, long duration) {
-        this.plugin = plugin;
-        this.duration = duration;
+    public ExplosiveWeek(HeartlessMain plugin, long duration) {
+        super(plugin, duration);
+        this.prefix = "<b><gradient:#ed2f2f:#f15c5c:#f58888:#f9b5b5:#fce1e1:#ffffff:#ffffff:#ffffff:#ffffff:#ffffff:#fce1e2:#f8b5b5:#f48989:#f05c5d:#ec3031>Semana Explosiva</gradient></b>";
     }
     
-    public void start() {
-        if (isActive) return;
-        
-        long durationTicks = duration * 20; // Convert to ticks
-
-        isActive = true;
-        isPaused = false;
-    
+    @Override
+    protected void startEventTasks() {
         startMainTask();
-    
-        // Register events
-        Bukkit.getPluginManager().registerEvents(this, plugin);
         
         // Start ghast spawning in thunderstorms
         startGhastSpawning();
-        
-        // Schedule the end of the event
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                stop();
-            }
-        }.runTaskLater(plugin, durationTicks);
-        
+    }
+    
+    @Override
+    protected void announceEventStart() {
         // Announce the start of the event
         Bukkit.broadcast(MM.toComponent("&c&l¡SEMANA EXPLOSIVA INICIADA!"));
         Bukkit.broadcast(MM.toComponent("&e¡Cuidado con las explosiones! Todo es más volátil..."));
@@ -111,11 +91,8 @@ public class ExplosiveWeek implements Listener {
         announceExplosiveWeekChallenges();
     }
     
-    public void stop() {
-        if (!isActive) return;
-        
-        isActive = false;
-        
+    @Override
+    protected void stopEventTasks() {
         // Cancel tasks
         if (ghastSpawnTask != null) {
             ghastSpawnTask.cancel();
@@ -125,6 +102,11 @@ public class ExplosiveWeek implements Listener {
         if (ghastAttackTask != null) {
             ghastAttackTask.cancel();
             ghastAttackTask = null;
+        }
+        
+        if (mainTask != null) {
+            mainTask.cancel();
+            mainTask = null;
         }
         
         // Remove all spawned ghasts in overworld
@@ -137,10 +119,41 @@ public class ExplosiveWeek implements Listener {
                 }
             }
         }
+    }
+    
+    @Override
+    protected void cleanupEventData() {
+        // Limpiar datos de seguimiento de desafíos
+        ghastKillers.clear();
+        mobHeadCollectors.clear();
+        playerExplosionKillers.clear();
+        wardenCreeperKillers.clear();
+    }
+    
+    @Override
+    public String getName() {
+        return "Semana Explosiva";
+    }
+    
+    @Override
+    protected void pauseEventTasks() {
+        if (ghastSpawnTask != null) {
+            ghastSpawnTask.cancel();
+        }
         
-        // Announce the end of the event
-        Bukkit.broadcast(MM.toComponent("&a&lLa Semana Explosiva ha terminado."));
-        Bukkit.broadcast(MM.toComponent("&eLas explosiones vuelven a la normalidad."));
+        if (ghastAttackTask != null) {
+            ghastAttackTask.cancel();
+        }
+        
+        if (mainTask != null) {
+            mainTask.cancel();
+        }
+    }
+    
+    @Override
+    protected void resumeEventTasks() {
+        startGhastSpawning();
+        startMainTask();
     }
     
     private void startGhastSpawning() {

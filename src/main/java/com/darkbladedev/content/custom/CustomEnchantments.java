@@ -11,6 +11,7 @@ public class CustomEnchantments {
     private static String namespace = "heartless";
 
     public static final Key ACID_RESISTANCE_KEY = Key.key(namespace, "acid_resistance");
+    public static final Key ACID_INFECTION_KEY = Key.key(namespace, "acid_infection");
 
     @SuppressWarnings("deprecation")
     public Enchantment getEnchantment(Key key) {
@@ -18,7 +19,8 @@ public class CustomEnchantments {
     }
 
     public enum ENCHANTMENTS {
-        ACID_RESISTANCE(ACID_RESISTANCE_KEY, "Proteccion contra el acido", 1);
+        ACID_RESISTANCE(ACID_RESISTANCE_KEY, "Proteccion contra el acido", 1),
+        ACID_INFECTION(ACID_INFECTION_KEY, "Contagion", 1);
 
         private final Key key;
         private final String displayName;
