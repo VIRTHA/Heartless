@@ -22,7 +22,7 @@ public class AddHealth implements SubcommandExecutor, TabCompletable {
         try {
             health = Double.parseDouble(args[0]);
         } catch (NumberFormatException e) {
-            sender.sendMessage(MM.toComponent("<red>'" + args[0] + "'debe ser un número."));
+            sender.sendMessage(MM.toComponent("<red>'" + args[0] + "' debe ser un número."));
             return;
         } catch (NullPointerException e) {
             sender.sendMessage(MM.toComponent("<red>El primer argumento no puede ser nulo."));
@@ -68,6 +68,4 @@ public class AddHealth implements SubcommandExecutor, TabCompletable {
                 return Collections.emptyList();
         }
     }
-    
-
 }
