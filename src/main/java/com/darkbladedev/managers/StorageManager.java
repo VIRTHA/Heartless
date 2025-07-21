@@ -22,6 +22,12 @@ public class StorageManager {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), "weekly_event_data.json");
         this.gson = new GsonBuilder().setPrettyPrinting().create();
+        
+        // Crear directorio si no existe
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdirs();
+        }
+        createEmptyEventFileIfNeeded();
     }
 
     public void saveEvent(WeeklyEvent event) {
@@ -46,11 +52,22 @@ public class StorageManager {
         if (!dataFile.exists()) {
             try {
                 Files.createDirectories(dataFile.getParentFile().toPath());
-                saveEvent(new EmptyEvent(plugin, 0L));
+                saveEvent(new EmptyEvent(plugin, 1L));
             } catch (IOException e) {
                 plugin.getLogger().log(Level.SEVERE, "No se pudo crear el archivo de datos del evento", e);
             }
         }
+    }
+    
+    /**
+     * Recarga los datos del evento desde el archivo
+     * @return Los datos del evento recargados o null si hay un error
+     */
+    public WeeklyEventData reloadEventData() {
+        // Asegurar que el archivo existe
+        createEmptyEventFileIfNeeded();
+        // Cargar datos frescos
+        return loadEvent();
     }
 
     private WeeklyEventData toData(WeeklyEvent event) {
@@ -74,4 +91,4 @@ public class StorageManager {
         public String eventType;
         public boolean eventActive;
     }
-} 
+}

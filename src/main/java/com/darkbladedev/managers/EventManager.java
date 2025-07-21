@@ -4,7 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
 import com.darkbladedev.HeartlessMain;
-
+import com.darkbladedev.exceptions.CustomException;
 import com.darkbladedev.mechanics.AcidWeek;
 import com.darkbladedev.utils.EventType;
 import com.darkbladedev.utils.MM;
@@ -42,7 +42,7 @@ public class EventManager {
         }
     }
 
-    public boolean stopEvent(CommandSender executor) {
+    public boolean stopEvent(CommandSender executor) throws CustomException {
         try {
             weeklyEventManager.stopCurrentEvent();
             return true;
@@ -59,5 +59,13 @@ public class EventManager {
     // GETTERS
     public AcidWeek getAcidWeek() {
         return  acidWeek;
+    }
+    
+    /**
+     * Recarga los datos de eventos
+     * Este método delega la recarga al WeeklyEventManager
+     */
+    public void reload() {
+        weeklyEventManager.reload();
     }
 }

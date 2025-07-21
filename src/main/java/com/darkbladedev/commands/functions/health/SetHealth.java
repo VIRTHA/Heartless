@@ -38,14 +38,23 @@ public class SetHealth implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        switch (args.length) {
-            case 1:
+        // Los args aquí incluyen todos los argumentos del comando, incluyendo grupo y acción
+        // Necesitamos ajustar el índice para que coincida con los argumentos específicos de este subcomando
+        // args[0] y args[1] son el grupo y la acción, por lo que args[2] es el primer argumento real del subcomando
+        
+        // Calculamos el índice real restando 2 (grupo y acción)
+        int adjustedIndex = args.length - 2;
+        
+        switch (adjustedIndex) {
+            case 1: // Primer argumento del subcomando (cantidad)
                 return List.of("<amount>");
             
-            case 2:
+            case 2: // Segundo argumento del subcomando (jugador)
+                // Filtramos por el argumento actual (args[3])
+                String currentArg = args.length > 3 ? args[3] : "";
                 return Bukkit.getOnlinePlayers().stream()
                         .map(Player::getName)
-                        .filter(name -> name.toLowerCase().startsWith(args[0].toLowerCase()))
+                        .filter(name -> name.toLowerCase().startsWith(currentArg.toLowerCase()))
                         .collect(Collectors.toList());
 
             default:

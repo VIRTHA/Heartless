@@ -136,8 +136,8 @@ public class HealthSteal implements Listener {
         
         // Si el jugador está exento de baneo (banHours = 0), solo mostrar advertencia
         if (banHours <= 0) {
-            player.sendMessage(MM.toComponent("&c¡Has alcanzado el mínimo de corazones permitidos!"));
-            player.sendMessage(MM.toComponent("&aEstás exento de baneo gracias a tus permisos."));
+            player.sendMessage(MM.toComponent("<red>¡Has alcanzado el mínimo de corazones permitidos!"));
+            player.sendMessage(MM.toComponent("<green>Estás exento de baneo gracias a tus permisos."));
             return;
         }
         

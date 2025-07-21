@@ -114,6 +114,7 @@ public abstract class WeeklyEvent implements Listener {
         
         isPaused = true;
         pauseEventTasks();
+        isActive = false;
         pauseMoment = System.currentTimeMillis();
     }
     

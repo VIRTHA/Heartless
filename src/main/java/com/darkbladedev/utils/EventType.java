@@ -1,6 +1,7 @@
 package com.darkbladedev.utils;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -19,7 +20,8 @@ public enum EventType {
     MOB_RAIN("mob_rain", "Mobs rain from the sky periodically"),
     UNDEAD_WEEK("undead_week", "Undead hordes dominate the world with Red Moon nights"),
     EXPLOSIVE_WEEK("explosive_week", "Everything becomes more explosive and dangerous"),
-    BLOOD_AND_IRON_WEEK("blood_and_iron_week", "The coliseum of chaos is open. Eliminate or be eliminated");
+    BLOOD_AND_IRON_WEEK("blood_and_iron_week", "The coliseum of chaos is open. Eliminate or be eliminated"),
+    EMPTY("empty", "empty");
 
     private final String eventName;
     private final String description;
@@ -75,10 +77,12 @@ public enum EventType {
      * @return All EventType names as List
      */
     public static List<String> getEventNames() {
-        List<String> eventNames = List.of();
+        // Crear una lista mutable en lugar de una inmutable
+        List<String> eventNames = new java.util.ArrayList<>();
         for (EventType type : values()) {
             eventNames.add(type.getEventName());
         }
+        eventNames.removeIf(Predicate.isEqual("empty"));
         return eventNames;
     }
 
@@ -104,10 +108,13 @@ public enum EventType {
                 
             case "blood_and_iron_week":
                 return new BloodAndIronWeek(plugin, duration);
+            
+            case "empty":
+                return new EmptyEvent(plugin, duration);
                 
             default:
                 Bukkit.getConsoleSender().sendMessage(
-                    MM.toComponent("&cEvento no implementado para ejecución: " + this.getEventName())
+                    MM.toComponent("<red>Evento no implementado para ejecución: " + this.getEventName())
                 );
                 return null;
         }

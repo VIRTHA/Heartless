@@ -16,6 +16,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import com.darkbladedev.utils.EmptyEvent;
 import com.darkbladedev.utils.EventType;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.HeartlessMain;
@@ -51,11 +52,7 @@ public class WeeklyEventManager {
     public WeeklyEventManager(HeartlessMain plugin) {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), DATA_FILE);
-        
-        // Crear directorio si no existe
-        if (!plugin.getDataFolder().exists()) {
-            plugin.getDataFolder().mkdirs();
-        }
+
     }
     
     public void initialize() {
@@ -74,7 +71,7 @@ public class WeeklyEventManager {
             // Cargar datos guardados o iniciar un nuevo evento
             if (loadSavedEventData()) {
                 Bukkit.getConsoleSender().sendMessage(
-                    MM.toComponent("&6Reanudando evento semanal: &e" + currentEventType.getEventName())
+                    MM.toComponent(plugin.getPrefix() + "<gray>Reanudando evento semanal: <green><u>" + currentEventType.getEventName())
                 );
                 
                 // Calcular tiempo restante
@@ -105,7 +102,7 @@ public class WeeklyEventManager {
         // Check if an event is already active or starting
         if (isEventActive || isEventStarting) {
             Bukkit.getConsoleSender().sendMessage(
-                MM.toComponent("&cYa hay un evento activo o inicializándose. No se puede iniciar otro evento.")
+                MM.toComponent("<red>Ya hay un evento activo o inicializándose. No se puede iniciar otro evento.")
             );
             return;
         }
@@ -118,7 +115,14 @@ public class WeeklyEventManager {
             List<EventType> availableEvents = new ArrayList<>();
             for (EventType type : EventType.values()) {
                 // Filtrar eventos que no son adecuados para ser semanales
-                if (!type.getEventName().equals("mob_rain") || !type.getEventName().equals("size_randomizer") || !type.getEventName().equals("paranoia_effect")) { // Excluir eventos instantáneos
+                // Excluir eventos instantáneos y el evento EMPTY
+                String eventName = type.getEventName();
+                boolean isUnsuitableEvent = eventName.equals("mob_rain") || 
+                                          eventName.equals("size_randomizer") || 
+                                          eventName.equals("paranoia_effect") || 
+                                          eventName.equals("empty");
+                
+                if (!isUnsuitableEvent) {
                     availableEvents.add(type);
                 }
             }
@@ -132,6 +136,10 @@ public class WeeklyEventManager {
                 
                 // Programar el siguiente evento
                 scheduleNextEvent(WEEK_IN_MILLIS);
+            } else {
+                Bukkit.getConsoleSender().sendMessage(
+                    MM.toComponent("<red>No hay eventos disponibles para iniciar.")
+                );
             }
         } finally {
             // Release the lock
@@ -149,7 +157,7 @@ public class WeeklyEventManager {
         // Check if an event is already active or starting
         if (isEventActive) {
             Bukkit.getConsoleSender().sendMessage(
-                MM.toComponent("&cYa hay un evento activo. Detén el evento actual antes de iniciar uno nuevo.")
+                MM.toComponent("<red>Ya hay un evento activo. Detén el evento actual antes de iniciar uno nuevo.")
             );
             return false;
         }
@@ -235,7 +243,7 @@ public class WeeklyEventManager {
         // Check if an event is already active
         if (isEventActive) {
             Bukkit.getConsoleSender().sendMessage(
-                MM.toComponent("&cYa hay un evento activo. Detén el evento actual antes de iniciar uno nuevo.")
+                MM.toComponent("<red>Ya hay un evento activo. Detén el evento actual antes de iniciar uno nuevo.")
             );
             return;
         }
@@ -270,9 +278,17 @@ public class WeeklyEventManager {
                 currentEvent = new BloodAndIronWeek(plugin, duration);
                 break;
                 
+            case "empty":
+                // No iniciar un evento vacío
+                Bukkit.getConsoleSender().sendMessage(
+                    MM.toComponent("<yellow>No se puede iniciar un evento vacío.")
+                );
+                isEventActive = false;
+                return;
+                
             default:
                 Bukkit.getConsoleSender().sendMessage(
-                    MM.toComponent("&cEvento no implementado para ejecución semanal: " + eventType.getEventName())
+                    MM.toComponent("<red>Evento no implementado para ejecución semanal: " + eventType.getEventName())
                 );
                 isEventActive = false;
                 return;
@@ -386,9 +402,9 @@ public class WeeklyEventManager {
         try (FileWriter writer = new FileWriter(dataFile)) {
             writer.write(data.toJSONString());
             writer.flush();
-            plugin.getLogger().info("§aEvent data saved successfully");
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + "<green>Event data saved successfully"));
         } catch (IOException e) {
-            plugin.getLogger().severe("Error al guardar datos del evento semanal: " + e.getMessage());
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + "<red>Error al guardar datos del evento semanal: " + e.getMessage()));
         }
     }
     
@@ -520,10 +536,16 @@ public class WeeklyEventManager {
     
     /**
      * Gets the current event object
-     * @return The current Weeklyevent object, or null if no event is active
+     * @return The current Weeklyevent object, or EmptyEvent if event is null. 
      */
     public WeeklyEvent getCurrentEvent() {
-        return currentEvent;
+        if (currentEvent != null) {
+            return currentEvent;
+        } else {
+            // Si no hay evento activo, devolver un EmptyEvent pero no establecerlo como currentEvent
+            // Esto evita que el sistema se quede atascado en un evento vacío
+            return new EmptyEvent(plugin, 0L);
+        }
     }
 
     
@@ -556,6 +578,32 @@ public class WeeklyEventManager {
             plugin.getLogger().info("Evento '" + eventType.getEventName() + "' detenido manualmente.");
         } else {
             plugin.getLogger().warning("Intento de detener un evento que no está activo: " + eventType.getEventName());
+        }
+    }
+
+    /**
+     * Recarga los datos del evento sin iniciar nuevos eventos
+     * Este método es útil para recargar la configuración sin alterar el estado actual
+     */
+    public void reload() {
+        // Verificar si hay un evento en proceso de inicialización
+        if (isEventStarting) {
+            Bukkit.getConsoleSender().sendMessage(
+                MM.toComponent("<red>Ya hay un evento inicializándose. Operación de recarga cancelada.")
+            );
+            return;
+        }
+        
+        // Cargar datos guardados sin iniciar nuevos eventos
+        try {
+            loadSavedEventData();
+            Bukkit.getConsoleSender().sendMessage(
+                MM.toComponent(plugin.getPrefix() + "<gray>Datos de eventos recargados correctamente.")
+            );
+        } catch (Exception e) {
+            Bukkit.getConsoleSender().sendMessage(
+                MM.toComponent(plugin.getPrefix() + "<red>Error al recargar datos de eventos: " + e.getMessage())
+            );
         }
     }
 }

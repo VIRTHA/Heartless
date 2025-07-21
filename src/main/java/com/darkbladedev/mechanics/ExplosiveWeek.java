@@ -84,8 +84,8 @@ public class ExplosiveWeek extends WeeklyEvent {
     @Override
     protected void announceEventStart() {
         // Announce the start of the event
-        Bukkit.broadcast(MM.toComponent("&c&l¡SEMANA EXPLOSIVA INICIADA!"));
-        Bukkit.broadcast(MM.toComponent("&e¡Cuidado con las explosiones! Todo es más volátil..."));
+        Bukkit.broadcast(MM.toComponent("<yellow><b>¡SEMANA EXPLOSIVA INICIADA!"));
+        Bukkit.broadcast(MM.toComponent("<gray>¡Cuidado con las explosiones! <b>Todo es más volátil..."));
         
         // Announce challenges
         announceExplosiveWeekChallenges();
@@ -222,7 +222,7 @@ public class ExplosiveWeek extends WeeklyEvent {
             for (Player nearby : Bukkit.getOnlinePlayers()) {
                 if (nearby.getWorld().equals(player.getWorld()) && 
                     nearby.getLocation().distance(spawnLoc) <= 50) {
-                    nearby.sendMessage(MM.toComponent("&c¡Un ghast ha aparecido en el Overworld!"));
+                    nearby.sendMessage(MM.toComponent("<red>¡Un ghast ha aparecido cerca tuyo!"));
                 }
             }
         }
@@ -246,16 +246,16 @@ public class ExplosiveWeek extends WeeklyEvent {
     }
     
     private void announceExplosiveWeekChallenges() {
-        Bukkit.broadcast(MM.toComponent("&6&l=== DESAFÍOS DE LA SEMANA EXPLOSIVA ==="));
+        Bukkit.broadcast(MM.toComponent("&6&l=== DESAFÍOS DE LA SEMANA ==="));
         Bukkit.broadcast(MM.toComponent("&e1. Mata a un ghast en el overworld"));
         Bukkit.broadcast(MM.toComponent("&7   Recompensa: Encantamiento Carve"));
-        Bukkit.broadcast(MM.toComponent("&e2. Consigue la cabeza de todos los mobs hostiles clásicos"));
-        Bukkit.broadcast(MM.toComponent("&7   (Zombie, Esqueleto, Creeper, Araña y Enderman)"));
-        Bukkit.broadcast(MM.toComponent("&7   Recompensa: +1 corazón permanente"));
+        Bukkit.broadcast(MM.toComponent("&e2. Consigue la cabeza de todos los mobs hostiles posibles"));
+        Bukkit.broadcast(MM.toComponent("&7   (Zombie, Esqueleto, Creeper)"));
+        Bukkit.broadcast(MM.toComponent("&7   Recompensa: +1 corazón"));
         Bukkit.broadcast(MM.toComponent("&e3. Mata a un jugador con una explosión"));
         Bukkit.broadcast(MM.toComponent("&7   Recompensa: Tag \"TNTómano\""));
         Bukkit.broadcast(MM.toComponent("&e4. Mata a un warden con la explosión de un creeper eléctrico"));
-        Bukkit.broadcast(MM.toComponent("&7   Recompensa: +1 corazón permanente"));
+        Bukkit.broadcast(MM.toComponent("&7   Recompensa: +1 corazón"));
     }
     
     // Event Handlers
@@ -429,7 +429,7 @@ public class ExplosiveWeek extends WeeklyEvent {
             block.getWorld().createExplosion(location, 1.0f, false, true);
             
             // Send message to the player
-            event.getPlayer().sendMessage(MM.toComponent("&c¡El mineral ha explotado!"));
+            event.getPlayer().sendMessage(MM.toComponent("<red>¡El mineral ha explotado!"));
         }
     }
     
@@ -519,9 +519,9 @@ public class ExplosiveWeek extends WeeklyEvent {
             return;
         }
         
-        player.sendMessage(MM.toComponent("&a&l¡DESAFÍO COMPLETADO!"));
-        player.sendMessage(MM.toComponent("&eHas matado a un jugador con una explosión."));
-        player.sendMessage(MM.toComponent("&6Recompensa: Tag \"TNTómano\""));
+        player.sendMessage(MM.toComponent("<green><b>¡DESAFÍO COMPLETADO!"));
+        player.sendMessage(MM.toComponent("<yellow>Has matado a un jugador con una explosión."));
+        player.sendMessage(MM.toComponent("<gray>Recompensa: <u>Tag \"TNTómano\""));
         
         // Award the tag using EternalTags
         //eternalAPI.setTag(player, new Tag("tntomano", "tntomano", "&x&f&f&f&f&f&fT&x&f&a&d&b&d&bN&x&f&5&b&8&b&8T&x&f&0&9&4&9&4o&x&e&c&7&1&7&1m&x&e&7&4&d&4&da&x&e&2&2&a&2&an&x&d&d&0&6&0&6o")); //&#10dd00T&#2bc205N&#45a80aT&#608d0fo&#7a7213m&#955718a&#af3d1dn&#ca2222o

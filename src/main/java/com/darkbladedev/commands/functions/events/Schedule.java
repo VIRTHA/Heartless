@@ -16,8 +16,15 @@ public class Schedule implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        if (args.length == 1) {
-            return List.of(TimeConverter.getTimeCompletions());
+        // Los args aquí incluyen todos los argumentos del comando, incluyendo grupo y acción
+        // Necesitamos ajustar el índice para que coincida con los argumentos específicos de este subcomando
+        // args[0] y args[1] son el grupo y la acción, por lo que args[2] es el primer argumento real del subcomando
+        
+        // Calculamos el índice real restando 2 (grupo y acción)
+        int adjustedIndex = args.length - 2;
+        
+        if (adjustedIndex == 1) { // Primer argumento del subcomando (tiempo)
+            return java.util.Arrays.asList(TimeConverter.getTimeCompletions());
         }
         return Collections.emptyList();
     }

@@ -12,6 +12,7 @@ import com.darkbladedev.managers.BanManager;
 import com.darkbladedev.managers.ContentManager;
 import com.darkbladedev.managers.EventManager;
 import com.darkbladedev.managers.PlaceholderApiManager;
+import com.darkbladedev.managers.StorageManager;
 import com.darkbladedev.managers.WeeklyEventManager;
 import com.darkbladedev.utils.MM;
 
@@ -25,6 +26,7 @@ public class HeartlessMain extends JavaPlugin {
     private static WeeklyEventManager weeklyEventManager;
     private static PlaceholderApiManager papiManager;
     private static BanManager banManager;
+    private static StorageManager storageManager;
     
     @Override
     public void onEnable() {
@@ -35,6 +37,7 @@ public class HeartlessMain extends JavaPlugin {
         weeklyEventManager = new WeeklyEventManager(instance);
         papiManager = new PlaceholderApiManager(instance);
         banManager = new BanManager(instance);
+        storageManager = new StorageManager(instance);
 
         initializeSystems();
 
@@ -83,7 +86,7 @@ public class HeartlessMain extends JavaPlugin {
         return prefix;
     }
 
-    public static EventManager getEventManager() {
+    public EventManager getEventManager() {
         return eventManager;
     }
 
@@ -105,5 +108,9 @@ public class HeartlessMain extends JavaPlugin {
 
     public BanManager getBanManager() {
         return banManager;
+    }
+
+    public StorageManager getStorageManager() {
+        return storageManager;
     }
 }

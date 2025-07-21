@@ -15,12 +15,22 @@ public class Start implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        switch (args.length) {
-            case 1:
+        // Los args aquí incluyen todos los argumentos del comando, incluyendo grupo y acción
+        // Necesitamos ajustar el índice para que coincida con los argumentos específicos de este subcomando
+        // args[0] y args[1] son el grupo y la acción, por lo que args[2] es el primer argumento real del subcomando
+        
+        // Calculamos el índice real restando 2 (grupo y acción)
+        int adjustedIndex = args.length - 2;
+        
+        switch (adjustedIndex) {
+            case 1: // Primer argumento del subcomando (tipo de evento)
                 return EventType.getEventNames();
             
-            case 2:
-                return List.of(TimeConverter.getTimeCompletions());
+            case 2: // Segundo argumento del subcomando (duración)
+                return java.util.Arrays.asList(TimeConverter.getTimeCompletions());
+            
+            case 3:
+                return java.util.Arrays.asList("--force");
 
             default:
                 return Collections.emptyList();
@@ -29,74 +39,49 @@ public class Start implements SubcommandExecutor, TabCompletable {
 
     @Override
     public void execute(CommandSender sender, String[] args) {
-        if (args.length <= 2) {
-            sender.sendMessage(MM.toComponent("<red>Usage: <gray>/heartless start <event-type> <duration>"));
+        // Verificar permisos
+        if (!sender.hasPermission("heartless.events.start")) {
+            sender.sendMessage(MM.toComponent("<red>No tienes permiso para reanudar eventos semanales."));
+            return;
+        }
+        
+        if (args.length <= 1) {
+            sender.sendMessage(MM.toComponent("<red>Uso: <gray>/heartless start <event-type> <duration> [--force]"));
             return;
         }
         
         String eventTypeName = args[0];
         long duration = TimeConverter.parseTimeToTicks(args[1]);
+        boolean force = false;
         
         EventType eventType = EventType.getByName(eventTypeName);
-        
         
         if (eventType == null) {
             sender.sendMessage(MM.toComponent("<red>Tipo de evento desconocido: <yellow>" + eventTypeName));
             return;
         }
-        
-        // Get the WeeklyEventManager instance
-        WeeklyEventManager eventManager = HeartlessMain.getWeeklyEventManager_();
 
-        switch (eventType) {
-            case ACID_WEEK:
-                if (eventManager.getCurrentEvent().isActive() || 
-                    eventManager.getCurrentEvent().isPaused()) {
-                        sender.sendMessage(MM.toComponent("<red>Debes detener el evento actual para inciar otro."));
-                        return;
-                }
-                eventManager.startEventFromCommand(eventType, duration);
-                break;
-            
-            case BLOOD_AND_IRON_WEEK:
-                if (eventManager.getCurrentEvent().isActive() || 
-                    eventManager.getCurrentEvent().isPaused()) {
-                        sender.sendMessage(MM.toComponent("<red>Debes detener el evento actual para inciar otro."));
-                        return;
-                }
-                eventManager.startEventFromCommand(eventType, duration);
-                break;
-                
-            case UNDEAD_WEEK:
-                if (eventManager.getCurrentEvent().isActive() || 
-                    eventManager.getCurrentEvent().isPaused()) {
-                        sender.sendMessage(MM.toComponent("<red>Debes detener el evento actual para inciar otro."));
-                        return;
-                }
-                eventManager.startEventFromCommand(eventType, duration);
-                break;
-                
-            case TOXIC_FOG_WEEK:
-                if (eventManager.getCurrentEvent().isActive() || 
-                    eventManager.getCurrentEvent().isPaused()) {
-                        sender.sendMessage(MM.toComponent("<red>Debes detener el evento actual para inciar otro."));
-                        return;
-                }
-                eventManager.startEventFromCommand(eventType, duration);
-                break;
-                
-            case EXPLOSIVE_WEEK:
-                if (eventManager.getCurrentEvent().isActive() || 
-                    eventManager.getCurrentEvent().isPaused()) {
-                        sender.sendMessage(MM.toComponent("<red>Debes detener el evento actual para inciar otro."));
-                        return;
-                }
-                eventManager.startEventFromCommand(eventType, duration);
-                break;
-        
-            default:
-                break;
+        if (args.length > 2 && args[2] != null && args[2].equalsIgnoreCase("--force")) {
+            force = true;
         }
+        
+        // Get the needed instances
+        HeartlessMain plugin = HeartlessMain.getInstance();
+        WeeklyEventManager eventManager = plugin.getWeeklyEventManager();
+
+        if (force) {
+            eventManager.startEventFromCommand(eventType, duration);
+            return;
+        }
+
+        // Verificar si hay un evento activo usando isEventActive() en lugar de getCurrentEvent()
+        if (eventManager.isEventActive()) {
+            sender.sendMessage(MM.toComponent("<red>Debes detener el evento actual para inciar otro."));
+            return;
+        }
+        
+        // Si no hay evento activo, iniciar el nuevo evento
+        eventManager.startEventFromCommand(eventType, duration);
     }
 
 }

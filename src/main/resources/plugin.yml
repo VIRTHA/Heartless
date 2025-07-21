@@ -24,6 +24,9 @@ permissions:
   heartless.access:
     description: "Allows to use Heartless core commands."
     default: op
+  heartless.reload:
+    description: "Allows to reload Heartless plugin."
+    default: op
 
   # Command Permissions
   heartless.command.health:
@@ -38,8 +41,24 @@ permissions:
   heartless.admin.zombieinfection:
     description: "Permite administrar el sistema de infección zombie."
     default: op
-  heartless.admin.unban:
+
+    
+  heartless.bansystem.unban:
     description: Permite desbanear jugadores
+    default: op
+  heartless.bansystem.list:
+    description: Permite listar jugadores baneados
+    default: op
+  
+
+  heartless.events.pause:
+    description: Permite pausar eventos
+    default: op
+  heartless.events.resume:
+    description: Permite pausar eventos
+    default: op
+  heartless.events.start:
+    description: Permite iniciar eventos
     default: op
     
   # Ban Duration Permissions

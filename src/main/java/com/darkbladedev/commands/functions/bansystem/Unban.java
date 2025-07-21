@@ -21,12 +21,30 @@ public class Unban implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        if (args.length == 1) {
+        // Los args aquí incluyen todos los argumentos del comando, incluyendo grupo y acción
+        // Necesitamos ajustar el índice para que coincida con los argumentos específicos de este subcomando
+        // args[0] y args[1] son el grupo y la acción, por lo que args[2] es el primer argumento real del subcomando
+        
+        // Calculamos el índice real restando 2 (grupo y acción)
+        int adjustedIndex = args.length - 2;
+        
+        if (adjustedIndex == 1) {
             // Idealmente, esto debería devolver una lista de jugadores baneados
             // Esta es una implementación básica que podría mejorarse
             List<String> bannedPlayers = new ArrayList<>();
             Set<UUID> banList = BanManager.getBanList_();
-            banList.forEach(entry -> bannedPlayers.add(Bukkit.getPlayer(entry).getName()));            
+            
+            // Filtramos por el argumento actual (args[2])
+            String currentArg = args.length > 2 ? args[2].toLowerCase() : "";
+            
+            banList.forEach(entry -> {
+                OfflinePlayer player = Bukkit.getOfflinePlayer(entry);
+                if (player != null && player.getName() != null && 
+                    player.getName().toLowerCase().startsWith(currentArg)) {
+                    bannedPlayers.add(player.getName());
+                }
+            });
+            
             return bannedPlayers;
         }
         return Collections.emptyList();
@@ -72,8 +90,13 @@ public class Unban implements SubcommandExecutor, TabCompletable {
             }
 
             if (banList.contains(targetUUID)) {
-                plugin.getBanManager().unBan(targetPlayer.getPlayer());
-                banList.remove(targetUUID);
+                if (!targetPlayer.isBanned()) {
+                    sender.sendMessage(MM.toComponent("<red>El jugador " + targetPlayer.getName() + " no está baneado</red>"));
+                    return;
+                } else {
+                    plugin.getBanManager().unBan(targetPlayer.getPlayer());
+                    banList.remove(targetUUID);
+                }
             }
             
             sender.sendMessage(MM.toComponent("<green>Has desbaneado a " + targetName + " correctamente."));

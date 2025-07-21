@@ -15,14 +15,17 @@ public class Resume implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        // No hay argumentos adicionales para este comando
+        // Los args aquí incluyen todos los argumentos del comando, incluyendo grupo y acción
+        // Necesitamos ajustar el índice para que coincida con los argumentos específicos de este subcomando
+        // args[0] y args[1] son el grupo y la acción, por lo que args[2] sería el primer argumento real del subcomando
+        // En este caso no hay argumentos adicionales para este comando
         return Collections.emptyList();
     }
 
     @Override
     public void execute(CommandSender sender, String[] args) {
         // Verificar permisos
-        if (!sender.hasPermission("heartless.events.resume")) {
+        if (!sender.hasPermission("")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para reanudar eventos semanales."));
             return;
         }

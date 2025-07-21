@@ -21,6 +21,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 
     public CommandHandler() {
         register("bansystem", new BanSystem());
+        register("commons", new Common());
         register("effects", new Effects());
         register("enchantments", new Enchantments());
         register("event", new EventControl());

@@ -182,7 +182,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
         PlayerItemHeldEvent.getHandlerList().unregister(this);
         
         // Announce the end of the event
-        Bukkit.broadcast(MM.toComponent("&4[&cSemana de Sangre y Hierro&4] &cEl coliseo del caos ha cerrado sus puertas... por ahora."));
+        Bukkit.broadcast(MM.toComponent(prefix + " <red>El coliseo del caos ha cerrado sus puertas... por ahora."));
     }
 
     public void pause() {
@@ -324,7 +324,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
                     player.setHealth(newMaxHealth);
                 }
                 
-                player.sendMessage(MM.toComponent("&c¡No has matado a un mob hostil en 10 minutos! Pierdes 2 corazones."));
+                player.sendMessage(MM.toComponent("<red>¡No has matado a un mob hostil en 10 minutos! Pierdes 2 corazones."));
                 
                 // Reset the timer
                 lastHostileMobKillTime.put(playerId, currentTime);
@@ -357,7 +357,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
                     player.setHealth(newMaxHealth);
                 }
                 
-                player.sendMessage(MM.toComponent("&c¡No has matado a un jugador en 1 hora! Pierdes 5 corazones."));
+                player.sendMessage(MM.toComponent("<red>¡No has matado a un jugador en 1 hora! Pierdes 5 corazones."));
                 
                 // Reset the timer
                 lastPlayerKillTime.put(playerId, currentTime);
@@ -420,15 +420,15 @@ public class BloodAndIronWeek extends WeeklyEvent {
     }
     
     private void announceChallenges() {
-        Bukkit.broadcast(MM.toComponent("<gray><b>=== <gold>DESAFÍOS DE LA SEMANA DE SANGRE Y HIERRO</gold> <gray><b>==="));
+        Bukkit.broadcast(MM.toComponent("<gray><b>=== <gold>DESAFÍOS DE LA SEMANA</gold> <gray><b>==="));
         Bukkit.broadcast(MM.toComponent("<yellow>1. <red>Mata</red> a <white>3</white> jugadores</yellow>"));
         Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Encantamiento <gold><u>Adrenaline</u></gold><gray>"));
         Bukkit.broadcast(MM.toComponent("<yellow>2. <red>Mata<red> a un jugador con poción de daño instantáneo"));
-        Bukkit.broadcast(MM.toComponent("&7   Recompensa: +1 corazón permanente"));
+        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón permanente"));
         Bukkit.broadcast(MM.toComponent("<yellow>3. <red>Mata<red> a 5 jugadores seguidos sin morir"));
-        Bukkit.broadcast(MM.toComponent("&7   Recompensa: Tag \"Pentakill\""));
+        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>Tag</u> \"Pentakill\"</gray>"));
         Bukkit.broadcast(MM.toComponent("<yellow>4. <green>Sobrevive<green> sin morir en todo el evento (con más de 10 kills)"));
-        Bukkit.broadcast(MM.toComponent("&7   Recompensa: +1 corazón permanente"));
+        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón permanente</gray>"));
     }
     
     @EventHandler

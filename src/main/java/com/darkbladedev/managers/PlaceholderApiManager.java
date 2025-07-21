@@ -9,10 +9,14 @@ import org.bukkit.persistence.PersistentDataType;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.content.semi_custom.effects.ZombieInfection;
+import com.darkbladedev.exceptions.CustomException;
+import com.darkbladedev.exceptions.ExceptionBuilder;
+import com.darkbladedev.exceptions.NullEventException;
 import com.darkbladedev.mechanics.AcidWeek;
 import com.darkbladedev.mechanics.BloodAndIronWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
 import com.darkbladedev.mechanics.UndeadWeek;
+import com.darkbladedev.mechanics.WeeklyEvent;
 import com.darkbladedev.utils.MM;
 
 import me.clip.placeholderapi.PlaceholderAPI;
@@ -179,7 +183,13 @@ public class PlaceholderApiManager extends PlaceholderExpansion {
             String eventName = eventManager.getCurrentEventType().getEventName();
             String challengeId = identifier.substring("challenge_completed_".length());
             
-            return isChallengeCompleted(player, eventName, challengeId) ? "true" : "false";
+            try {
+                return isChallengeCompleted(player, eventName, challengeId) ? "true" : "false";
+            } catch (Exception e) {
+                CustomException ce = ExceptionBuilder.build(NullEventException.class, eventManager, "<red>El evento solicitado parece ser nulo.");
+                    ExceptionBuilder.sendToConsole(ce);
+                    return "error";
+            }
         }
 
         // Status placeholders
@@ -338,9 +348,10 @@ public class PlaceholderApiManager extends PlaceholderExpansion {
      * @param eventName The name of the event
      * @param challengeId The ID of the challenge
      * @return true if the challenge is completed, false otherwise
+     * @throws CustomException 
      */
-    private boolean isChallengeCompleted(Player player, String eventName, String challengeId) {
-        Object currentEvent = plugin.getWeeklyEventManager().getCurrentEvent();
+    private boolean isChallengeCompleted(Player player, String eventName, String challengeId) throws CustomException {
+        WeeklyEvent currentEvent = plugin.getWeeklyEventManager().getCurrentEvent();
         
         switch (eventName) {
             case "blood_and_iron_week":

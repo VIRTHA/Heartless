@@ -137,7 +137,7 @@ public class UndeadWeek extends WeeklyEvent {
                             entity.getAttribute(Attribute.MOVEMENT_SPEED).getBaseValue() * 2
                         );
                     }
-                    
+                }
                     // Ensure they have Strength II
                     if (!entity.hasPotionEffect(PotionEffectType.STRENGTH)) {
                         entity.addPotionEffect(new PotionEffect(
@@ -152,7 +152,6 @@ public class UndeadWeek extends WeeklyEvent {
                 }
             }
         }
-    }
     
     private void deactivateRedMoon() {
         isRedMoonActive = false;
@@ -276,7 +275,7 @@ public class UndeadWeek extends WeeklyEvent {
         if (isUndead(damager) && damager.getType() == EntityType.ZOMBIE && victim instanceof Player) {
             Player player = (Player) victim;
             infectedPlayers.put(player.getUniqueId(), true);
-            player.sendMessage(MM.toComponent("&c¡Has sido infectado! Come una zanahoria dorada para curarte."));
+            player.sendMessage(MM.toComponent("<red>¡Has sido infectado! Come una zanahoria o manzana dorada para curarte."));
         }
         
         // Registrar muertes en noche roja
@@ -287,8 +286,8 @@ public class UndeadWeek extends WeeklyEvent {
             
             // Verificar desafío
             if (redMoonKillsCount.get(killer.getUniqueId()) == 3) {
-                killer.sendMessage(MM.toComponent("&a¡Desafío completado! Has matado a 3 jugadores en la Noche Roja."));
-                killer.sendMessage(MM.toComponent("&6Recompensa: Tag 'Necroestallido'"));
+                killer.sendMessage(MM.toComponent("<green>¡Desafío completado! Has matado a 3 jugadores en la Noche Roja."));
+                killer.sendMessage(MM.toComponent("<gray>Recompensa: <u>Tag 'Necroestallido'"));
                 // Aquí se aplicaría el tag
 
                 //eternalAPI.setTag(killer, new Tag("necroestallido", "necroestallido", "&x&1&7&c&e&2&9N&x&1&6&c&9&3&7e&x&1&4&c&4&4&5c&x&1&3&c&0&5&3r&x&1&2&b&b&6&0o&x&1&0&b&6&6&ee&x&0&f&b&1&7&cs&x&0&e&a&d&8&at&x&0&d&a&8&9&8a&x&0&b&a&3&a&6l&x&0&a&9&e&b&3l&x&0&9&9&a&c&1i&x&0&7&9&5&c&fd&x&0&6&9&0&d&do")); //&#49bf40N&#46bd49e&#43bc53c&#41ba5cr&#3eb865o&#3bb76fe&#38b578s&#36b381t&#33b18aa&#30b094l&#2dae9dl&#2baca6i&#28abb0d&#25a9b9o
@@ -368,7 +367,7 @@ public class UndeadWeek extends WeeklyEvent {
         // Explotar camas en noche roja
         event.setCancelled(true);
         Player player = event.getPlayer();
-        player.sendMessage(MM.toComponent("&c¡No puedes dormir durante la Noche Roja!"));
+        //player.sendMessage(MM.toComponent("&c¡No puedes dormir durante la Noche Roja!"));
         
         // Crear explosión
         player.getWorld().createExplosion(event.getBed().getLocation(), 2.0f, false, true);
@@ -441,18 +440,6 @@ public class UndeadWeek extends WeeklyEvent {
         mainTask = new BukkitRunnable() {
             @Override
             public void run() {
-                // Toggle red moon every night
-                long time = Bukkit.getWorlds().get(0).getTime();
-                if (time >= 13000 && time <= 23000) { // Night time
-                    if (!isRedMoonActive) {
-                        activateRedMoon();
-                    }
-                } else {
-                    if (isRedMoonActive) {
-                        deactivateRedMoon();
-                    }
-                }
-                
                 // Check infected players
                 checkInfectedPlayers();
             }
@@ -516,10 +503,10 @@ public class UndeadWeek extends WeeklyEvent {
         // Anunciar el inicio del evento
         Bukkit.broadcast(MM.toComponent(prefix + " <red>Las hordas de no-muertos dominan el mundo..."));
         Bukkit.broadcast(MM.toComponent(prefix + " <yellow>Desafíos disponibles:"));
-        Bukkit.broadcast(MM.toComponent("<gray>- <white>Curar tu infección 10 veces <gray>(Recompensa: +1 corazón máximo)"));
-        Bukkit.broadcast(MM.toComponent("<gray>- <white>Curar a un aldeano zombificado <gray>(Recompensa: Encantamiento especial)"));
-        Bukkit.broadcast(MM.toComponent("<gray>- <white>Matar 10 no-muertos durante la Noche Roja <gray>(Recompensa: +1 corazón máximo)"));
-        Bukkit.broadcast(MM.toComponent("<gray>- <white>Matar al Wither durante la Noche Roja <gray>(Recompensa: +1 corazón máximo)"));
+        Bukkit.broadcast(MM.toComponent("<gray>- <white>Curar tu infección 10 veces <gray>(Recompensa: Encantamiento First Strike)"));
+        Bukkit.broadcast(MM.toComponent("<gray>- <white>Curar a 5} aldeano zombificado <gray>(Recompensa: <gray><u>Tag</u> \"Dr. Zomboss\")"));
+        Bukkit.broadcast(MM.toComponent("<gray>- <white>Matar 10 no-muertos durante la Noche Roja <gray>(Recompensa: +1 corazón)"));
+        Bukkit.broadcast(MM.toComponent("<gray>- <white>Matar al Wither durante la Noche Roja <gray>(Recompensa: +1 corazón)"));
     }
     
     @Override

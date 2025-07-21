@@ -8,6 +8,9 @@ import org.bukkit.command.CommandSender;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.commands.SubcommandExecutor;
 import com.darkbladedev.commands.TabCompletable;
+import com.darkbladedev.exceptions.CustomException;
+import com.darkbladedev.exceptions.ExceptionBuilder;
+import com.darkbladedev.exceptions.NullEventException;
 import com.darkbladedev.mechanics.WeeklyEvent;
 import com.darkbladedev.utils.MM;
 
@@ -20,33 +23,49 @@ public class Status implements SubcommandExecutor, TabCompletable {
 
     @Override
     public void execute(CommandSender sender, String[] args) {
+        HeartlessMain plugin = HeartlessMain.getInstance();
         StringBuilder status = new StringBuilder();
-        status.append("<white>=== " + HeartlessMain.getInstance().getPrefix() + " ===</white>\n");
+        status.append("<gray>========== " + HeartlessMain.getInstance().getPrefix() + " ==========</gray>\n");
 
         // Get current event info
-        WeeklyEvent currentEvent = HeartlessMain.getWeeklyEventManager_().getCurrentEvent();
+        WeeklyEvent currentEvent = null;
+        try {
+            currentEvent = plugin.getWeeklyEventManager().getCurrentEvent();
+        } catch (Exception e) {
+            CustomException ce = ExceptionBuilder.build(NullEventException.class, currentEvent, "El evento solicitado parece ser nulo.");
+            ExceptionBuilder.sendToConsole(ce);
+
+            // Informamos al usuario que no hay evento activo
+            status.append("<white>Evento activo: <red>Ninguno");
+            sender.sendMessage(MM.toComponent(status.toString()));
+            return;
+        }
+        
         if (currentEvent == null) {
-            status.append("<gray>Evento activo: <red>Ninguno");
-            sender.sendMessage(status.toString());
+            status.append("<white>Evento activo: <red>Ninguno");
+            sender.sendMessage(MM.toComponent(status.toString()));
             return;
         }
 
         // Build status message
-        status.append("<gray>Evento activo: <aqua>").append(currentEvent.getName()).append("\n");
-        status.append("<gray>Status: <aqua>").append(currentEvent.isPaused() ? "<red><b>Paused" : "<green><b>Running").append("\n");
+        status.append("<white>Evento activo: <aqua>").append(currentEvent.getName()).append("\n");
+        status.append("<white>Estado: <aqua>").append(currentEvent.isPaused() ? "<red><b>Paused" : "<green><b>Running").append("\n");
 
         // Time remaining
         long remainingTime = currentEvent.getRemainingDuration();
         if (remainingTime > 0) {
             long minutes = remainingTime / 60;
             long seconds = remainingTime % 60;
-            status.append("<gray>Tiempo restante: <aqua>").append(String.format("%02d:%02d", minutes, seconds)).append("\n");
+            status.append("<white>Tiempo restante: <aqua>").append(String.format("%02d:%02d", minutes, seconds)).append("\n");
         }
 
         // Additional event-specific info
-        status.append("<gray>Recompensas: <aqua>").append(currentEvent.getRewards()).append("\n");
+        status.append("<white>Recompensas: <aqua>").append("\n");
+        for (String reward : currentEvent.getRewards()) {
+            status.append("   <green><b>|></b></green> ").append(reward + "\n");
+        }
 
-        status.append("<white>==================");
+        status.append("<gray>==============================");
         sender.sendMessage(MM.toComponent(status.toString()));
     }
     

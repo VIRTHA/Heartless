@@ -3,7 +3,7 @@ package com.darkbladedev.utils;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.mechanics.WeeklyEvent;
 
-public class EmptyEvent extends WeeklyEvent{
+public class EmptyEvent extends WeeklyEvent {
 
     public EmptyEvent(HeartlessMain plugin, long duration) {
         super(plugin, duration);
