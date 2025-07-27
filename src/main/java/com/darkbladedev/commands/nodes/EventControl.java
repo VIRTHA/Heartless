@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.darkbladedev.commands.functions.events.*;
+import com.darkbladedev.commands.functions.events.Reset;
 
 import com.darkbladedev.commands.CommandFunction;
 import com.darkbladedev.commands.SubcommandExecutor;
@@ -14,13 +15,14 @@ public class EventControl implements CommandFunction {
 
 
 	public EventControl() {
-		subcommands.put("start", new Start());
-		subcommands.put("stop", new Stop());
-		subcommands.put("pause", new Pause());
-		subcommands.put("resume", new Resume());
-		subcommands.put("schedule", new Schedule());
-		subcommands.put("status", new Status());
-	}
+        subcommands.put("start", new Start());
+        subcommands.put("stop", new Stop());
+        subcommands.put("pause", new Pause());
+        subcommands.put("resume", new Resume());
+        subcommands.put("schedule", new Schedule());
+        subcommands.put("status", new Status());
+        subcommands.put("reset", new Reset());
+    }
 
 	@Override
     public Map<String, SubcommandExecutor> getSubcommands() {

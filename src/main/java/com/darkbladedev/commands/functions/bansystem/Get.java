@@ -29,6 +29,12 @@ public class Get implements SubcommandExecutor, TabCompletable {
 
         HeartlessMain plugin = HeartlessMain.getInstance();
         BanManager banManager = plugin.getBanManager();
+        
+        
+        if (banManager.getBanList().isEmpty()) {
+            sender.sendMessage(MM.toComponent("<white>No hay jugadores baneados."));
+            return;
+        }
 
         sender.sendMessage(MM.toComponent("<white>Jugadores baneados"));
         for (UUID id : banManager.getBanList()) {

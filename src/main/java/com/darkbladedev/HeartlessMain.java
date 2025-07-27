@@ -10,6 +10,7 @@ import org.jetbrains.annotations.NotNull;
 import com.darkbladedev.commands.CommandHandler;
 import com.darkbladedev.managers.BanManager;
 import com.darkbladedev.managers.ContentManager;
+import com.darkbladedev.managers.CustomEffectsManager;
 import com.darkbladedev.managers.EventManager;
 import com.darkbladedev.managers.PlaceholderApiManager;
 import com.darkbladedev.managers.StorageManager;
@@ -27,6 +28,7 @@ public class HeartlessMain extends JavaPlugin {
     private static PlaceholderApiManager papiManager;
     private static BanManager banManager;
     private static StorageManager storageManager;
+    private static CustomEffectsManager customEffectsManager;
     
     @Override
     public void onEnable() {
@@ -38,6 +40,7 @@ public class HeartlessMain extends JavaPlugin {
         papiManager = new PlaceholderApiManager(instance);
         banManager = new BanManager(instance);
         storageManager = new StorageManager(instance);
+        customEffectsManager = new CustomEffectsManager(instance);
 
         initializeSystems();
 
@@ -47,11 +50,18 @@ public class HeartlessMain extends JavaPlugin {
     @Override
     public void onDisable() {
         // Plugin shutdown logic
+        
+        // Limpiar recursos de efectos personalizados
+        if (customEffectsManager != null) {
+            customEffectsManager.cleanup();
+        }
+        
         Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " <green>Plugin desactivado correctamente."));
     }
 
     private void initializeSystems() {
         weeklyEventManager.initialize();
+        customEffectsManager.initialize();
 
         registerCommands();
     }
@@ -96,6 +106,10 @@ public class HeartlessMain extends JavaPlugin {
 
     public static WeeklyEventManager getWeeklyEventManager_() {
         return weeklyEventManager;
+    }
+    
+    public static CustomEffectsManager getCustomEffectsManager() {
+        return customEffectsManager;
     }
     
     public WeeklyEventManager getWeeklyEventManager() {

@@ -8,7 +8,6 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 import com.darkbladedev.HeartlessMain;
-import com.darkbladedev.content.semi_custom.effects.ZombieInfection;
 import com.darkbladedev.exceptions.CustomException;
 import com.darkbladedev.exceptions.ExceptionBuilder;
 import com.darkbladedev.exceptions.NullEventException;
@@ -17,6 +16,7 @@ import com.darkbladedev.mechanics.BloodAndIronWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
 import com.darkbladedev.mechanics.UndeadWeek;
 import com.darkbladedev.mechanics.WeeklyEvent;
+import com.darkbladedev.utils.EffectType;
 import com.darkbladedev.utils.MM;
 
 import me.clip.placeholderapi.PlaceholderAPI;
@@ -25,6 +25,7 @@ import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 public class PlaceholderApiManager extends PlaceholderExpansion {
 
     private final HeartlessMain plugin;
+    private CustomEffectsManager effectManager;
 
     public PlaceholderApiManager(HeartlessMain plugin) {
         this.plugin = plugin;
@@ -195,7 +196,7 @@ public class PlaceholderApiManager extends PlaceholderExpansion {
         // Status placeholders
         if (identifier.equals("status_infection")) {
             PersistentDataContainer pdc = player.getPersistentDataContainer();
-            if (pdc.get(ZombieInfection.getInfectionKey(), PersistentDataType.BOOLEAN).equals(Boolean.TRUE)) {
+            if (pdc.get(effectManager.getEffect(EffectType.ZOMBIE_INFECTION.getEffectName()).getKey(), PersistentDataType.BOOLEAN).equals(Boolean.TRUE)) {
                 return "Infectado";
             } else {
                 return "Sano";
@@ -204,10 +205,10 @@ public class PlaceholderApiManager extends PlaceholderExpansion {
 
         if (identifier.equals("status_infection_cure_count")) {
             PersistentDataContainer pdc = player.getPersistentDataContainer();
-            if (pdc.get(ZombieInfection.getInfectionCureCountKey(), PersistentDataType.INTEGER) == null || pdc.get(ZombieInfection.getInfectionCureCountKey(), PersistentDataType.INTEGER) == 0) {
+            if (pdc.get(effectManager.getEffect(EffectType.ZOMBIE_INFECTION.getEffectName()).getCounterKey(), PersistentDataType.INTEGER) == null || pdc.get(effectManager.getEffect(EffectType.ZOMBIE_INFECTION.getEffectName()).getCounterKey(), PersistentDataType.INTEGER) == 0) {
                 return "0";
             } else {
-                return String.valueOf(pdc.get(ZombieInfection.getInfectionCureCountKey(), PersistentDataType.INTEGER));
+                return String.valueOf(pdc.get(effectManager.getEffect(EffectType.ZOMBIE_INFECTION.getEffectName()).getCounterKey(), PersistentDataType.INTEGER));
             }
         }
         

@@ -461,6 +461,17 @@ public class WeeklyEventManager {
             
             // Get event type from name
             currentEventType = EventType.getByName(eventTypeName);
+            
+            // Si el evento guardado es 'empty', no lo consideramos como activo
+            if (currentEventType != null && "empty".equals(currentEventType.getEventName())) {
+                plugin.getLogger().info("Evento 'empty' encontrado en datos guardados, ignorando...");
+                currentEventType = null;
+                isEventActive = false;
+                // Limpiar el archivo de datos para evitar futuros problemas
+                clearEventData();
+                return false;
+            }
+            
             isEventActive = (currentEventType != null);
             
             return currentEventType != null;
@@ -498,12 +509,14 @@ public class WeeklyEventManager {
     }
     
     public void stopCurrentEvent() {
-        if (!isEventActive || currentEvent == null) {
+        if (!isEventActive) {
             return;
         }
         
-        // Detener el evento
-        currentEvent.stop();
+        // Si hay un evento actual, detenerlo
+        if (currentEvent != null) {
+            currentEvent.stop();
+        }
         
         isEventActive = false;
         currentEvent = null;
@@ -605,5 +618,45 @@ public class WeeklyEventManager {
                 MM.toComponent(plugin.getPrefix() + "<red>Error al recargar datos de eventos: " + e.getMessage())
             );
         }
+    }
+    
+    /**
+     * Fuerza la limpieza del estado del evento cuando se queda atascado
+     * Especialmente útil cuando el sistema se queda en estado 'empty'
+     */
+    public void forceCleanState() {
+        // Detener cualquier evento actual
+        if (currentEvent != null) {
+            try {
+                currentEvent.stop();
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error al detener evento durante limpieza forzada: " + e.getMessage());
+            }
+        }
+        
+        // Cancelar tareas programadas
+        if (weeklyTask != null) {
+            weeklyTask.cancel();
+            weeklyTask = null;
+        }
+        
+        // Limpiar todas las variables de estado
+        isEventActive = false;
+        isPaused = false;
+        currentEvent = null;
+        currentEventType = null;
+        eventStartTime = 0L;
+        eventEndTime = 0L;
+        pauseStartTime = 0L;
+        totalPausedTime = 0L;
+        isEventStarting = false;
+        
+        // Limpiar archivo de datos
+        clearEventData();
+        
+        plugin.getLogger().info("Estado del gestor de eventos limpiado forzadamente.");
+        Bukkit.getConsoleSender().sendMessage(
+            MM.toComponent(plugin.getPrefix() + "<green>Estado del gestor de eventos limpiado correctamente.")
+        );
     }
 }

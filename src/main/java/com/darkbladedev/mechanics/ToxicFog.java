@@ -95,7 +95,7 @@ public class ToxicFog extends WeeklyEvent {
         // Usar una duración muy larga (30 minutos = 36000 ticks) para que sea efectivamente permanente
         potionEffects.add(new PotionEffect(PotionEffectType.POISON, 40, 2, false, true, true));
         // Hacer el efecto de oscuridad permanente durante el evento
-        potionEffects.add(new PotionEffect(PotionEffectType.DARKNESS, 40, 2, true, false, true));
+        potionEffects.add(new PotionEffect(PotionEffectType.DARKNESS, 80, 2, true, false, true));
         return potionEffects;
     }
 
