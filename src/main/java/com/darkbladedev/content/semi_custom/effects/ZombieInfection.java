@@ -139,8 +139,8 @@ public class ZombieInfection extends CustomEffects {
                 player.setFireTicks(0);
                 
                 if (!player.hasPotionEffect(PotionEffectType.NAUSEA)) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 20, 0, false, true, true));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 20, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 40, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 40, 0, false, true, true));
                     player.sendActionBar(MM.toComponent("<gray>La infección zombie te debilita durante este momento del día..."));
                 }
                 break;
@@ -171,8 +171,8 @@ public class ZombieInfection extends CustomEffects {
                     player.setFireTicks(0);
                     player.removePotionEffect(PotionEffectType.WITHER);
                     player.sendActionBar(MM.toComponent("<yellow>La infección te debilita, pero estás a salvo de la luz solar directa."));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 20, 0, false, true, true));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 20, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 40, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 40, 0, false, true, true));
                 }
                 break;
                 

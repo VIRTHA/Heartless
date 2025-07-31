@@ -23,6 +23,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.content.custom.CustomEnchantments;
+import com.darkbladedev.utils.BiomeUtils;
 import com.darkbladedev.utils.MM;
 
 import java.util.HashSet;
@@ -111,35 +112,72 @@ public class AcidWeek extends WeeklyEvent {
         }
     }
     
+    /**
+     * Verifica si un jugador tiene resistencia al ácido
+     * @param player El jugador a verificar
+     * @return true si el jugador tiene resistencia al ácido, false en caso contrario
+     */
     @SuppressWarnings("deprecation")
     private boolean hasAcidResistance(Player player) {
+        if (player == null || !player.isOnline()) {
+            return false; // Verificación de nulidad
+        }
+        
+        // Verificar si el jugador tiene el encantamiento en alguna pieza de armadura
         for (ItemStack item : player.getInventory().getArmorContents()) {
-            if (item != null && item.hasItemMeta() && item.getItemMeta().hasEnchant(Registry.ENCHANTMENT.get(new NamespacedKey(plugin, "acid_resistance")))) {
-
-                return true;
+            if (item != null && item.getType() != Material.AIR && item.hasItemMeta()) {
+                // Verificar usando Registry.ENCHANTMENT (método deprecado pero funcional)
+                if (item.getItemMeta().hasEnchant(Registry.ENCHANTMENT.get(new NamespacedKey(plugin, "acid_resistance")))) {
+                    return true;
+                }
+                
+                // Verificar usando el ContentManager (método alternativo)
+                if (HeartlessMain.getContentManager().hasEnchantment(item, CustomEnchantments.ENCHANTMENTS.ACID_RESISTANCE.toEnchantment())) {
+                    return true;
+                }
             }
         }
         return false;
     }
     
     private void startAcidDamageTask() {
+        // Cancelar tarea existente si hay
+        if (acidTask != null) {
+            acidTask.cancel();
+            acidTask = null;
+        }
+        
         acidTask = new BukkitRunnable() {
             @Override
             public void run() {
-                // Daño a jugadores en agua (cada 3 segundos)
+                if (!isActive || isPaused) return;
+                
+                // Limpiar UUIDs de jugadores que ya no están en línea para evitar memory leaks
+                playersInWater.removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
+                
+                // Daño a jugadores en agua (con límite de procesamiento)
+                int processedPlayers = 0;
+                int maxPlayersPerTick = 30; // Limitar procesamiento para evitar lag
+                
                 for (UUID uuid : playersInWater) {
+                    if (processedPlayers >= maxPlayersPerTick) break;
+                    
                     Player player = Bukkit.getPlayer(uuid);
                     if (player != null && player.isOnline()) {
                         applyAcidDamage(player, 2.0);
+                        processedPlayers++;
                     }
                 }
                 
                 // Daño a jugadores bajo la lluvia (cada 5 segundos)
                 if (this.getTaskId() % (5*20/60) == 0) { // Cada 5 segundos (si el task corre cada 3 ticks)
                     for (UUID uuid : playersInRain) {
+                        if (processedPlayers >= maxPlayersPerTick) break;
+                        
                         Player player = Bukkit.getPlayer(uuid);
                         if (player != null && player.isOnline()) {
                             applyAcidDamage(player, 2.0);
+                            processedPlayers++;
                         }
                     }
                 }
@@ -175,40 +213,53 @@ public class AcidWeek extends WeeklyEvent {
     private void updatePlayersInRain() {
         playersInRain.clear();
         
+        // Limitar procesamiento para evitar lag
+        int processedPlayers = 0;
+        int maxPlayersPerTick = 30;
+        
         for (Player player : Bukkit.getOnlinePlayers()) {
-            World world = player.getWorld();
+            if (processedPlayers >= maxPlayersPerTick) break;
             
-            // Verificar si está lloviendo en el mundo
-            if (world.hasStorm()) {
-                Location loc = player.getLocation();
-                
-                // Verificar si el jugador está expuesto al cielo
-                if (world.getHighestBlockYAt(loc) <= loc.getBlockY() && !isPlayerUnderRoof(player)) {
-                    playersInRain.add(player.getUniqueId());
-                }
+            if (player == null || !player.isOnline()) continue;
+            
+            // Usar el método mejorado isExposedToRain
+            if (isExposedToRain(player)) {
+                playersInRain.add(player.getUniqueId());
             }
+            
+            processedPlayers++;
         }
     }
     
     private boolean isPlayerUnderRoof(Player player) {
-        Location loc = player.getLocation();
+        if (player == null || player.getLocation() == null || player.getWorld() == null) {
+            return false; // Verificación de nulidad
+        }
         
-        // Verificar bloques por encima del jugador hasta el límite del mundo
-        for (int y = loc.getBlockY() + 2; y < player.getWorld().getMaxHeight(); y++) {
-            Block block = player.getWorld().getBlockAt(loc.getBlockX(), y, loc.getBlockZ());
-            if (block.getType().isSolid()) {
+        Location loc = player.getLocation();
+        World world = player.getWorld();
+        
+        // Limitar la búsqueda a 20 bloques por encima del jugador para mejorar rendimiento
+        int maxCheckHeight = Math.min(loc.getBlockY() + 20, world.getMaxHeight());
+        
+        // Verificar bloques por encima del jugador
+        for (int y = loc.getBlockY() + 2; y < maxCheckHeight; y++) {
+            Block block = world.getBlockAt(loc.getBlockX(), y, loc.getBlockZ());
+            if (block != null && block.getType().isSolid()) {
                 return true; // Hay un bloque sólido encima
             }
         }
         
-        return false; // No hay techo
+        return false; // No hay techo en el rango verificado
     }
     
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
-        if (!isActive) return;
+        if (!isActive || isPaused) return;
         
         Player player = event.getPlayer();
+        if (player == null) return; // Verificación de nulidad
+        
         Block block = player.getLocation().getBlock();
         
         // Verificar si el jugador está en agua
@@ -221,12 +272,14 @@ public class AcidWeek extends WeeklyEvent {
     
     @EventHandler
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        if (!isActive) return;
+        if (!isActive || isPaused) return;
         
         // Verificar si es un jugador dañado por una poción arrojadiza
         if (event.getEntity() instanceof Player && event.getDamager() instanceof ThrownPotion) {
             Player player = (Player) event.getEntity();
             ThrownPotion potion = (ThrownPotion) event.getDamager();
+            
+            if (potion == null || potion.getItem() == null) return; // Verificación de nulidad
             
             // Verificar si es una botella de agua (sin efectos)
             if (potion.getItem().getType() == Material.SPLASH_POTION && 
@@ -246,9 +299,11 @@ public class AcidWeek extends WeeklyEvent {
     
     @EventHandler
     public void onPlayerItemDamage(PlayerItemDamageEvent event) {
-        if (!isActive) return;
+        if (!isActive || isPaused) return;
         
         ItemStack item = event.getItem();
+        if (item == null) return; // Verificación de nulidad
+        
         Material type = item.getType();
         
         // Verificar si es una herramienta o armadura
@@ -260,9 +315,10 @@ public class AcidWeek extends WeeklyEvent {
     
     @EventHandler
     public void onBlockGrow(BlockGrowEvent event) {
-        if (!isActive) return;
+        if (!isActive || isPaused) return;
         
         Block block = event.getBlock();
+        if (block == null) return; // Verificación de nulidad
         
         // Verificar si es un cultivo
         if (block.getBlockData() instanceof Ageable) {
@@ -274,15 +330,24 @@ public class AcidWeek extends WeeklyEvent {
     }
     
     private boolean hasRoof(Block block) {
-        // Verificar si hay bloques sólidos encima
-        for (int y = block.getY() + 1; y < block.getWorld().getMaxHeight(); y++) {
-            Block blockAbove = block.getWorld().getBlockAt(block.getX(), y, block.getZ());
-            if (blockAbove.getType().isSolid()) {
+        if (block == null || block.getWorld() == null) {
+            return false; // Verificación de nulidad
+        }
+        
+        World world = block.getWorld();
+        
+        // Limitar la búsqueda a 20 bloques por encima para mejorar rendimiento
+        int maxCheckHeight = Math.min(block.getY() + 20, world.getMaxHeight());
+        
+        // Verificar bloques por encima
+        for (int y = block.getY() + 1; y < maxCheckHeight; y++) {
+            Block blockAbove = world.getBlockAt(block.getX(), y, block.getZ());
+            if (blockAbove != null && blockAbove.getType().isSolid()) {
                 return true; // Hay un bloque sólido encima
             }
         }
         
-        return false; // No hay techo
+        return false; // No hay techo en el rango verificado
     }
     
     private boolean isToolOrArmor(Material material) {
@@ -336,55 +401,83 @@ public class AcidWeek extends WeeklyEvent {
     }
     
     /**
-     * Checks if a player has completed a specific challenge
-     * @param playerId The UUID of the player
-     * @param challengeId The ID of the challenge
-     * @return true if the challenge is completed, false otherwise
+     * Verifica si un jugador ha completado un desafío específico
+     * @param playerId El UUID del jugador
+     * @param challengeId El ID del desafío
+     * @return true si el desafío está completado, false en caso contrario
      */
     public boolean hasChallengeCompleted(UUID playerId, String challengeId) {
+        if (playerId == null || challengeId == null || challengeId.isEmpty()) {
+            return false; // Verificación de nulidad
+        }
+        
         switch (challengeId) {
             case "acid_swimmer":
-                // Player has survived in acid water for a certain amount of time
+                // Jugador ha sobrevivido en agua ácida por cierto tiempo
                 return playersInWater.contains(playerId);
+                
             case "acid_rain_survivor":
-                // Player has survived in acid rain for a certain amount of time
+                // Jugador ha sobrevivido bajo la lluvia ácida por cierto tiempo
                 return playersInRain.contains(playerId);
+                
             case "acid_resistant":
-                // Player has obtained acid resistant gear
+                // Jugador ha obtenido equipo con resistencia al ácido
                 Player player = Bukkit.getPlayer(playerId);
                 if (player != null && player.isOnline()) {
                     return hasAcidResistanceGear(player);
                 }
                 return false;
+                
             default:
                 return false;
         }
     }
     
     /**
-     * Checks if a player has acid resistance gear
-     * @param player The player to check
-     * @return true if the player has acid resistance gear, false otherwise
+     * Verifica si un jugador tiene equipo con resistencia al ácido
+     * @param player El jugador a verificar
+     * @return true si el jugador tiene equipo con resistencia al ácido, false en caso contrario
      */
     private boolean hasAcidResistanceGear(Player player) {
+        if (player == null || !player.isOnline()) {
+            return false; // Verificación de nulidad
+        }
+        
+        // Verificar si el jugador tiene el encantamiento en alguna pieza de armadura
         for (ItemStack item : player.getInventory().getArmorContents()) {
-            if (item != null && item.hasItemMeta() && HeartlessMain.getContentManager().hasEnchantment(item, CustomEnchantments.ENCHANTMENTS.ACID_RESISTANCE.toEnchantment())) {
-                return true;
+            if (item != null && item.getType() != Material.AIR && item.hasItemMeta()) {
+                if (HeartlessMain.getContentManager().hasEnchantment(item, CustomEnchantments.ENCHANTMENTS.ACID_RESISTANCE.toEnchantment())) {
+                    return true;
+                }
             }
         }
         return false;
     }
     
-    // Missing method implementation
-    @SuppressWarnings("unused")
-    private boolean isExposedToRain(Player player, World world) {
+    /**
+     * Checks if a player is exposed to rain
+     * @param player The player to check
+     * @return true if the player is exposed to rain, false otherwise
+     */
+    private boolean isExposedToRain(Player player) {
+        if (player == null || player.getLocation() == null || player.getWorld() == null) {
+            return false; // Verificación de nulidad
+        }
+        
+        World world = player.getWorld();
+        
         if (!world.hasStorm()) {
             return false;
         }
         
         Location loc = player.getLocation();
         
-        // Check if player is exposed to the sky
+        // Verificar si el jugador está en un bioma donde llueve
+        if (!BiomeUtils.canRain(loc.getBlock().getBiome())) {
+            return false;
+        }
+        
+        // Verificar si el jugador está expuesto al cielo
         if (world.getHighestBlockYAt(loc) <= loc.getBlockY() && !isPlayerUnderRoof(player)) {
             return true;
         }
@@ -392,11 +485,26 @@ public class AcidWeek extends WeeklyEvent {
         return false;
     }
     
+    /**
+     * Aplica daño por ácido a un jugador
+     * @param player El jugador al que aplicar daño
+     * @param damage La cantidad de daño a aplicar
+     */
     private void applyAcidDamage(Player player, double damage) {
-        // Check if player has acid resistance
+        if (player == null || !player.isOnline() || player.isDead()) {
+            return; // Verificación de nulidad y estado del jugador
+        }
+        
+        // Verificar si el jugador tiene resistencia al ácido
         if (!hasAcidResistance(player)) {
+            // Aplicar daño y efecto de veneno
             player.damage(damage);
             player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 40, 0, false, true, true));
+            
+            // Mensaje de efecto (con límite de frecuencia para no spamear)
+            if (Math.random() < 0.2) { // 20% de probabilidad para reducir spam
+                player.sendMessage(MM.toComponent(prefix + " <red>¡El ácido está dañando tu piel!"));
+            }
         }
     }
 }

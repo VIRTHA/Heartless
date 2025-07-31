@@ -60,8 +60,6 @@ public class BloodAndIronWeek extends WeeklyEvent {
             initializePlayer(player);
         }
         
-        // Announce challenges
-        announceChallenges();
         
         // Start the main task that checks conditions every second
         mainTask = new BukkitRunnable() {
@@ -78,6 +76,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
     @Override
     protected void announceEventStart() {
         Bukkit.broadcast(MM.toComponent(prefix + " <gray>¡<gold>El coliseo del caos está abierto. <red>Elimina o sé eliminado<gray>!"));
+        announceChallenges();
     }
     
     @Override

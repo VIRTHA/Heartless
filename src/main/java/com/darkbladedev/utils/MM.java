@@ -8,4 +8,8 @@ public class MM {
     public static Component toComponent(String message) {
         return MiniMessage.miniMessage().deserialize(message);
     }
+
+    public static MiniMessage getMiniMessage() {
+        return MiniMessage.miniMessage();
+    }
 }

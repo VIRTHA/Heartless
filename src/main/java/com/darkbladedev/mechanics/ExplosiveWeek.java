@@ -84,7 +84,7 @@ public class ExplosiveWeek extends WeeklyEvent {
     @Override
     protected void announceEventStart() {
         // Announce the start of the event
-        Bukkit.broadcast(MM.toComponent("<yellow><b>¡SEMANA EXPLOSIVA INICIADA!"));
+        Bukkit.broadcast(MM.toComponent("<yellow><b>¡<gradient:#fa4444:#fb6c6c:#fc9494:#fdbcbc:#fee4e4:#ffffff:#ffffff:#ffffff:#ffffff:#ffffff:#fee4e4:#fdbcbc:#fc9494:#fb6c6c:#fa4444>SEMANA EXPLOSIVA</gradient> INICIADA!"));
         Bukkit.broadcast(MM.toComponent("<gray>¡Cuidado con las explosiones! <b>Todo es más volátil..."));
         
         // Announce challenges
@@ -246,16 +246,16 @@ public class ExplosiveWeek extends WeeklyEvent {
     }
     
     private void announceExplosiveWeekChallenges() {
-        Bukkit.broadcast(MM.toComponent("&6&l=== DESAFÍOS DE LA SEMANA ==="));
-        Bukkit.broadcast(MM.toComponent("&e1. Mata a un ghast en el overworld"));
-        Bukkit.broadcast(MM.toComponent("&7   Recompensa: Encantamiento Carve"));
-        Bukkit.broadcast(MM.toComponent("&e2. Consigue la cabeza de todos los mobs hostiles posibles"));
-        Bukkit.broadcast(MM.toComponent("&7   (Zombie, Esqueleto, Creeper)"));
-        Bukkit.broadcast(MM.toComponent("&7   Recompensa: +1 corazón"));
-        Bukkit.broadcast(MM.toComponent("&e3. Mata a un jugador con una explosión"));
-        Bukkit.broadcast(MM.toComponent("&7   Recompensa: Tag \"TNTómano\""));
-        Bukkit.broadcast(MM.toComponent("&e4. Mata a un warden con la explosión de un creeper eléctrico"));
-        Bukkit.broadcast(MM.toComponent("&7   Recompensa: +1 corazón"));
+        Bukkit.broadcast(MM.toComponent("<yellow><b>=== DESAFÍOS DE LA SEMANA ==="));
+        Bukkit.broadcast(MM.toComponent("<yellow>1. Mata a un ghast en el overworld"));
+        Bukkit.broadcast(MM.toComponent("<gray>   Recompensa: Encantamiento Carve"));
+        Bukkit.broadcast(MM.toComponent("<yellow>2. Consigue la cabeza de todos los mobs hostiles posibles"));
+        Bukkit.broadcast(MM.toComponent("<gray>   (Zombie, Esqueleto, Creeper)"));
+        Bukkit.broadcast(MM.toComponent("<gray>   Recompensa: +1 corazón"));
+        Bukkit.broadcast(MM.toComponent("<yellow>3. Mata a un jugador con una explosión"));
+        Bukkit.broadcast(MM.toComponent("<gray>   Recompensa: Tag \"TNTómano\""));
+        Bukkit.broadcast(MM.toComponent("<yellow>4. Mata a un warden con la explosión de un creeper eléctrico"));
+        Bukkit.broadcast(MM.toComponent("<gray>   Recompensa: +1 corazón"));
     }
     
     // Event Handlers
