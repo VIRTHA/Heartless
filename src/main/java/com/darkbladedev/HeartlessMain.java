@@ -8,6 +8,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import com.darkbladedev.commands.CommandHandler;
+import com.darkbladedev.content.custom.enchantments.EnchantmentListeners;
 import com.darkbladedev.managers.BanManager;
 import com.darkbladedev.managers.ContentManager;
 import com.darkbladedev.managers.CustomEffectsManager;
@@ -29,6 +30,7 @@ public class HeartlessMain extends JavaPlugin {
     private static BanManager banManager;
     private static StorageManager storageManager;
     private static CustomEffectsManager customEffectsManager;
+    private static EnchantmentListeners enchantmentListeners;
     
     @Override
     public void onEnable() {
@@ -41,6 +43,7 @@ public class HeartlessMain extends JavaPlugin {
         banManager = new BanManager(instance);
         storageManager = new StorageManager(instance);
         customEffectsManager = new CustomEffectsManager(instance);
+        enchantmentListeners = new EnchantmentListeners(instance);
 
         initializeSystems();
 
@@ -54,6 +57,11 @@ public class HeartlessMain extends JavaPlugin {
         // Limpiar recursos de efectos personalizados
         if (customEffectsManager != null) {
             customEffectsManager.cleanup();
+        }
+        
+        // Limpiar recursos de los listeners de encantamientos
+        if (enchantmentListeners != null) {
+            enchantmentListeners.cleanup();
         }
         
         Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " <green>Plugin desactivado correctamente."));
@@ -126,5 +134,9 @@ public class HeartlessMain extends JavaPlugin {
 
     public StorageManager getStorageManager() {
         return storageManager;
+    }
+    
+    public static EnchantmentListeners getEnchantmentListeners() {
+        return enchantmentListeners;
     }
 }
