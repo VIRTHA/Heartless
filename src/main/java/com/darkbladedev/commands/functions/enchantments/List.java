@@ -10,6 +10,8 @@ import org.bukkit.enchantments.Enchantment;
 
 import com.darkbladedev.commands.SubcommandExecutor;
 import com.darkbladedev.commands.TabCompletable;
+import com.darkbladedev.content.custom.CustomEnchantments;
+import com.darkbladedev.content.custom.CustomEnchantments.ENCHANTMENTS;
 import com.darkbladedev.utils.MM;
 
 public class List implements SubcommandExecutor, TabCompletable {
@@ -19,17 +21,17 @@ public class List implements SubcommandExecutor, TabCompletable {
         sender.sendMessage(MM.toComponent("<gold>Lista de encantamientos disponibles:</gold>"));
         
         // Obtener todos los encantamientos y ordenarlos alfabéticamente
-        @SuppressWarnings("deprecation")
-        java.util.List<Enchantment> enchantments = Arrays.stream(Enchantment.values())
-                .sorted(Comparator.comparing(e -> e.getKey().getKey()))
+        java.util.List<ENCHANTMENTS> enchantments = Arrays.stream(CustomEnchantments.ENCHANTMENTS.values())
+                .sorted(Comparator.comparing(e -> e.getKey()))
                 .collect(Collectors.toList());
         
-        for (Enchantment enchant : enchantments) {
-            String enchantName = enchant.getKey().getKey();
-            int maxLevel = enchant.getMaxLevel();
+        for (ENCHANTMENTS enchant : enchantments) {
+            Enchantment enchantment = enchant.toEnchantment();
+            String enchantName = enchantment.getKey().getKey();
+            int maxLevel = enchantment.getMaxLevel();
             @SuppressWarnings("deprecation")
-            boolean isTreasure = enchant.isTreasure();
-            boolean isCursed = enchant.isCursed();
+            boolean isTreasure = enchantment.isTreasure();
+            boolean isCursed = enchantment.isCursed();
             
             StringBuilder info = new StringBuilder();
             info.append("<yellow>• ").append(enchantName).append("</yellow>");

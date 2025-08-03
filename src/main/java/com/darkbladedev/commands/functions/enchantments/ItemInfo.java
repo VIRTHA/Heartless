@@ -78,7 +78,7 @@ public class ItemInfo implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        if (args.length - 2 == 1) {
+        if (args.length == 1) {
             return Bukkit.getOnlinePlayers().stream()
                     .map(Player::getName)
                     .filter(name -> name.toLowerCase().startsWith(args[0].toLowerCase()))

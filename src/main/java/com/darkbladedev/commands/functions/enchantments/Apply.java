@@ -13,7 +13,7 @@ import org.bukkit.enchantments.Enchantment;
 
 import com.darkbladedev.commands.SubcommandExecutor;
 import com.darkbladedev.commands.TabCompletable;
-import com.darkbladedev.content.custom.CustomEnchantments.ENCHANTMENTS;
+import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.utils.MM;
 
 public class Apply implements SubcommandExecutor, TabCompletable {
@@ -33,7 +33,7 @@ public class Apply implements SubcommandExecutor, TabCompletable {
 
         Enchantment enchantment;
         try {
-            enchantment = ENCHANTMENTS.valueOf(args[1].toUpperCase()).toEnchantment();
+            enchantment = CustomEnchantments.ENCHANTMENTS.valueOf(args[1].toUpperCase()).toEnchantment();
             if (enchantment == null) {
                 sender.sendMessage(MM.toComponent("<red>El encantamiento '" + args[1] + "' no existe."));
                 return;
@@ -82,17 +82,17 @@ public class Apply implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        if (args.length - 2 == 1) {
+        if (args.length == 1) {
             return Bukkit.getOnlinePlayers().stream()
                     .map(Player::getName)
                     .filter(name -> name.toLowerCase().startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
-        } else if (args.length - 2 == 2) {
-            return java.util.Arrays.stream(ENCHANTMENTS.values())
-                    .map(enchant -> enchant.getKey().asString().toLowerCase())
+        } else if (args.length == 2) {
+            return java.util.Arrays.stream(CustomEnchantments.ENCHANTMENTS.values())
+                    .map(enchant -> enchant.getKey().value().toLowerCase())
                     .filter(name -> name.startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());
-        } else if (args.length - 2 == 3) {
+        } else if (args.length == 3) {
             return List.of("1", "2", "3", "4", "5");
         }
         return Collections.emptyList();

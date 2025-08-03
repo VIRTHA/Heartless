@@ -48,7 +48,7 @@ public class Deactivate implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        if (args.length - 2 == 1) {
+        if (args.length == 1) {
             List<String> completions = new ArrayList<>();
             Set<String> activeEffects = effectsManager.getActiveEffects();
             

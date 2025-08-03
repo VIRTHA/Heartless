@@ -50,7 +50,7 @@ public class Reset implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        if (args.length - 2 == 1) {
+        if (args.length == 1) {
             List<String> completions = new ArrayList<>();
             completions.add("confirm");
             return completions;

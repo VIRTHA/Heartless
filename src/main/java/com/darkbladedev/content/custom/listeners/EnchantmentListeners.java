@@ -1,4 +1,4 @@
-package com.darkbladedev.content.custom.enchantments;
+package com.darkbladedev.content.custom.listeners;
 
 import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.utils.MM;
@@ -23,8 +23,6 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -117,20 +115,16 @@ public class EnchantmentListeners implements Listener {
         UUID targetUUID = target.getUniqueId();
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             // Check if the entity is still alive and valid
-            if (target.isValid() && !target.isDead()) {
-                // Play effects before explosion
-                world.playSound(targetLocation, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
-                world.spawnParticle(Particle.EXPLOSION, targetLocation, 1);
-                
-                // Kill the entity
-                target.setHealth(target.getHealth() / 2);
+            if (target.isValid() && !target.isDead()) {                
+                // Damage the entity
+                target.damage(10);
                 
                 // Create a non-destructive explosion effect
                 world.spawnParticle(Particle.EXPLOSION, targetLocation, 4, 0.5, 0.5, 0.5, 0.1);
                 world.playSound(targetLocation, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.8f);
                 
                 // Notify the player
-                player.sendMessage(MM.toComponent("<red>¡Tu encantamiento Carve ha hecho explotar a tu objetivo!"));
+                // player.sendMessage(MM.toComponent("<red>¡Tu encantamiento Carve ha hecho explotar a tu objetivo!"));
             }
             // Remove the task from the map
             scheduledTasks.remove(targetUUID);
@@ -161,7 +155,7 @@ public class EnchantmentListeners implements Listener {
         world.playSound(target.getLocation(), Sound.BLOCK_BREWING_STAND_BREW, 1.0f, 0.8f);
         
         // Notify the player
-        player.sendMessage(MM.toComponent("<green>¡Has infectado a tu objetivo con ácido!"));
+        // player.sendMessage(MM.toComponent("<green>¡Has infectado a tu objetivo con ácido!"));
         
         // Schedule acid damage over time (every 1 second for 10 seconds)
         BukkitTask acidTask = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
@@ -278,7 +272,7 @@ public class EnchantmentListeners implements Listener {
             player.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, player.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0.1);
             
             // Send message to player
-            Component message = MiniMessage.miniMessage().deserialize("<gold>¡Tu encantamiento Adrenalina se ha activado! +Velocidad II y +Resistencia II por 10 segundos</gold>");
+            Component message = MM.toComponent("<gold>¡Adrenalina se ha activado! +Velocidad II y +Resistencia II por 10 segundos</gold>");
             player.sendMessage(message);
             
             // Set cooldown (60 seconds)

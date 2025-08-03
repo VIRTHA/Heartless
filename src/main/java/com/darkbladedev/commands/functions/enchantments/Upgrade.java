@@ -17,7 +17,6 @@ import com.darkbladedev.utils.MM;
 
 public class Upgrade implements SubcommandExecutor, TabCompletable {
     
-    @SuppressWarnings("deprecation")
     @Override
     public void execute(CommandSender sender, String[] args) {
         if (args.length < 2) {
@@ -33,7 +32,7 @@ public class Upgrade implements SubcommandExecutor, TabCompletable {
 
         Enchantment enchantment;
         try {
-            enchantment = Enchantment.getByName(args[1].toUpperCase());
+            enchantment = com.darkbladedev.content.custom.CustomEnchantments.ENCHANTMENTS.valueOf(args[1].toUpperCase()).toEnchantment();
             if (enchantment == null) {
                 sender.sendMessage(MM.toComponent("<red>El encantamiento '" + args[1] + "' no existe."));
                 return;
@@ -92,20 +91,19 @@ public class Upgrade implements SubcommandExecutor, TabCompletable {
         }
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        if (args.length - 2 == 1) {
+        if (args.length == 1) {
             return Bukkit.getOnlinePlayers().stream()
                     .map(Player::getName)
                     .filter(name -> name.toLowerCase().startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
-        } else if (args.length - 2 == 2) {
-            return java.util.Arrays.stream(Enchantment.values())
-                    .map(enchant -> enchant.getKey().getKey().toLowerCase())
+        } else if (args.length == 2) {
+            return java.util.Arrays.stream(com.darkbladedev.content.custom.CustomEnchantments.ENCHANTMENTS.values())
+                    .map(enchant -> enchant.getKey().value().toLowerCase())
                     .filter(name -> name.startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());
-        } else if (args.length - 2 == 3) {
+        } else if (args.length == 3) {
             return List.of("1", "2", "3", "5", "10");
         }
         return Collections.emptyList();

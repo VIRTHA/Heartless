@@ -85,7 +85,7 @@ public class Info implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        if (args.length - 2 == 1) {
+        if (args.length == 1) {
             List<String> completions = new ArrayList<>();
             
             for (Map.Entry<String, CustomEffects> entry : effectsManager.getAllEffects().entrySet()) {

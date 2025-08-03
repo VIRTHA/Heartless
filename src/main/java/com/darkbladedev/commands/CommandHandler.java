@@ -91,7 +91,10 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
             SubcommandExecutor executor = func.getSubcommands().get(action);
             if (executor instanceof TabCompletable) {
                 // Si el executor soporta autocompletado custom, se lo delegamos
-                return ((TabCompletable) executor).onTabComplete(sender, args);
+                // Recortamos los primeros dos argumentos (grupo y acción)
+                String[] remainingArgs = new String[args.length - 2];
+                System.arraycopy(args, 2, remainingArgs, 0, remainingArgs.length);
+                return ((TabCompletable) executor).onTabComplete(sender, remainingArgs);
             }
         }
 

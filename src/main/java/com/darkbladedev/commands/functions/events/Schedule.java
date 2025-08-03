@@ -21,7 +21,7 @@ public class Schedule implements SubcommandExecutor, TabCompletable {
         // args[0] y args[1] son el grupo y la acción, por lo que args[2] es el primer argumento real del subcomando
         
         // Calculamos el índice real restando 2 (grupo y acción)
-        int adjustedIndex = args.length - 2;
+        int adjustedIndex = args.length;
         
         if (adjustedIndex == 1) { // Primer argumento del subcomando (tiempo)
             return java.util.Arrays.asList(TimeConverter.getTimeCompletions());

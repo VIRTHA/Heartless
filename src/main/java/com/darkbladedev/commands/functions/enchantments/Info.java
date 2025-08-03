@@ -70,12 +70,11 @@ public class Info implements SubcommandExecutor, TabCompletable {
         }
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        if (args.length - 2 == 1) {
-            return Arrays.stream(Enchantment.values())
-                    .map(enchant -> enchant.getKey().getKey().toLowerCase())
+        if (args.length == 1) {
+            return Arrays.stream(CustomEnchantments.ENCHANTMENTS.values())
+                    .map(enchant -> enchant.getKey().value().toLowerCase())
                     .filter(name -> name.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }

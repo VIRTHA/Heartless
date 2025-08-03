@@ -8,7 +8,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import com.darkbladedev.commands.CommandHandler;
-import com.darkbladedev.content.custom.enchantments.EnchantmentListeners;
+import com.darkbladedev.content.custom.listeners.EnchantmentListeners;
 import com.darkbladedev.managers.BanManager;
 import com.darkbladedev.managers.ContentManager;
 import com.darkbladedev.managers.CustomEffectsManager;

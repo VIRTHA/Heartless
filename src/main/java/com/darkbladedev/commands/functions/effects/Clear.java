@@ -60,7 +60,7 @@ public class Clear implements SubcommandExecutor, TabCompletable {
     public List<String> onTabComplete(CommandSender sender, String[] args) {
         List<String> completions = new ArrayList<>();
 
-        int adjustedIndex = args.length - 2;
+        int adjustedIndex = args.length;
 
         if (adjustedIndex == 1) {
             // Completar con nombres de efectos activos
