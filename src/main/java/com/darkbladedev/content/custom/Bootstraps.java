@@ -2,6 +2,8 @@ package com.darkbladedev.content.custom;
 
 import org.bukkit.inventory.EquipmentSlotGroup;
 
+import com.darkbladedev.utils.MM;
+
 import io.papermc.paper.plugin.bootstrap.BootstrapContext;
 import io.papermc.paper.plugin.bootstrap.PluginBootstrap;
 import io.papermc.paper.registry.data.EnchantmentRegistryEntry;
@@ -59,7 +61,7 @@ public class Bootstraps implements PluginBootstrap {
                 
             // Register Carve Enchantment
             event.registry().register(
-                EnchantmentKeys.create(CustomEnchantments.CARVE_KEY),
+                EnchantmentKeys.create(CustomEnchantments.TICTAC_KEY),
                 b -> b.maxLevel(1)
                     .anvilCost(15)
                     .activeSlots(EquipmentSlotGroup.MAINHAND)
@@ -67,9 +69,7 @@ public class Bootstraps implements PluginBootstrap {
                     .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(20, 8))
                     .weight(3)
                     
-                    .description(MiniMessage.miniMessage().deserialize(
-                        "<red>Explosivo</red>"
-                        ))
+                    .description(MM.toComponent("<red>TicTac</red>"))
                     
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.SWORDS))
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.AXES))
@@ -85,9 +85,7 @@ public class Bootstraps implements PluginBootstrap {
                     .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(25, 12))
                     .weight(2)
                     
-                    .description(MiniMessage.miniMessage().deserialize(
-                        "<gold>Adrenalina</gold>"
-                        ))
+                    .description(MM.toComponent("<gold>Adrenalina</gold>"))
                     
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.HEAD_ARMOR))
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.CHEST_ARMOR))

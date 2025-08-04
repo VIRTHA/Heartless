@@ -54,7 +54,7 @@ public class EnchantmentListeners implements Listener {
     }
 
     /**
-     * Handles the Carve and Acid Infection enchantment logic when a player attacks an entity
+     * Handles the TicTac and Acid Infection enchantment logic when a player attacks an entity
      */
     @EventHandler(priority = EventPriority.NORMAL)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
@@ -76,10 +76,10 @@ public class EnchantmentListeners implements Listener {
         UUID targetUUID = target.getUniqueId();
         
         // Handle Carve enchantment
-        if (hasEnchantment(weapon, CustomEnchantments.CARVE_KEY)) {
+        if (hasEnchantment(weapon, CustomEnchantments.TICTAC_KEY)) {
             // Don't apply to players
             if (!(target instanceof Player)) {
-                handleCarveEnchantment(player, target);
+                handleTictacEnchantment(player, target);
             }
         }
         
@@ -104,10 +104,10 @@ public class EnchantmentListeners implements Listener {
     }
     
     /**
-     * Handles the Carve enchantment logic
-     * Carve: Explodes mobs on attack with a 2-second delay
+     * Handles the TicTac enchantment logic
+     * TicTac: Explodes mobs on attack with a 2-second delay
      */
-    private void handleCarveEnchantment(Player player, LivingEntity target) {
+    private void handleTictacEnchantment(Player player, LivingEntity target) {
         Location targetLocation = target.getLocation();
         World world = target.getWorld();
 
