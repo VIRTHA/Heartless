@@ -1,0 +1,6 @@
+{
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "yaml.schemas": {
+        "https://www.schemastore.org/bukkit-plugin.json": "file:///d%3A/Programming/PLUGINS/heartless-gradle/src/main/resources/plugin.yml"
+    }
+}

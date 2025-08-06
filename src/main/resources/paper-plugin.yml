@@ -1,0 +1,15 @@
+name: Heartless
+version: 1.0.0
+main: com.darkbladedev.HeartlessMain
+
+description: Heartless plugin
+api-version: '1.21.4'
+bootstrapper: com.darkbladedev.content.custom.Bootstraps
+#loader:
+
+dependencies:
+  server:
+    PlaceholderAPI:
+      load: BEFORE
+      required: true
+      join-classpath: true

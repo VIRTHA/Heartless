@@ -1,0 +1,88 @@
+name: Heartless
+version: 1.0.0
+main: com.darkbladedev.HeartlessMain
+description: "Adds a customizable and funny events system to your Minecraft server."
+author: DarkBladeDev
+prefix: Heartless
+api-version: 1.21
+load: STARTUP
+depend: [PlaceholderAPI]
+softdepend: [UltimateAdvancementAPI]
+
+# Plugin Commands
+commands:
+  heartless:
+    description: "Main commands."
+    aliases: [hs]
+    permission: heartless.use.main
+    permission-message: "You do not have permission to use this command."
+
+
+# Permissions Statement
+permissions:
+  # Main Permissions
+  heartless.access:
+    description: "Allows to use Heartless core commands."
+    default: op
+  heartless.reload:
+    description: "Allows to reload Heartless plugin."
+    default: op
+
+  # Command Permissions
+  heartless.command.health:
+    description: "Allows to use /heartless health command."
+    default: op
+  heartless.command.effects.zombieinfection:
+    description: "Allows to use /heartless effects zombieinfection command."
+    default: op
+  heartless.command.curemanagement:
+    description: "Permite gestionar la cantidad de curas de infección zombie de los jugadores."
+    default: op
+  heartless.admin.zombieinfection:
+    description: "Permite administrar el sistema de infección zombie."
+    default: op
+
+    
+  heartless.bansystem.unban:
+    description: Permite desbanear jugadores
+    default: op
+  heartless.bansystem.list:
+    description: Permite listar jugadores baneados
+    default: op
+  
+
+  heartless.events.pause:
+    description: Permite pausar eventos
+    default: op
+  heartless.events.resume:
+    description: Permite pausar eventos
+    default: op
+  heartless.events.start:
+    description: Permite iniciar eventos
+    default: op
+    
+  # Ban Duration Permissions
+  heartless.ban.duration.exempt:
+    description: Exime al jugador de ser baneado al llegar al minimo de corazones
+    default: false
+  heartless.ban.duration.1:
+    description: Establece la duracion del baneo a 1 hora
+    default: false
+  heartless.ban.duration.2:
+    description: Establece la duracion del baneo a 2 horas
+    default: false
+  heartless.ban.duration.3:
+    description: Establece la duracion del baneo a 3 horas
+    default: false
+  heartless.ban.duration.4:
+    description: Establece la duracion del baneo a 4 horas
+    default: false
+  heartless.ban.duration.6:
+    description: Establece la duracion del baneo a 6 horas
+    default: false
+  heartless.ban.duration.12:
+    description: Establece la duracion del baneo a 12 horas
+    default: false
+  heartless.ban.duration.24:
+    description: Establece la duracion del baneo a 24 horas
+    default: false
