@@ -36,6 +36,10 @@ repositories {
     name = 'placeholderapi'
     url = 'https://repo.extendedclip.com/content/repositories/placeholderapi/'
   }
+  maven {
+    name = 'codemc'
+    url = 'https://repo.codemc.io/repository/maven-public/'
+  }
 }
 
 dependencies {
@@ -43,7 +47,7 @@ dependencies {
   paperweight.paperDevBundle("1.21.4-R0.1-SNAPSHOT")
   shadow("com.zaxxer:HikariCP:6.3.0")
   shadow("me.clip:placeholderapi:2.11.6")
-
+  implementation 'de.tr7zw:item-nbt-api:2.14.1'
 }
 
 shadowJar {

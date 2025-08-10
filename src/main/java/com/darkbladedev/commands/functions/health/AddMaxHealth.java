@@ -14,7 +14,18 @@ import com.darkbladedev.commands.TabCompletable;
 import com.darkbladedev.utils.MM;
 
 public class AddMaxHealth implements SubcommandExecutor, TabCompletable {
+    
+    private boolean enabled = true;
 
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
     
     @Override
     public void execute(CommandSender sender, String[] args) {

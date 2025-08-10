@@ -23,6 +23,19 @@ import com.darkbladedev.utils.MM;
 public class Info implements SubcommandExecutor, TabCompletable {
     
     private final CustomEffectsManager effectsManager;
+    private boolean enabled = true;
+    
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    
     
     public Info() {
         this.effectsManager = HeartlessMain.getCustomEffectsManager();

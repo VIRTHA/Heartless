@@ -19,6 +19,18 @@ import com.darkbladedev.utils.MM;
 
 public class Unban implements SubcommandExecutor, TabCompletable {
 
+    private boolean enabled = true;
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
         // Los args aquí incluyen todos los argumentos del comando, incluyendo grupo y acción

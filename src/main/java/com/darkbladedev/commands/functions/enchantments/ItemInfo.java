@@ -16,6 +16,18 @@ import com.darkbladedev.commands.TabCompletable;
 import com.darkbladedev.utils.MM;
 
 public class ItemInfo implements SubcommandExecutor, TabCompletable {
+
+    private boolean enabled = true;
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
     
     @SuppressWarnings("deprecation")
     @Override

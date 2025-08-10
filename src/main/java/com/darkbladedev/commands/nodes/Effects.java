@@ -5,13 +5,7 @@ import java.util.Map;
 
 import com.darkbladedev.commands.CommandFunction;
 import com.darkbladedev.commands.SubcommandExecutor;
-import com.darkbladedev.commands.functions.effects.Apply;
-import com.darkbladedev.commands.functions.effects.Clear;
-import com.darkbladedev.commands.functions.effects.Info;
-import com.darkbladedev.commands.functions.effects.List;
-import com.darkbladedev.commands.functions.effects.Activate;
-import com.darkbladedev.commands.functions.effects.Deactivate;
-import com.darkbladedev.commands.functions.effects.Reload;
+import com.darkbladedev.commands.functions.effects.*;
 
 public class Effects implements CommandFunction {
 	
@@ -25,6 +19,8 @@ public class Effects implements CommandFunction {
         subcommands.put("activate", new Activate());
         subcommands.put("deactivate", new Deactivate());
         subcommands.put("reload", new Reload());
+        subcommands.put("get-potion", new GetPotion());
+
     }
 
 	@Override

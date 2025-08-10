@@ -15,6 +15,19 @@ import com.darkbladedev.mechanics.WeeklyEvent;
 import com.darkbladedev.utils.MM;
 
 public class Status implements SubcommandExecutor, TabCompletable {
+    
+    private boolean enabled = true;
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {

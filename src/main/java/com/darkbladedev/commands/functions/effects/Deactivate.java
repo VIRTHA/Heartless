@@ -19,6 +19,18 @@ import com.darkbladedev.utils.MM;
  */
 public class Deactivate implements SubcommandExecutor, TabCompletable {
     
+    private boolean enabled = true;
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+    
     private final CustomEffectsManager effectsManager;
     
     public Deactivate() {

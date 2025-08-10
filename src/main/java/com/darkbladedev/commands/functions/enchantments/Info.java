@@ -17,6 +17,18 @@ import com.darkbladedev.content.custom.CustomEnchantments.ENCHANTMENTS;
 import com.darkbladedev.utils.MM;
 
 public class Info implements SubcommandExecutor, TabCompletable {
+
+    private boolean enabled = true;
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
     
     @SuppressWarnings({ "removal", "deprecation" })
     @Override

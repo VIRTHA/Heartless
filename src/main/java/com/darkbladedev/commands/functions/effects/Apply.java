@@ -19,6 +19,19 @@ import com.darkbladedev.utils.MM;
  * Comando para aplicar un efecto personalizado a un jugador
  */
 public class Apply implements SubcommandExecutor, TabCompletable {
+
+    private boolean enabled = true;
+    
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
     
     private final CustomEffectsManager effectsManager;
     

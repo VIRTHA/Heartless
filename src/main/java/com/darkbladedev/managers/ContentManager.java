@@ -1,12 +1,15 @@
 package com.darkbladedev.managers;
 
 
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.content.custom.CustomPotions;
+import com.darkbladedev.utils.PotionUtils;
 
 import net.kyori.adventure.key.Key;
 
@@ -18,6 +21,10 @@ public class ContentManager {
     public ContentManager(HeartlessMain plugin) {
         this.plugin = plugin;
     }
+
+    /*
+     * ENCHANTMENTS SECTION
+     */
 
     @SuppressWarnings("deprecation")
     public @NotNull Enchantment getEnchantment(String name) {
@@ -38,6 +45,36 @@ public class ContentManager {
         return item.getItemMeta().hasEnchant(enchantment);
     }
 
+/*
+ * ITEMS SECTION
+ * POTIONS
+ */
+    public @NotNull ItemStack getFuryPotionItem() {
+        // Crear un ItemStack de Bukkit y convertirlo a ItemStack de Minecraft
+        org.bukkit.inventory.ItemStack bukkitPotion = new org.bukkit.inventory.ItemStack(Material.POTION);
+        net.minecraft.world.item.ItemStack potion = net.minecraft.world.item.ItemStack.fromBukkitCopy(bukkitPotion);
+
+        PotionUtils.setPotion(potion, CustomPotions.FURY_HOLDER);
+        return potion.asBukkitCopy();
+    }
+    public @NotNull ItemStack getZombieInfectionPotionItem() {
+        // Crear un ItemStack de Bukkit y convertirlo a ItemStack de Minecraft
+        org.bukkit.inventory.ItemStack bukkitPotion = new org.bukkit.inventory.ItemStack(Material.POTION);
+        net.minecraft.world.item.ItemStack potion = net.minecraft.world.item.ItemStack.fromBukkitCopy(bukkitPotion);
+        
+        PotionUtils.setPotion(potion, CustomPotions.ZOMBIE_INFECTION_HOLDER);
+        return potion.asBukkitCopy();
+    }
+
+    public ItemStack getPotion(String potion) {
+        if (potion.equals("fury")) {
+            return getFuryPotionItem();
+        }
+        if (potion.equals("zombie_infection")) {
+            return getZombieInfectionPotionItem();
+        }
+        return null;
+    }
 
 
 }
