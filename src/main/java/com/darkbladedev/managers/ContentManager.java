@@ -2,7 +2,6 @@ package com.darkbladedev.managers;
 
 
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
@@ -11,6 +10,8 @@ import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.content.custom.CustomPotions;
 import com.darkbladedev.utils.PotionUtils;
 
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
 import net.kyori.adventure.key.Key;
 
 public class ContentManager {
@@ -26,19 +27,17 @@ public class ContentManager {
      * ENCHANTMENTS SECTION
      */
 
-    @SuppressWarnings("deprecation")
     public @NotNull Enchantment getEnchantment(String name) {
-        return Enchantment.getByName(name);
+        return RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT).get(Key.key(name));
     }
 
-    @SuppressWarnings("deprecation")
     public @NotNull Enchantment getEnchantment(Key key) {
-        return Enchantment.getByKey(NamespacedKey.fromString(key.asString()));
+        return RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT).get(key);
+
     }
 
-    @SuppressWarnings("deprecation")
     public @NotNull Enchantment getEnchantment(String namespace, String key) {
-        return Enchantment.getByKey(new NamespacedKey(namespace, key));
+        return RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT).get(Key.key(namespace, key));
     }
     
     public boolean hasEnchantment(ItemStack item, Enchantment enchantment) {

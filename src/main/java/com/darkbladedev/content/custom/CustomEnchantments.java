@@ -3,7 +3,8 @@ package com.darkbladedev.content.custom;
 import org.bukkit.Registry;
 import org.bukkit.enchantments.Enchantment;
 
-
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
 import net.kyori.adventure.key.Key;
 
 public class CustomEnchantments {
@@ -15,9 +16,8 @@ public class CustomEnchantments {
     public static final Key TICTAC_KEY = Key.key(namespace, "tictac");
     public static final Key ADRENALINE_KEY = Key.key(namespace, "adrenaline");
 
-    @SuppressWarnings("deprecation")
     public Enchantment getEnchantment(Key key) {
-        return Registry.ENCHANTMENT.get(key);
+        return RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT).get(key);
     }
 
     public enum ENCHANTMENTS {

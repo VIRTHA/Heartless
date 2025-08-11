@@ -15,6 +15,18 @@ import com.darkbladedev.utils.MM;
  * Comando para recargar el sistema de efectos personalizados
  */
 public class Reload implements SubcommandExecutor, TabCompletable {
+
+    private boolean enabled = true;
+    
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+    
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
     
     private final CustomEffectsManager effectsManager;
     

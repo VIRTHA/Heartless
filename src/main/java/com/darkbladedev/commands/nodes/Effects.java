@@ -19,8 +19,6 @@ public class Effects implements CommandFunction {
         subcommands.put("activate", new Activate());
         subcommands.put("deactivate", new Deactivate());
         subcommands.put("reload", new Reload());
-        subcommands.put("get-potion", new GetPotion());
-
     }
 
 	@Override

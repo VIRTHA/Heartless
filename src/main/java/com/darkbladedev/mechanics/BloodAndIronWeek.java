@@ -265,8 +265,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
                     }
                     
                     // Check player kills
-                    Long LastPlayerKillTime = lastPlayerKillTime.get(playerId);
-                    if (lastPlayerKillTime == null || (currentTime - LastPlayerKillTime) > 60 * 60 * 1000) {
+                    if (lastPlayerKillTime.get(playerId) == null || (currentTime - lastPlayerKillTime.get(playerId)) > 60 * 60 * 1000) {
                         // No player kill in 1 hour
                         reducePlayerHealth(player, 10); // 5 hearts
                     }

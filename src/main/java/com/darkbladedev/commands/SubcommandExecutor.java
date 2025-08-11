@@ -2,8 +2,12 @@ package com.darkbladedev.commands;
 
 import org.bukkit.command.CommandSender;
 
-public interface SubcommandExecutor {
+public abstract interface SubcommandExecutor {
     void execute(CommandSender sender, String[] args);
     boolean isEnabled();
     void setEnabled(boolean enabled);
+    static SubcommandExecutor getInstance() {
+        return null;
+    }
+
 }

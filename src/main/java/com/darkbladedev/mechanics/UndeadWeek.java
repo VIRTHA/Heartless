@@ -470,20 +470,20 @@ public class UndeadWeek extends WeeklyEvent {
                                 
                                 // Cada 3 noches, activar la luna roja
                                 if (nightCounter % 3 == 0) {
-                                    Bukkit.getLogger().info(prefix + "Activando Noche Roja (noche " + nightCounter + ")");
+                                    Bukkit.getLogger().info("Activando Noche Roja (noche " + nightCounter + ")");
                                     activateRedMoon();
                                 }
                             }
                         } else {
                             // Si es de día, desactivar la luna roja
                             if (isRedMoonActive) {
-                                Bukkit.getLogger().info(prefix + "Desactivando Noche Roja (amanecer)");
+                                Bukkit.getLogger().info("Desactivando Noche Roja (amanecer)");
                                 deactivateRedMoon();
                             }
                         }
                     }
                 } catch (Exception e) {
-                    Bukkit.getLogger().warning(prefix + " Error al verificar tiempo en mundo " 
+                    Bukkit.getLogger().warning("Error al verificar tiempo en mundo " 
                         + world.getName() + ": " + e.getMessage());
                     e.printStackTrace();
                 }
@@ -491,10 +491,10 @@ public class UndeadWeek extends WeeklyEvent {
             
             // Si no se encontró un mundo normal, registrar advertencia
             if (!foundNormalWorld) {
-                Bukkit.getLogger().warning(prefix + "No se encontró ningún mundo normal para verificar el tiempo");
+                Bukkit.getLogger().warning("No se encontró ningún mundo normal para verificar el tiempo");
             }
         } catch (Exception e) {
-            Bukkit.getLogger().severe(prefix + " Error crítico al verificar el tiempo: " + e.getMessage());
+            Bukkit.getLogger().severe("Error crítico al verificar el tiempo: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -527,7 +527,7 @@ public class UndeadWeek extends WeeklyEvent {
             
             // Anunciar el inicio de la Noche Roja
             Bukkit.broadcast(MM.toComponent(eventPrefix + " <red>¡La Noche Roja ha comenzado! Los no-muertos son más rápidos y las camas explotan."));
-            Bukkit.broadcast(MM.toComponent(eventPrefix + " <red>¡Mata no-muertos durante este evento para obtener recompensas especiales!"));
+            Bukkit.broadcast(MM.toComponent(" <red>¡Mata no-muertos durante este evento para obtener recompensas especiales!"));
             
             // Efectos de sonido globales para anunciar la Noche Roja
             int playersProcessed = 0;
@@ -1425,6 +1425,8 @@ public class UndeadWeek extends WeeklyEvent {
      * Maneja el evento de jugador intentando dormir en una cama
      * Durante la Noche Roja, las camas explotan al intentar usarlas
      */
+    // TODO: El evento no se dispara cuando el jugador se duerme en una cama
+
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerBedEnter(PlayerBedEnterEvent event) {
         if (!isActive || isPaused || !isRedMoonActive) {
@@ -1471,7 +1473,7 @@ public class UndeadWeek extends WeeklyEvent {
                     // Verificar si el mundo sigue siendo válido
                     if (world != null && bedLocation != null) {
                         world.spawnParticle(Particle.FLAME, bedLocation.add(0.5, 0.5, 0.5), 30, 0.5, 0.5, 0.5, 0.05);
-                        world.createExplosion(bedLocation, 2.0f, false, true);
+                        world.createExplosion(bedLocation, 4f, false, true);
                     }
                 } catch (Exception e) {
                     Bukkit.getLogger().warning("Error al crear explosión de cama: " + e.getMessage());
