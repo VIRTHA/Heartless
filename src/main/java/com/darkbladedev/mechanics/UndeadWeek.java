@@ -17,6 +17,8 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityTransformEvent;
 import org.bukkit.event.player.PlayerBedEnterEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -26,7 +28,8 @@ import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.utils.MM;
-
+import com.darkbladedev.utils.DayCycleUtils;
+import com.darkbladedev.events.NightPassedEvent;
 import java.util.*;
 
 // Add this import at the top with other imports
@@ -35,7 +38,7 @@ import org.bukkit.event.entity.EntitySpawnEvent;
 public class UndeadWeek extends WeeklyEvent {
 
     private boolean isRedMoonActive = false;
-    private int nightCounter = 0;
+    // nightCounter eliminado - ahora se usa DayCycleUtils para el conteo de noches
     private BukkitTask mainTask;
     
     // Tracking infected players and challenges
@@ -211,7 +214,7 @@ public class UndeadWeek extends WeeklyEvent {
             Bukkit.getLogger().info(prefix + " Todas las tareas del evento han sido detenidas correctamente");
             
             // Reiniciar contadores y estados
-            nightCounter = 0;
+            // nightCounter eliminado - se usa DayCycleUtils
             isRedMoonActive = false;
         } catch (Exception e) {
             Bukkit.getLogger().severe(prefix + " Error crítico al detener las tareas del evento: " + e.getMessage());
@@ -228,7 +231,7 @@ public class UndeadWeek extends WeeklyEvent {
                     endTask = null;
                 }
                 isRedMoonActive = false;
-                nightCounter = 0;
+                // nightCounter eliminado - se usa DayCycleUtils
                 Bukkit.getLogger().info(prefix + " Recursos críticos liberados tras error fatal");
             } catch (Exception ex) {
                 Bukkit.getLogger().severe(prefix + " Error al liberar recursos críticos: " + ex.getMessage());
@@ -325,7 +328,7 @@ public class UndeadWeek extends WeeklyEvent {
             }
             
             // Reiniciar contadores y estados
-            nightCounter = 0;
+            // nightCounter eliminado - se usa DayCycleUtils
             isRedMoonActive = false;
             Bukkit.getLogger().info(prefix + " Contadores y estados reiniciados correctamente");
             
@@ -357,7 +360,7 @@ public class UndeadWeek extends WeeklyEvent {
                 redMoonKillsCount = new HashMap<>();
                 curedVillagers = new HashSet<>();
                 witherKilledInRedMoon = new HashSet<>();
-                nightCounter = 0;
+                // nightCounter eliminado - se usa DayCycleUtils
                 isRedMoonActive = false;
                 mainTask = null;
                 endTask = null;
@@ -377,12 +380,8 @@ public class UndeadWeek extends WeeklyEvent {
     
     /**
      * Verifica el tiempo en los mundos normales para activar/desactivar la Noche Roja
+     * Utiliza DayCycleUtils para un conteo preciso de ciclos nocturnos
      * Se activa cada 3 noches y se desactiva durante el día
-     */
-    /**
-     * Verifica el tiempo en los mundos normales para controlar el ciclo de la Noche Roja.
-     * Este método se ejecuta periódicamente para detectar el inicio de la noche y activar
-     * la Noche Roja cada 3 noches, así como desactivarla al amanecer.
      */
     private void checkTime() {
         // Verificar si el evento está activo y no está pausado
@@ -419,60 +418,24 @@ public class UndeadWeek extends WeeklyEvent {
                     
                     if (world.getEnvironment() == World.Environment.NORMAL) {
                         foundNormalWorld = true;
+                        
+                        // Asegurar que el mundo esté registrado en DayCycleUtils
+                        DayCycleUtils.ensureWorld(world);
+                        
+                        // Verificar ciclos de día/noche usando DayCycleUtils
+                        DayCycleUtils.checkWorld(world);
+                        
                         long time = world.getTime();
                         
                         // Verificar si es de noche (13000-23000)
                         if (time >= 13000 && time <= 23000) {
-                            // Verificar si es una nueva noche (inicio de la noche)
-                            if (time >= 13000 && time <= 13100 && !isRedMoonActive) {
-                                nightCounter++;
-                                
-                                // Informar sobre el contador de noches
-                                if (nightCounter % 3 != 0) {
-                                    Bukkit.getLogger().info(prefix + "Noche " + nightCounter + "/3 para la próxima Noche Roja");
-                                    
-                                    // Mensaje a los jugadores cada noche
-                                    String mensaje = switch (nightCounter % 3) {
-                                        case 1 -> "<&7gray>La luna comienza a cambiar... <gold>Faltan 2 noches para la Noche Roja.";
-                                        case 2 -> "<&cred>La luna se torna rojiza... <&4dark_red>Falta 1 noche para la Noche Roja.";
-                                        default -> "";
-                                    };
-                                    
-                                    if (!mensaje.isEmpty()) {
-                                        // Limitar el número de jugadores a los que se envía el mensaje
-                                        int playersProcessed = 0;
-                                        final int MAX_PLAYERS_TO_PROCESS = 50; // Límite de jugadores por ciclo
-                                        
-                                        List<Player> players = world.getPlayers();
-                                        if (players != null && !players.isEmpty()) {
-                                            for (Player player : players) {
-                                                if (playersProcessed >= MAX_PLAYERS_TO_PROCESS) {
-                                                    break;
-                                                }
-                                                
-                                                if (player != null && player.isOnline()) {
-                                                    try {
-                                                        player.sendMessage(MM.toComponent(mensaje));
-                                                        
-                                                        // Efectos visuales y sonoros sutiles
-                                                        player.playSound(player.getLocation(), Sound.AMBIENT_CAVE, 0.5f, 0.5f);
-                                                        
-                                                        playersProcessed++;
-                                                    } catch (Exception e) {
-                                                        Bukkit.getLogger().warning(prefix + " Error al enviar mensaje a jugador " 
-                                                            + player.getName() + ": " + e.getMessage());
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                // Cada 3 noches, activar la luna roja
-                                if (nightCounter % 3 == 0) {
-                                    Bukkit.getLogger().info("Activando Noche Roja (noche " + nightCounter + ")");
-                                    activateRedMoon();
-                                }
+                            // Durante la noche, verificar si debe activarse la Luna Roja
+                            long nightCount = DayCycleUtils.getNightCount(world);
+                            
+                            // Activar Luna Roja cada 3 noches
+                            if (nightCount > 0 && nightCount % 3 == 0 && !isRedMoonActive) {
+                                Bukkit.getLogger().info(prefix + " Activando Noche Roja (noche " + nightCount + ")");
+                                activateRedMoon();
                             }
                         } else {
                             // Si es de día, desactivar la luna roja
@@ -1422,11 +1385,154 @@ public class UndeadWeek extends WeeklyEvent {
     }
     
     /**
+     * Maneja el evento de paso de noche para mostrar progreso hacia la Noche Roja
+     */
+    @EventHandler
+    public void onNightPassed(NightPassedEvent event) {
+        // Verificar si el evento está activo y no está pausado
+        if (!isActive || isPaused) {
+            return;
+        }
+        
+        try {
+            World world = event.getWorld();
+            if (world == null || world.getEnvironment() != World.Environment.NORMAL) {
+                return;
+            }
+            
+            long totalNights = event.getTotalNights();
+            long nightsUntilRedMoon = 3 - (totalNights % 3);
+            
+            // Mensaje según el progreso
+            String mensaje = switch ((int)(totalNights % 3)) {
+                case 1 -> "<gray>La luna comienza a cambiar... <gold>Faltan 2 noches para la Noche Roja.";
+                case 2 -> "<red>La luna se torna rojiza... <dark_red>Falta 1 noche para la Noche Roja.";
+                case 0 -> "<dark_red><bold>¡LA NOCHE ROJA HA LLEGADO!</bold> <red>Los muertos caminan entre nosotros...";
+                default -> "";
+            };
+            
+            if (!mensaje.isEmpty()) {
+                // Enviar mensaje a todos los jugadores del mundo
+                List<Player> players = world.getPlayers();
+                if (players != null && !players.isEmpty()) {
+                    for (Player player : players) {
+                        if (player != null && player.isOnline()) {
+                            try {
+                                player.sendMessage(MM.toComponent(mensaje));
+                                
+                                // Efectos de sonido según el progreso
+                                if (totalNights % 3 == 0) {
+                                    // Noche Roja - sonidos más intensos
+                                    player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.7f, 0.5f);
+                                    player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.5f, 0.8f);
+                                } else {
+                                    // Noches previas - sonidos sutiles
+                                    player.playSound(player.getLocation(), Sound.AMBIENT_CAVE, 0.5f, 0.5f);
+                                    player.playSound(player.getLocation(), Sound.ENTITY_WOLF_HOWL, 0.3f, 0.7f);
+                                }
+                            } catch (Exception e) {
+                                Bukkit.getLogger().warning(prefix + " Error al enviar mensaje de noche a jugador " 
+                                    + player.getName() + ": " + e.getMessage());
+                            }
+                        }
+                    }
+                }
+                
+                Bukkit.getLogger().info(prefix + " Noche " + totalNights + " completada. " + 
+                    (totalNights % 3 == 0 ? "¡Noche Roja activada!" : "Faltan " + nightsUntilRedMoon + " noches para la Noche Roja."));
+            }
+        } catch (Exception e) {
+            Bukkit.getLogger().warning(prefix + " Error al manejar evento de noche pasada: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
      * Maneja el evento de jugador intentando dormir en una cama
      * Durante la Noche Roja, las camas explotan al intentar usarlas
+     * 
+     * SOLUCIÓN: Se usa PlayerInteractEvent en lugar de PlayerBedEnterEvent
+     * porque PlayerBedEnterEvent puede no dispararse en ciertas condiciones
+     * (como cuando no es de noche o hay monstruos cerca)
      */
-    // TODO: El evento no se dispara cuando el jugador se duerme en una cama
-
+    @SuppressWarnings("deprecation")
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onPlayerInteractWithBed(PlayerInteractEvent event) {
+        if (!isActive || isPaused || !isRedMoonActive) {
+            return;
+        }
+        
+        try {
+            // Verificar si el evento es válido
+            if (event == null || event.isCancelled()) {
+                return;
+            }
+            
+            // Solo procesar clics derechos
+            if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+                return;
+            }
+            
+            // Verificar si el jugador es válido
+            Player player = event.getPlayer();
+            if (player == null || !player.isOnline()) {
+                return;
+            }
+            
+            // Verificar si el bloque clickeado es una cama
+            Block clickedBlock = event.getClickedBlock();
+            if (clickedBlock == null || !isBed(clickedBlock.getType())) {
+                return;
+            }
+            
+            // Verificar si el mundo es válido
+            World world = player.getWorld();
+            if (world == null) {
+                return;
+            }
+            
+            // Cancelar el evento de interacción
+            event.setCancelled(true);
+            
+            // Enviar mensaje al jugador
+            player.sendMessage(MM.toComponent("&c¡No puedes dormir durante la Noche Roja! &4¡Tu cama ha explotado!"));
+            
+            // Efectos de sonido y visuales
+            player.playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 0.5f, 1.5f);
+            
+            // Crear explosión con un pequeño retraso para efectos dramáticos
+            Location bedLocation = clickedBlock.getLocation();
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                try {
+                    // Verificar si el mundo sigue siendo válido
+                    if (world != null && bedLocation != null) {
+                        world.spawnParticle(Particle.FLAME, bedLocation.add(0.5, 0.5, 0.5), 30, 0.5, 0.5, 0.5, 0.05);
+                        world.createExplosion(bedLocation, 4f, false, true);
+                    }
+                } catch (Exception e) {
+                    Bukkit.getLogger().warning("Error al crear explosión de cama: " + e.getMessage());
+                }
+            }, 10L); // Medio segundo de retraso
+            
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("Error en onPlayerInteractWithBed: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Verifica si el material dado es una cama
+     * @param material El material a verificar
+     * @return true si es una cama, false en caso contrario
+     */
+    private boolean isBed(Material material) {
+        return material != null && material.name().contains("BED") && !material.name().contains("BEDROCK");
+    }
+    
+    /**
+     * Mantener el evento original como respaldo
+     * En caso de que PlayerBedEnterEvent sí se dispare en algunas situaciones
+     */
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerBedEnter(PlayerBedEnterEvent event) {
         if (!isActive || isPaused || !isRedMoonActive) {
@@ -2500,7 +2606,7 @@ public class UndeadWeek extends WeeklyEvent {
             // Inicializar datos del evento
             isActive = true;
             isPaused = false;
-            nightCounter = 0;
+            // nightCounter eliminado - se usa DayCycleUtils
             isRedMoonActive = false;
             
             // Iniciar la tarea principal que se ejecuta periódicamente
@@ -2758,7 +2864,7 @@ public class UndeadWeek extends WeeklyEvent {
             
             // Anunciar el inicio del evento
             Bukkit.broadcast(MM.toComponent(eventPrefix + " <red>Las hordas de no-muertos dominan el mundo..."));
-            Bukkit.broadcast(MM.toComponent(eventPrefix + " <red>¡Cuidado con la infección! Puede propagarse por mordeduras de zombies."));
+            Bukkit.broadcast(MM.toComponent("<red>¡Cuidado con la infección! Puede propagarse por mordeduras de zombies."));
             
             // Efectos de sonido globales para anunciar el inicio del evento
             int playersProcessed = 0;
@@ -2785,7 +2891,7 @@ public class UndeadWeek extends WeeklyEvent {
                     player.spawnParticle(Particle.SMOKE, player.getLocation().add(0, 1, 0), 50, 3, 3, 3, 0.1);
                     
                     // Mensaje personalizado
-                    player.sendMessage(MM.toComponent(eventPrefix + " <red>¡Sientes un escalofrío recorrer tu espalda!"));
+                    player.sendMessage(MM.toComponent("<red>¡Sientes un escalofrío recorrer tu espalda!"));
                     
                     playersProcessed++;
                 } catch (Exception e) {
