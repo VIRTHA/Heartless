@@ -2,6 +2,7 @@ package com.darkbladedev.managers;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.mechanics.WeeklyEvent;
+import com.darkbladedev.utils.DayCycleUtils;
 import com.darkbladedev.utils.EmptyEvent;
 import com.darkbladedev.utils.EventType;
 import com.google.gson.Gson;
@@ -11,15 +12,20 @@ import java.io.*;
 import java.nio.file.Files;
 import java.util.logging.Level;
 
+import org.bukkit.configuration.file.YamlConfiguration;
+
 
 public class StorageManager {
 
     private final File dataFile;
+    private final File dayCycleDataFile;
+
     private final Gson gson;
     private final HeartlessMain plugin;
 
     public StorageManager(HeartlessMain plugin) {
         this.plugin = plugin;
+        this.dayCycleDataFile = new File(plugin.getDataFolder(), "day_cycle_data.yml");
         this.dataFile = new File(plugin.getDataFolder(), "weekly_event_data.json");
         this.gson = new GsonBuilder().setPrettyPrinting().create();
         
@@ -28,6 +34,7 @@ public class StorageManager {
             plugin.getDataFolder().mkdirs();
         }
         createEmptyEventFileIfNeeded();
+        DayCycleUtils.init(YamlConfiguration.loadConfiguration(dayCycleDataFile), plugin.getLogger());
     }
 
     public void saveEvent(WeeklyEvent event) {

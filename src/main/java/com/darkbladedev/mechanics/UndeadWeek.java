@@ -129,7 +129,7 @@ public class UndeadWeek extends WeeklyEvent {
                     
                     // Limitar la cantidad de mundos procesados
                     if (worldsProcessed >= MAX_WORLDS_TO_PROCESS) {
-                        Bukkit.getLogger().warning(prefix + " Límite de mundos procesados alcanzado ("+MAX_WORLDS_TO_PROCESS+") al restaurar ciclo día/noche");
+                        Bukkit.getLogger().warning("Límite de mundos procesados alcanzado ("+MAX_WORLDS_TO_PROCESS+") al restaurar ciclo día/noche");
                         break;
                     }
                     
@@ -137,15 +137,15 @@ public class UndeadWeek extends WeeklyEvent {
                         if (world.getEnvironment() == World.Environment.NORMAL) {
                             world.setTime(0); // Establecer a día
                             worldsProcessed++;
-                            Bukkit.getLogger().info(prefix + " Ciclo día/noche restaurado en mundo: " + world.getName());
+                            Bukkit.getLogger().info("Ciclo día/noche restaurado en mundo: " + world.getName());
                         }
                     } catch (Exception e) {
-                        Bukkit.getLogger().warning(prefix + " Error al restaurar ciclo día/noche en mundo " + world.getName() + ": " + e.getMessage());
+                        Bukkit.getLogger().warning("Error al restaurar ciclo día/noche en mundo " + world.getName() + ": " + e.getMessage());
                         e.printStackTrace();
                     }
                 }
             } else {
-                Bukkit.getLogger().warning(prefix + " No se encontraron mundos disponibles para restaurar ciclo día/noche");
+                Bukkit.getLogger().warning("No se encontraron mundos disponibles para restaurar ciclo día/noche");
             }
             
             // Eliminar efectos de jugadores infectados con límite de procesamiento
@@ -167,7 +167,7 @@ public class UndeadWeek extends WeeklyEvent {
                     
                     // Limitar la cantidad de jugadores procesados
                     if (playersProcessed >= MAX_PLAYERS_TO_PROCESS) {
-                        Bukkit.getLogger().warning(prefix + " Límite de jugadores procesados alcanzado ("+MAX_PLAYERS_TO_PROCESS+"/"+totalPlayers+") al eliminar efectos");
+                        Bukkit.getLogger().warning("Límite de jugadores procesados alcanzado ("+MAX_PLAYERS_TO_PROCESS+"/"+totalPlayers+") al eliminar efectos");
                         break;
                     }
                     
@@ -190,34 +190,34 @@ public class UndeadWeek extends WeeklyEvent {
                             playersProcessed++;
                         }
                     } catch (Exception e) {
-                        Bukkit.getLogger().warning(prefix + " Error al eliminar efectos del jugador " + playerId + ": " + e.getMessage());
+                        Bukkit.getLogger().warning("Error al eliminar efectos del jugador " + playerId + ": " + e.getMessage());
                         e.printStackTrace();
                     }
                 }
                 
-                Bukkit.getLogger().info(prefix + " Efectos eliminados de " + playersProcessed + " jugadores infectados");
+                Bukkit.getLogger().info("Efectos eliminados de " + playersProcessed + " jugadores infectados");
             } else {
-                Bukkit.getLogger().info(prefix + " No hay jugadores infectados para curar");
+                Bukkit.getLogger().info("No hay jugadores infectados para curar");
             }
             
             // Dar recompensas finales
             try {
-                Bukkit.getLogger().info(prefix + " Otorgando recompensas finales...");
+                Bukkit.getLogger().info("Otorgando recompensas finales...");
                 giveRewards();
-                Bukkit.getLogger().info(prefix + " Recompensas finales otorgadas correctamente");
+                Bukkit.getLogger().info("Recompensas finales otorgadas correctamente");
             } catch (Exception e) {
-                Bukkit.getLogger().severe(prefix + " Error al otorgar recompensas finales: " + e.getMessage());
+                Bukkit.getLogger().severe("Error al otorgar recompensas finales: " + e.getMessage());
                 e.printStackTrace();
             }
             
             // Anunciar finalización de tareas
-            Bukkit.getLogger().info(prefix + " Todas las tareas del evento han sido detenidas correctamente");
+            Bukkit.getLogger().info("Todas las tareas del evento han sido detenidas correctamente");
             
             // Reiniciar contadores y estados
             // nightCounter eliminado - se usa DayCycleUtils
             isRedMoonActive = false;
         } catch (Exception e) {
-            Bukkit.getLogger().severe(prefix + " Error crítico al detener las tareas del evento: " + e.getMessage());
+            Bukkit.getLogger().severe("Error crítico al detener las tareas del evento: " + e.getMessage());
             e.printStackTrace();
             
             // Intentar limpiar recursos críticos en caso de error fatal
@@ -232,9 +232,9 @@ public class UndeadWeek extends WeeklyEvent {
                 }
                 isRedMoonActive = false;
                 // nightCounter eliminado - se usa DayCycleUtils
-                Bukkit.getLogger().info(prefix + " Recursos críticos liberados tras error fatal");
+                Bukkit.getLogger().info("Recursos críticos liberados tras error fatal");
             } catch (Exception ex) {
-                Bukkit.getLogger().severe(prefix + " Error al liberar recursos críticos: " + ex.getMessage());
+                Bukkit.getLogger().severe("Error al liberar recursos críticos: " + ex.getMessage());
             }
         }
     }
@@ -246,7 +246,7 @@ public class UndeadWeek extends WeeklyEvent {
      */
     @Override
     protected void cleanupEventData() {
-        Bukkit.getLogger().info(prefix + " Iniciando limpieza de datos del evento...");
+        Bukkit.getLogger().info("Iniciando limpieza de datos del evento...");
         
         try {
             // Registrar estadísticas antes de limpiar (para análisis)
@@ -274,86 +274,86 @@ public class UndeadWeek extends WeeklyEvent {
             }
             
             // Registrar estadísticas finales del evento
-            Bukkit.getLogger().info(prefix + " Estadísticas finales del evento:");
-            Bukkit.getLogger().info(prefix + " - Jugadores infectados al finalizar: " + infectedCount);
-            Bukkit.getLogger().info(prefix + " - Total de infecciones curadas: " + totalCuredInfections);
-            Bukkit.getLogger().info(prefix + " - Total de asesinatos en Luna Roja: " + totalRedMoonKills);
-            Bukkit.getLogger().info(prefix + " - Total de aldeanos curados: " + totalCuredVillagers);
-            Bukkit.getLogger().info(prefix + " - Total de Withers eliminados en Luna Roja: " + totalWitherKilled);
+            Bukkit.getLogger().info("Estadísticas finales del evento:");
+            Bukkit.getLogger().info(" - Jugadores infectados al finalizar: " + infectedCount);
+            Bukkit.getLogger().info(" - Total de infecciones curadas: " + totalCuredInfections);
+            Bukkit.getLogger().info(" - Total de asesinatos en Luna Roja: " + totalRedMoonKills);
+            Bukkit.getLogger().info(" - Total de aldeanos curados: " + totalCuredVillagers);
+            Bukkit.getLogger().info(" - Total de Withers eliminados en Luna Roja: " + totalWitherKilled);
             
             // Limpiar datos de seguimiento con verificaciones de nulidad
             if (infectedPlayers != null) {
                 int size = infectedPlayers.size();
                 infectedPlayers.clear();
-                Bukkit.getLogger().info(prefix + " Lista de " + size + " jugadores infectados limpiada correctamente");
+                Bukkit.getLogger().info("Lista de " + size + " jugadores infectados limpiada correctamente");
             } else {
                 infectedPlayers = new HashMap<>();
-                Bukkit.getLogger().info(prefix + " Creada nueva lista de jugadores infectados");
+                Bukkit.getLogger().info("Creada nueva lista de jugadores infectados");
             }
             
             if (curedInfectionsCount != null) {
                 int size = curedInfectionsCount.size();
                 curedInfectionsCount.clear();
-                Bukkit.getLogger().info(prefix + " Contador de infecciones curadas limpiado (" + size + " registros)");
+                Bukkit.getLogger().info("Contador de infecciones curadas limpiado (" + size + " registros)");
             } else {
                 curedInfectionsCount = new HashMap<>();
-                Bukkit.getLogger().info(prefix + " Creado nuevo contador de infecciones curadas");
+                Bukkit.getLogger().info("Creado nuevo contador de infecciones curadas");
             }
             
             if (redMoonKillsCount != null) {
                 int size = redMoonKillsCount.size();
                 redMoonKillsCount.clear();
-                Bukkit.getLogger().info(prefix + " Contador de asesinatos en Luna Roja limpiado (" + size + " registros)");
+                Bukkit.getLogger().info("Contador de asesinatos en Luna Roja limpiado (" + size + " registros)");
             } else {
                 redMoonKillsCount = new HashMap<>();
-                Bukkit.getLogger().info(prefix + " Creado nuevo contador de asesinatos en Luna Roja");
+                Bukkit.getLogger().info("Creado nuevo contador de asesinatos en Luna Roja");
             }
             
             if (curedVillagers != null) {
                 int size = curedVillagers.size();
                 curedVillagers.clear();
-                Bukkit.getLogger().info(prefix + " Lista de aldeanos curados limpiada (" + size + " registros)");
+                Bukkit.getLogger().info("Lista de aldeanos curados limpiada (" + size + " registros)");
             } else {
                 curedVillagers = new HashSet<>();
-                Bukkit.getLogger().info(prefix + " Creada nueva lista de aldeanos curados");
+                Bukkit.getLogger().info("Creada nueva lista de aldeanos curados");
             }
             
             if (witherKilledInRedMoon != null) {
                 int size = witherKilledInRedMoon.size();
                 witherKilledInRedMoon.clear();
-                Bukkit.getLogger().info(prefix + " Lista de Withers eliminados limpiada (" + size + " registros)");
+                Bukkit.getLogger().info("Lista de Withers eliminados limpiada (" + size + " registros)");
             } else {
                 witherKilledInRedMoon = new HashSet<>();
-                Bukkit.getLogger().info(prefix + " Creada nueva lista de Withers eliminados");
+                Bukkit.getLogger().info("Creada nueva lista de Withers eliminados");
             }
             
             // Reiniciar contadores y estados
             // nightCounter eliminado - se usa DayCycleUtils
             isRedMoonActive = false;
-            Bukkit.getLogger().info(prefix + " Contadores y estados reiniciados correctamente");
+            Bukkit.getLogger().info("Contadores y estados reiniciados correctamente");
             
             // Liberar referencias a tareas
             if (mainTask != null) {
                 // Solo registrar, no cancelar (ya debería estar cancelada en stopEventTasks)
-                Bukkit.getLogger().info(prefix + " Referencia a tarea principal liberada");
+                Bukkit.getLogger().info("Referencia a tarea principal liberada");
                 mainTask = null;
             }
             
             if (endTask != null) {
                 // Solo registrar, no cancelar (ya debería estar cancelada en stopEventTasks)
-                Bukkit.getLogger().info(prefix + " Referencia a tarea de finalización liberada");
+                Bukkit.getLogger().info("Referencia a tarea de finalización liberada");
                 endTask = null;
             }
             
             // Registrar finalización de limpieza
-            Bukkit.getLogger().info(prefix + " Datos del evento limpiados correctamente");
+            Bukkit.getLogger().info("Datos del evento limpiados correctamente");
         } catch (Exception e) {
-            Bukkit.getLogger().severe(prefix + " Error al limpiar datos del evento: " + e.getMessage());
+            Bukkit.getLogger().severe("Error al limpiar datos del evento: " + e.getMessage());
             e.printStackTrace();
             
             // Intentar inicializar estructuras de datos en caso de error
             try {
-                Bukkit.getLogger().warning(prefix + " Intentando recuperación de emergencia...");
+                Bukkit.getLogger().warning("Intentando recuperación de emergencia...");
                 
                 infectedPlayers = new HashMap<>();
                 curedInfectionsCount = new HashMap<>();
@@ -365,9 +365,9 @@ public class UndeadWeek extends WeeklyEvent {
                 mainTask = null;
                 endTask = null;
                 
-                Bukkit.getLogger().info(prefix + " Recuperación de emergencia completada");
+                Bukkit.getLogger().info("Recuperación de emergencia completada");
             } catch (Exception ex) {
-                Bukkit.getLogger().severe(prefix + " Error crítico durante la recuperación de emergencia: " + ex.getMessage());
+                Bukkit.getLogger().severe("Error crítico durante la recuperación de emergencia: " + ex.getMessage());
                 ex.printStackTrace();
             }
         }
@@ -434,7 +434,7 @@ public class UndeadWeek extends WeeklyEvent {
                             
                             // Activar Luna Roja cada 3 noches
                             if (nightCount > 0 && nightCount % 3 == 0 && !isRedMoonActive) {
-                                Bukkit.getLogger().info(prefix + " Activando Noche Roja (noche " + nightCount + ")");
+                                Bukkit.getLogger().info(" Activando Noche Roja (noche " + nightCount + ")");
                                 activateRedMoon();
                             }
                         } else {
@@ -486,7 +486,7 @@ public class UndeadWeek extends WeeklyEvent {
             isRedMoonActive = true;
             
             // Verificar si el prefijo es válido
-            String eventPrefix = prefix != null ? prefix : "&c[Semana No-Muerta]";
+            String eventPrefix = prefix != null ? prefix : "[Semana No-Muerta]";
             
             // Anunciar el inicio de la Noche Roja
             Bukkit.broadcast(MM.toComponent(eventPrefix + " <red>¡La Noche Roja ha comenzado! Los no-muertos son más rápidos y las camas explotan."));
@@ -562,7 +562,7 @@ public class UndeadWeek extends WeeklyEvent {
                             }
                             
                             try {
-                                player.sendMessage(MM.toComponent(eventPrefix + " <dark_red>El cielo se tiñe de rojo..."));
+                                player.sendMessage(MM.toComponent("<dark_red>El cielo se tiñe de rojo..."));
                                 playersInWorldProcessed++;
                             } catch (Exception e) {
                                 Bukkit.getLogger().warning("Error al enviar mensaje de cielo rojo al jugador " + player.getName() + ": " + e.getMessage());
@@ -624,7 +624,8 @@ public class UndeadWeek extends WeeklyEvent {
                                 totalProcessed++;
                             }
                         } catch (Exception e) {
-                            Bukkit.getLogger().warning("Error al procesar entidad durante Noche Roja: " + e.getMessage());
+                            Bukkit.getLogger().warning("Error al procesar entidad (" + entity.getType().name() + ") durante Noche Roja: " + e.getMessage());
+
                             continue;
                         }
                     }
