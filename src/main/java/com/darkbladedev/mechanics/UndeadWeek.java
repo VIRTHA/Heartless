@@ -2901,7 +2901,7 @@ public class UndeadWeek extends WeeklyEvent {
             }
             
             // Anunciar los desafíos disponibles
-            Bukkit.broadcast(MM.toComponent(eventPrefix + " <yellow>Desafíos disponibles:"));
+            Bukkit.broadcast(MM.toComponent("<yellow>Desafíos disponibles:"));
             Bukkit.broadcast(MM.toComponent("<gray>- <white>Curar tu infección 10 veces <gray>(Recompensa: Encantamiento Curse of Undead)"));
             Bukkit.broadcast(MM.toComponent("<gray>- <white>Curar a 5 aldeano zombificado <gray>(Recompensa: <gray><u>Tag</u> \"Dr. Zomboss\")"));
             Bukkit.broadcast(MM.toComponent("<gray>- <white>Matar 10 no-muertos durante la Noche Roja <gray>(Recompensa: +1 corazón)"));
