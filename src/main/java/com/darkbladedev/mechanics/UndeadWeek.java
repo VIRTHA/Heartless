@@ -671,7 +671,7 @@ public class UndeadWeek extends WeeklyEvent {
             isRedMoonActive = false;
             
             // Verificar si el prefijo es válido
-            String eventPrefix = prefix != null ? prefix : "&c[Semana No-Muerta]";
+            String eventPrefix = prefix != null ? prefix : "<red>[Semana No-Muerta]</red>";
             
             // Anunciar el fin de la Noche Roja
             Bukkit.broadcast(MM.toComponent(eventPrefix + " <green>La Noche Roja ha terminado."));
@@ -1173,14 +1173,14 @@ public class UndeadWeek extends WeeklyEvent {
                         // Verificar si ya ha recibido la recompensa
                         if (!witherKilledInRedMoon.contains(killerId)) {
                             witherKilledInRedMoon.add(killerId);
-                            killer.sendMessage(MM.toComponent("&a¡Desafío legendario completado! Has derrotado al Wither en la Noche Roja."));
+                            killer.sendMessage(MM.toComponent("<green>¡Desafío legendario completado! Has derrotado al Wither en la Noche Roja.</green>"));
                             
                             // Aumentar corazón máximo
                             AttributeInstance maxHealthAttr = killer.getAttribute(Attribute.MAX_HEALTH);
                             if (maxHealthAttr != null) {
                                 double currentMaxHealth = maxHealthAttr.getValue();
                                 maxHealthAttr.setBaseValue(currentMaxHealth + 2.0);
-                                killer.sendMessage(MM.toComponent("&6Recompensa: +1 corazón máximo"));
+                                killer.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón máximo</gold>"));
                                 
                                 // Efectos visuales y sonoros para la recompensa
                                 killer.playSound(killer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 0.5f);
@@ -1245,7 +1245,7 @@ public class UndeadWeek extends WeeklyEvent {
                     }
                     
                     // Mensaje y efectos
-                    player.sendMessage(MM.toComponent("&a¡Te has curado de la infección!"));
+                    player.sendMessage(MM.toComponent("<green>¡Te has curado de la infección!</green>"));
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
                     player.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0.1);
                     
@@ -1255,19 +1255,19 @@ public class UndeadWeek extends WeeklyEvent {
                     
                     // Mostrar progreso ocasionalmente
                     if (curedCount < 10 && curedCount % 2 == 0) {
-                        player.sendMessage(MM.toComponent("&7Has curado &e" + curedCount + "&7/10 infecciones."));
+                        player.sendMessage(MM.toComponent("<gray>Has curado <yellow>" + curedCount + "</yellow>/10 infecciones.</gray>"));
                     }
                     
                     // Verificar desafío completado
                     if (curedCount == 10) {
-                        player.sendMessage(MM.toComponent("&a¡Desafío completado! Has curado 10 infecciones."));
+                        player.sendMessage(MM.toComponent("<green>¡Desafío completado! Has curado 10 infecciones.</green>"));
                         
                         // Aumentar corazón máximo
                         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
                         if (maxHealthAttr != null) {
                             double currentMaxHealth = maxHealthAttr.getValue();
                             maxHealthAttr.setBaseValue(currentMaxHealth + 2.0);
-                            player.sendMessage(MM.toComponent("&6Recompensa: +1 corazón máximo"));
+                            player.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón máximo</gold>"));
                             
                             // Efectos para la recompensa
                             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 0.5f);
@@ -1365,8 +1365,8 @@ public class UndeadWeek extends WeeklyEvent {
                     if (!curedVillagers.contains(playerId)) {
                         try {
                             curedVillagers.add(playerId);
-                            closestPlayer.sendMessage(MM.toComponent("&a¡Desafío completado! Has curado a un aldeano zombificado."));
-                            closestPlayer.sendMessage(MM.toComponent("&6Recompensa: Encantamiento First Strike"));
+                            closestPlayer.sendMessage(MM.toComponent("<green>¡Desafío completado! Has curado a un aldeano zombificado.</green>"));
+                            closestPlayer.sendMessage(MM.toComponent("<gold>Recompensa: Encantamiento First Strike</gold>"));
                             
                             // Efectos para la recompensa
                             closestPlayer.playSound(closestPlayer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
@@ -1496,7 +1496,7 @@ public class UndeadWeek extends WeeklyEvent {
             event.setCancelled(true);
             
             // Enviar mensaje al jugador
-            player.sendMessage(MM.toComponent("&c¡No puedes dormir durante la Noche Roja! &4¡Tu cama ha explotado!"));
+            player.sendMessage(MM.toComponent("<red>¡No puedes dormir durante la Noche Roja! <dark_red>¡Tu cama ha explotado!</dark_red></red>"));
             
             // Efectos de sonido y visuales
             player.playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 0.5f, 1.5f);
@@ -1568,7 +1568,7 @@ public class UndeadWeek extends WeeklyEvent {
             event.setCancelled(true);
             
             // Enviar mensaje al jugador
-            player.sendMessage(MM.toComponent("&c¡No puedes dormir durante la Noche Roja! &4¡Tu cama ha explotado!"));
+            player.sendMessage(MM.toComponent("<red>¡No puedes dormir durante la Noche Roja! <dark_red>¡Tu cama ha explotado!</dark_red></red>"));
             
             // Efectos de sonido y visuales
             player.playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 0.5f, 1.5f);
@@ -1994,7 +1994,7 @@ public class UndeadWeek extends WeeklyEvent {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.5f);
                 
                 // Mensaje de recompensa con prefijo verificado
-                String safePrefix = (prefix != null) ? prefix : "&c[Semana No-Muerta]";
+                String safePrefix = (prefix != null) ? prefix : "<red>[Semana No-Muerta]</red>";
                 sendSafeMessage(player, safePrefix + " <green>¡Has recibido <gold>" + emeralds + " esmeraldas</gold> y <yellow>" + experience + " puntos de experiencia</yellow> como recompensa!");
             } catch (Exception e) {
                 Bukkit.getLogger().warning("[UndeadWeek] Error al mostrar efectos de recompensa a " + player.getName() + ": " + e.getMessage());
@@ -2861,7 +2861,7 @@ public class UndeadWeek extends WeeklyEvent {
             }
             
             // Verificar si el prefijo es válido
-            String eventPrefix = prefix != null ? prefix : "&c[Semana No-Muerta]";
+            String eventPrefix = prefix != null ? prefix : "<red>[Semana No-Muerta]</red>";
             
             // Anunciar el inicio del evento
             Bukkit.broadcast(MM.toComponent(eventPrefix + " <red>Las hordas de no-muertos dominan el mundo..."));
@@ -2923,7 +2923,7 @@ public class UndeadWeek extends WeeklyEvent {
     protected void announceEventEnd() {
         try {
             // Verificar si el prefijo es válido
-            String eventPrefix = prefix != null ? prefix : "&c[Semana No-Muerta]";
+            String eventPrefix = prefix != null ? prefix : "<red>[Semana No-Muerta]</red>";
             
             // Anunciar el fin del evento
             Bukkit.broadcast(MM.toComponent(eventPrefix + " <green>¡La amenaza de los no-muertos ha sido contenida!"));

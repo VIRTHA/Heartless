@@ -483,9 +483,9 @@ public class ExplosiveWeek extends WeeklyEvent {
             return;
         }
         
-        player.sendMessage(MM.toComponent("&a&l¡DESAFÍO COMPLETADO!"));
-        player.sendMessage(MM.toComponent("&eHas matado a un ghast en el Overworld."));
-        player.sendMessage(MM.toComponent("&6Recompensa: Encantamiento Carve"));
+        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
+        player.sendMessage(MM.toComponent("<yellow>Has matado a un ghast en el Overworld.</yellow>"));
+        player.sendMessage(MM.toComponent("<gold>Recompensa: Encantamiento Carve</gold>"));
         
         // TOD0: Add Carve enchantment to player's held item
         // This would require implementing the Carve enchantment
@@ -493,23 +493,23 @@ public class ExplosiveWeek extends WeeklyEvent {
         ghastKillers.add(player.getUniqueId());
         
         // Announce to server
-        Bukkit.broadcast(MM.toComponent("&6" + player.getName() + " &eha completado el desafío: &7Matar a un ghast en el Overworld"));
+        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Matar a un ghast en el Overworld</gray></yellow></gold>"));
     }
     
     private void awardMobHeadCollectionChallenge(Player player) {
         Set<EntityType> collectedHeads = mobHeadCollectors.getOrDefault(player.getUniqueId(), new HashSet<>());
         
         if (collectedHeads.size() >= classicHostileMobs.size()) {
-            player.sendMessage(MM.toComponent("&a&l¡DESAFÍO COMPLETADO!"));
-            player.sendMessage(MM.toComponent("&eHas conseguido la cabeza de todos los mobs hostiles clásicos."));
-            player.sendMessage(MM.toComponent("&6Recompensa: +1 corazón permanente"));
+            player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
+            player.sendMessage(MM.toComponent("<yellow>Has conseguido la cabeza de todos los mobs hostiles clásicos.</yellow>"));
+            player.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón permanente</gold>"));
             
             // Add one heart to player's max health
             double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
             player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(currentMaxHealth + 2.0);
             
             // Announce to server
-            Bukkit.broadcast(MM.toComponent("&6" + player.getName() + " &eha completado el desafío: &7Coleccionar todas las cabezas de mobs hostiles clásicos"));
+            Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Coleccionar todas las cabezas de mobs hostiles clásicos</gray></yellow></gold>"));
         }
     }
     
@@ -519,9 +519,9 @@ public class ExplosiveWeek extends WeeklyEvent {
             return;
         }
         
-        player.sendMessage(MM.toComponent("<green><b>¡DESAFÍO COMPLETADO!"));
-        player.sendMessage(MM.toComponent("<yellow>Has matado a un jugador con una explosión."));
-        player.sendMessage(MM.toComponent("<gray>Recompensa: <u>Tag \"TNTómano\""));
+        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
+        player.sendMessage(MM.toComponent("<yellow>Has matado a un jugador con una explosión.</yellow>"));
+        player.sendMessage(MM.toComponent("<gold>Recompensa: Tag \"TNTómano\"</gold>"));
         
         // Award the tag using EternalTags
         //eternalAPI.setTag(player, new Tag("tntomano", "tntomano", "&x&f&f&f&f&f&fT&x&f&a&d&b&d&bN&x&f&5&b&8&b&8T&x&f&0&9&4&9&4o&x&e&c&7&1&7&1m&x&e&7&4&d&4&da&x&e&2&2&a&2&an&x&d&d&0&6&0&6o")); //&#10dd00T&#2bc205N&#45a80aT&#608d0fo&#7a7213m&#955718a&#af3d1dn&#ca2222o
@@ -529,7 +529,7 @@ public class ExplosiveWeek extends WeeklyEvent {
         playerExplosionKillers.add(player.getUniqueId());
         
         // Announce to server
-        Bukkit.broadcast(MM.toComponent("&6" + player.getName() + " &eha completado el desafío: &7Matar a un jugador con una explosión"));
+        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Matar a un jugador con una explosión</gray></yellow></gold>"));
     }
     
     private void awardWardenCreeperKillChallenge(Player player) {
@@ -538,9 +538,9 @@ public class ExplosiveWeek extends WeeklyEvent {
             return;
         }
         
-        player.sendMessage(MM.toComponent("&a&l¡DESAFÍO COMPLETADO!"));
-        player.sendMessage(MM.toComponent("&eHas matado a un warden con la explosión de un creeper eléctrico."));
-        player.sendMessage(MM.toComponent("&6Recompensa: +1 corazón permanente"));
+        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
+        player.sendMessage(MM.toComponent("<yellow>Has matado a un warden con la explosión de un creeper eléctrico.</yellow>"));
+        player.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón permanente</gold>"));
         
         // Add one heart to player's max health
         double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
@@ -549,7 +549,7 @@ public class ExplosiveWeek extends WeeklyEvent {
         wardenCreeperKillers.add(player.getUniqueId());
         
         // Announce to server
-        Bukkit.broadcast(MM.toComponent("&6" + player.getName() + " &eha completado el desafío: &7Matar a un warden con un creeper eléctrico"));
+        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Matar a un warden con un creeper eléctrico</gray></yellow></gold>"));
     }
     
     public boolean isActive() {

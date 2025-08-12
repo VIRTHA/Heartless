@@ -36,7 +36,7 @@ public class HealthRewards implements Listener {
             double newMaxHealth = Math.min(currentMaxHealth + 2.0, 40.0); // Cap at 20 hearts (40 health)
             
             player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
-            player.sendMessage(MM.toComponent("&6¡Has ganado un corazón extra de vida máxima!"));
+            player.sendMessage(MM.toComponent("<gold>¡Has ganado un corazón extra de vida máxima!</gold>"));
             
             // Play a special effect
             player.getWorld().spawnParticle(org.bukkit.Particle.HEART, player.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
@@ -57,14 +57,14 @@ public class HealthRewards implements Listener {
                 double newMaxHealth = Math.min(currentMaxHealth + 4.0, 40.0); // Cap at 20 hearts (40 health)
                 
                 killer.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
-                killer.sendMessage(MM.toComponent("&5¡Has derrotado al Dragón del End! &6Ganaste 2 corazones extra de vida máxima."));
+                killer.sendMessage(MM.toComponent("<dark_purple>¡Has derrotado al Dragón del End! <gold>Ganaste 2 corazones extra de vida máxima.</gold></dark_purple>"));
                 
                 // Play a special effect
                 killer.getWorld().spawnParticle(org.bukkit.Particle.DRAGON_BREATH, killer.getLocation().add(0, 1, 0), 50, 1.0, 1.0, 1.0, 0.1);
                 killer.playSound(killer.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
                 
                 // Broadcast the achievement to all players
-                Bukkit.broadcast(MM.toComponent("&5¡" + killer.getName() + " ha derrotado al Dragón del End!"));
+                Bukkit.broadcast(MM.toComponent("<dark_purple>¡" + killer.getName() + " ha derrotado al Dragón del End!</dark_purple>"));
             }
         }
     }

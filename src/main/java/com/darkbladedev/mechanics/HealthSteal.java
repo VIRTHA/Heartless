@@ -98,9 +98,9 @@ public class HealthSteal implements Listener {
         deadPlayer.getAttribute(Attribute.MAX_HEALTH).setBaseValue(victimNewMaxHealth);
         
         // Mensaje al jugador víctima
-        deadPlayer.sendMessage(MM.toComponent("<gray>¡<red>" + (killer instanceof Player ? ((Player)killer).getName() : "Un mob") + " ha robado 1 corazón de tu salud máxima&</red>!</gray>"));
+        deadPlayer.sendMessage(MM.toComponent("<gray>¡<red>" + (killer instanceof Player ? ((Player)killer).getName() : "Un mob") + " ha robado 1 corazón de tu salud máxima</red>!</gray>"));
         if (killer instanceof Player) {
-            ((Player) killer).sendMessage(MM.toComponent("<green>¡<green>Robaste 1 corazón de &3" + deadPlayer.getName() + "</green>!</gray>"));
+            ((Player) killer).sendMessage(MM.toComponent("<green>¡Robaste 1 corazón de <dark_aqua>" + deadPlayer.getName() + "</dark_aqua>!</green>"));
         }
     }
 
@@ -178,7 +178,7 @@ public class HealthSteal implements Listener {
             
             // Notificar a los administradores
             Bukkit.getConsoleSender().sendMessage(MM.toComponent(
-                "&f" + player.getName() + " ha sido baneado por " + banHours + " horas " +
+                "<white>" + player.getName() + " ha sido baneado por " + banHours + " horas " +
                 "(Baneo #" + banCount + ")"
             ));
         }, 40L); // 2 segundos de retraso (40 ticks)

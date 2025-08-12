@@ -564,14 +564,14 @@ public class BloodAndIronWeek extends WeeklyEvent {
             return; // Already awarded
         }
         
-        player.sendMessage(MM.toComponent("&a&l¡DESAFÍO COMPLETADO!"));
-        player.sendMessage(MM.toComponent("&eHas matado a 3 jugadores."));
-        player.sendMessage(MM.toComponent("&6Recompensa: Encantamiento Adrenaline"));
+        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
+        player.sendMessage(MM.toComponent("<yellow>Has matado a 3 jugadores.</yellow>"));
+        player.sendMessage(MM.toComponent("<gold>Recompensa: Encantamiento Adrenaline</gold>"));
         
         awardedAdrenaline.add(playerId);
         
         // Announce to server
-        Bukkit.broadcast(MM.toComponent("&6" + player.getName() + " &eha completado el desafío: &7Matar a 3 jugadores"));
+        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Matar a 3 jugadores</gray></yellow></gold>"));
     }
     
     private void awardInstantDamageKill(Player player) {
@@ -581,9 +581,9 @@ public class BloodAndIronWeek extends WeeklyEvent {
             return; // Already awarded
         }
         
-        player.sendMessage(MM.toComponent("&a&l¡DESAFÍO COMPLETADO!"));
-        player.sendMessage(MM.toComponent("&eHas matado a un jugador con poción de daño instantáneo."));
-        player.sendMessage(MM.toComponent("&6Recompensa: +1 corazón permanente"));
+        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
+        player.sendMessage(MM.toComponent("<yellow>Has matado a un jugador con poción de daño instantáneo.</yellow>"));
+        player.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón permanente</gold>"));
         
         // Add one heart to player's max health
         double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
@@ -592,7 +592,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
         instantDamageKillers.add(playerId);
         
         // Announce to server
-        Bukkit.broadcast(MM.toComponent("&6" + player.getName() + " &eha completado el desafío: &7Matar a un jugador con poción de daño instantáneo"));
+        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Matar a un jugador con poción de daño instantáneo</gray></yellow></gold>"));
     }
     
     private void awardPentakillTag(Player player) {
@@ -602,9 +602,9 @@ public class BloodAndIronWeek extends WeeklyEvent {
             return; // Already awarded
         }
         
-        player.sendMessage(MM.toComponent("&a&l¡DESAFÍO COMPLETADO!"));
-        player.sendMessage(MM.toComponent("&eHas matado a 5 jugadores seguidos sin morir."));
-        player.sendMessage(MM.toComponent("&6Recompensa: Tag \"Pentakill\""));
+        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
+        player.sendMessage(MM.toComponent("<yellow>Has matado a 5 jugadores seguidos sin morir.</yellow>"));
+        player.sendMessage(MM.toComponent("<gold>Recompensa: Tag \"Pentakill\"</gold>"));
         
         // Award the tag using EternalTags
         //eternalAPI.setTag(player, new Tag("pentakill", "pentakill", "&x&d&d&0&0&c&7P&x&d&b&0&4&b&2e&x&d&8&0&9&9&en&x&d&6&0&d&8&9t&x&d&3&1&1&7&5a&x&d&1&1&5&6&0k&x&c&f&1&a&4&bi&x&c&c&1&e&3&7l&x&c&a&2&2&2&2l"));
@@ -612,7 +612,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
         pentakillPlayers.add(playerId);
         
         // Announce to server
-        Bukkit.broadcast(MM.toComponent("&6" + player.getName() + " &eha completado el desafío: &7Matar a 5 jugadores seguidos sin morir"));
+        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Matar a 5 jugadores seguidos sin morir</gray></yellow></gold>"));
     }
     
     private void awardSurvivalChallenge(Player player) {
@@ -622,16 +622,16 @@ public class BloodAndIronWeek extends WeeklyEvent {
             return; // Didn't meet requirements
         }
         
-        player.sendMessage(MM.toComponent("&a&l¡DESAFÍO COMPLETADO!"));
-        player.sendMessage(MM.toComponent("&eHas sobrevivido todo el evento sin morir y con más de 10 kills."));
-        player.sendMessage(MM.toComponent("&6Recompensa: +1 corazón permanente"));
+        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
+        player.sendMessage(MM.toComponent("<yellow>Has sobrevivido todo el evento sin morir y con más de 10 kills.</yellow>"));
+        player.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón permanente</gold>"));
         
         // Add one heart to player's max health
         double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
         player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(currentMaxHealth + 2.0);
         
         // Announce to server
-        Bukkit.broadcast(MM.toComponent("&6" + player.getName() + " &eha completado el desafío: &7Sobrevivir todo el evento sin morir con más de 10 kills"));
+        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Sobrevivir todo el evento sin morir con más de 10 kills</gray></yellow></gold>"));
     }
 
     // Helper methods
