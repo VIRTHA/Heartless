@@ -34,11 +34,13 @@ import java.util.*;
 
 // Add this import at the top with other imports
 import org.bukkit.event.entity.EntitySpawnEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 
 public class UndeadWeek extends WeeklyEvent {
 
     private boolean isRedMoonActive = false;
     // nightCounter eliminado - ahora se usa DayCycleUtils para el conteo de noches
+    private long lastRedMoonNight = -1; // Rastrear la última noche en que se activó la Luna Roja
     private BukkitTask mainTask;
     
     // Tracking infected players and challenges
@@ -426,15 +428,28 @@ public class UndeadWeek extends WeeklyEvent {
                         DayCycleUtils.checkWorld(world);
                         
                         long time = world.getTime();
+                        long fullTime = world.getFullTime();
+                        long currentCycle = fullTime / 24000L;
                         
                         // Verificar si es de noche (13000-23000)
                         if (time >= 13000 && time <= 23000) {
                             // Durante la noche, verificar si debe activarse la Luna Roja
                             long nightCount = DayCycleUtils.getNightCount(world);
                             
-                            // Activar Luna Roja cada 3 noches
-                            if (nightCount > 0 && nightCount % 3 == 0 && !isRedMoonActive) {
+                            // Debug: Log de información para depuración (cada 10 segundos aprox)
+                            if (fullTime % 200 == 0) { // Solo cada 200 ticks para evitar spam
+                                Bukkit.getLogger().info("[DEBUG] Mundo: " + world.getName() + ", Tiempo: " + time + ", FullTime: " + fullTime + ", Ciclo: " + currentCycle + ", Noche: " + nightCount + ", isRedMoonActive: " + isRedMoonActive + ", lastRedMoonNight: " + lastRedMoonNight);
+                            }
+                            
+                            // Debug específico para noches múltiplo de 3
+                            if (nightCount > 0 && nightCount % 3 == 0) {
+                                Bukkit.getLogger().info("[DEBUG] ¡Noche múltiplo de 3! Noche " + nightCount + ", isRedMoonActive: " + isRedMoonActive + ", lastRedMoonNight: " + lastRedMoonNight);
+                            }
+                            
+                            // Activar Luna Roja cada 3 noches, pero solo una vez por noche
+                            if (nightCount > 0 && nightCount % 3 == 0 && !isRedMoonActive && lastRedMoonNight != nightCount) {
                                 Bukkit.getLogger().info(" Activando Noche Roja (noche " + nightCount + ")");
+                                lastRedMoonNight = nightCount; // Marcar esta noche como activada
                                 activateRedMoon();
                             }
                         } else {
@@ -460,6 +475,15 @@ public class UndeadWeek extends WeeklyEvent {
             Bukkit.getLogger().severe("Error crítico al verificar el tiempo: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+    
+    /**
+     * Comando de debug para forzar la activación de la Luna Roja
+     */
+    public void forceActivateRedMoon() {
+        Bukkit.getLogger().info("[DEBUG] Forzando activación de Luna Roja...");
+        Bukkit.getLogger().info("[DEBUG] Estado actual - isRedMoonActive: " + isRedMoonActive + ", lastRedMoonNight: " + lastRedMoonNight);
+        activateRedMoon();
     }
     
     /**
@@ -669,6 +693,7 @@ public class UndeadWeek extends WeeklyEvent {
         try {
             // Desactivar la Noche Roja
             isRedMoonActive = false;
+            lastRedMoonNight = -1; // Resetear para permitir activación en futuras noches
             
             // Verificar si el prefijo es válido
             String eventPrefix = prefix != null ? prefix : "<red>[Semana No-Muerta]</red>";
@@ -1065,6 +1090,137 @@ public class UndeadWeek extends WeeklyEvent {
         }
     }
 
+    /**
+     * Maneja el evento de spawn de criaturas para aumentar el spawn rate de no-muertos durante la Luna Roja
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onCreatureSpawn(CreatureSpawnEvent event) {
+        if (!isActive || isPaused) {
+            return;
+        }
+        
+        try {
+            // Verificar si el evento es válido
+            if (event == null || event.isCancelled()) {
+                return;
+            }
+            
+            Entity entity = event.getEntity();
+            
+            // Verificar si la entidad es válida
+            if (entity == null || entity.getWorld() == null) {
+                return;
+            }
+            
+            // Solo procesar durante la Luna Roja y en spawn natural
+            if (!isRedMoonActive || event.getSpawnReason() != org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL) {
+                return;
+            }
+            
+            // Si es una entidad no-muerta, intentar spawnear entidades adicionales
+            if (isUndead(entity)) {
+                World world = entity.getWorld();
+                Location spawnLoc = entity.getLocation();
+                
+                // Verificar que sea de noche
+                if (world.getTime() < 12000 || world.getTime() > 24000) {
+                    return;
+                }
+                
+                // Verificar límite de entidades en el chunk para evitar lag
+                Chunk chunk = spawnLoc.getChunk();
+                int undeadCount = 0;
+                
+                for (Entity e : chunk.getEntities()) {
+                    if (isUndead(e)) {
+                        undeadCount++;
+                    }
+                }
+                
+                // Si hay demasiadas entidades no-muertas en el chunk, no spawnear más
+                if (undeadCount > 20) { // Límite más alto durante Luna Roja
+                    return;
+                }
+                
+                // 40% de probabilidad de spawnear entidades adicionales durante Luna Roja
+                if (Math.random() < 0.4) {
+                    int additionalSpawns = 1 + (int)(Math.random() * 2); // 1-2 entidades adicionales
+                    
+                    for (int i = 0; i < additionalSpawns; i++) {
+                        // Verificar límite nuevamente antes de cada spawn
+                        undeadCount = 0;
+                        for (Entity e : chunk.getEntities()) {
+                            if (isUndead(e)) {
+                                undeadCount++;
+                            }
+                        }
+                        
+                        if (undeadCount > 25) { // Límite absoluto
+                            break;
+                        }
+                        
+                        // Seleccionar un tipo de entidad no-muerta aleatoria
+                        EntityType randomUndeadType = undeadEntities.get((int)(Math.random() * undeadEntities.size()));
+                        
+                        // Calcular posición de spawn cerca de la entidad original
+                        double offsetX = (Math.random() - 0.5) * 10; // -5 a +5 bloques
+                        double offsetZ = (Math.random() - 0.5) * 10;
+                        
+                        Location newSpawnLoc = spawnLoc.clone().add(offsetX, 0, offsetZ);
+                        
+                        // Asegurar que la posición sea segura (no en bloques sólidos)
+                        Block block = newSpawnLoc.getBlock();
+                        if (block.getType().isSolid()) {
+                            // Buscar una posición segura hacia arriba
+                            for (int y = 1; y <= 5; y++) {
+                                Block upperBlock = newSpawnLoc.clone().add(0, y, 0).getBlock();
+                                if (!upperBlock.getType().isSolid() && !upperBlock.getRelative(0, 1, 0).getType().isSolid()) {
+                                    newSpawnLoc.add(0, y, 0);
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        try {
+                            // Spawnear la entidad adicional
+                            Entity newEntity = world.spawnEntity(newSpawnLoc, randomUndeadType);
+                            
+                            if (newEntity instanceof LivingEntity) {
+                                LivingEntity livingEntity = (LivingEntity) newEntity;
+                                
+                                // Aplicar efectos inmediatamente
+                                livingEntity.addPotionEffect(new PotionEffect(
+                                    PotionEffectType.STRENGTH,
+                                    Integer.MAX_VALUE,
+                                    1, // Nivel II
+                                    false,
+                                    false,
+                                    true
+                                ));
+                                
+                                // Aplicar aumento de velocidad durante Luna Roja
+                                if (livingEntity.getAttribute(Attribute.MOVEMENT_SPEED) != null) {
+                                    double baseSpeed = livingEntity.getAttribute(Attribute.MOVEMENT_SPEED).getBaseValue();
+                                    livingEntity.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(Math.min(baseSpeed * 2, 0.5));
+                                }
+                                
+                                // Efectos visuales para indicar spawn durante Luna Roja
+                                if (Math.random() < 0.5) {
+                                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, 
+                                        newSpawnLoc.add(0, 1, 0), 
+                                        8, 0.3, 0.3, 0.3, 0.1);
+                                }
+                            }
+                        } catch (Exception e) {
+                            Bukkit.getLogger().warning("Error al spawnear entidad adicional durante Luna Roja: " + e.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("Error en onCreatureSpawn: " + e.getMessage());
+        }
+    }
 
     /**
      * Maneja el evento de daño entre entidades
@@ -2314,7 +2470,6 @@ public class UndeadWeek extends WeeklyEvent {
                                 }
                             } catch (Exception msgEx) {
                                 Bukkit.getLogger().warning("[UndeadWeek] Error al enviar mensaje al jugador " + player.getName() + ": " + msgEx.getMessage());
-                                player.sendMessage("§c[Semana No-Muerta] Tus síntomas de infección han regresado");
                             }
                             
                             playersProcessed++;
@@ -2609,6 +2764,7 @@ public class UndeadWeek extends WeeklyEvent {
             isPaused = false;
             // nightCounter eliminado - se usa DayCycleUtils
             isRedMoonActive = false;
+            lastRedMoonNight = -1; // Inicializar el rastreador de noche de Luna Roja
             
             // Iniciar la tarea principal que se ejecuta periódicamente
             mainTask = new BukkitRunnable() {

@@ -22,6 +22,7 @@ public class EventControl implements CommandFunction {
         subcommands.put("schedule", new Schedule());
         subcommands.put("status", new Status());
         subcommands.put("reset", new Reset());
+        subcommands.put("debug-redmoon", new DebugRedMoon()); // Comando temporal de debug
     }
 
 	@Override

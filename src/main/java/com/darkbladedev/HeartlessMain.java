@@ -54,6 +54,11 @@ public class HeartlessMain extends JavaPlugin {
     public void onDisable() {
         // Plugin shutdown logic
         
+        // Guardar datos del ciclo de día
+        if (storageManager != null) {
+            storageManager.saveDayCycleData();
+        }
+        
         // Limpiar recursos de efectos personalizados
         if (customEffectsManager != null) {
             customEffectsManager.cleanup();

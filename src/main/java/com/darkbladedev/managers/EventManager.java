@@ -6,6 +6,7 @@ import org.bukkit.command.CommandSender;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.exceptions.CustomException;
 import com.darkbladedev.mechanics.AcidWeek;
+import com.darkbladedev.mechanics.HealthSteal;
 import com.darkbladedev.utils.EventType;
 import com.darkbladedev.utils.MM;
 
@@ -14,12 +15,15 @@ public class EventManager {
     @SuppressWarnings("unused")
     private final HeartlessMain plugin;
     private WeeklyEventManager weeklyEventManager;
-
+    private HealthSteal healthStealSystem;
     private AcidWeek acidWeek;
-    
+
     public EventManager(HeartlessMain plugin) {
         this.plugin = plugin;
         this.weeklyEventManager = new WeeklyEventManager(plugin);
+        this.healthStealSystem = new HealthSteal(plugin);
+
+        Bukkit.getPluginManager().registerEvents(healthStealSystem, plugin);
     }
 
     // STARTERS

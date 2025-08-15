@@ -34,6 +34,7 @@ public class StorageManager {
             plugin.getDataFolder().mkdirs();
         }
         createEmptyEventFileIfNeeded();
+        createDayCycleFileIfNeeded();
         DayCycleUtils.init(YamlConfiguration.loadConfiguration(dayCycleDataFile), plugin.getLogger());
     }
 
@@ -63,6 +64,32 @@ public class StorageManager {
             } catch (IOException e) {
                 plugin.getLogger().log(Level.SEVERE, "No se pudo crear el archivo de datos del evento", e);
             }
+        }
+    }
+    
+    public void createDayCycleFileIfNeeded() {
+        if (!dayCycleDataFile.exists()) {
+            try {
+                Files.createDirectories(dayCycleDataFile.getParentFile().toPath());
+                YamlConfiguration config = new YamlConfiguration();
+                config.save(dayCycleDataFile);
+                plugin.getLogger().info("Archivo day_cycle_data.yml creado exitosamente en: " + dayCycleDataFile.getAbsolutePath());
+            } catch (IOException e) {
+                plugin.getLogger().log(Level.SEVERE, "No se pudo crear el archivo day_cycle_data.yml", e);
+            }
+        }
+    }
+    
+    /**
+     * Guarda los datos del ciclo de día
+     */
+    public void saveDayCycleData() {
+        try {
+            YamlConfiguration config = new YamlConfiguration();
+            DayCycleUtils.save(config);
+            config.save(dayCycleDataFile);
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.SEVERE, "Error guardando los datos del ciclo de día", e);
         }
     }
     
