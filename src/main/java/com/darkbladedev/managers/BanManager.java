@@ -234,4 +234,88 @@ public class BanManager implements Listener {
     public Set<UUID> getBanList() {
         return banList;
     }
+
+    /**
+     * Banea a un jugador por el tiempo especificado con la razón dada
+     * @param player El jugador a banear
+     * @param banHours Duración del baneo en horas
+     * @param banReason Razón del baneo
+     */
+    public void ban(Player player, long banHours, String banReason) {
+        if (player == null) {
+            plugin.getLogger().warning("Intento de banear un jugador nulo");
+            return;
+        }
+        
+        UUID playerUUID = player.getUniqueId();
+        
+        // Actualizar contador de baneos
+        int banCount = banCountMap.getOrDefault(playerUUID, 0) + 1;
+        banCountMap.put(playerUUID, banCount);
+        
+        // Agregar a la lista de baneados
+        banList.add(playerUUID);
+        
+        // Si el baneo es de 0 horas o menos, solo mostrar advertencia
+        if (banHours <= 0) {
+            player.sendMessage(MM.toComponent("<red>" + banReason));
+            player.sendMessage(MM.toComponent("<green>Estás exento de baneo gracias a tus permisos."));
+            return;
+        }
+        
+        // Calcular fecha de expiración
+        Date expirationDate = new Date(System.currentTimeMillis() + (banHours * 60 * 60 * 1000));
+        
+        // Mensaje de baneo para el jugador
+        Component banMessage = MM.toComponent(
+            "<red><b>" + banReason + "\n\n" +
+            "<gray>Duración del baneo: <red>" + banHours + " horas<gray>.\n" +
+            "<gray>Este es tu baneo número <red>" + banCount + "<gray>."
+        );
+        
+        // Notificar al jugador antes del baneo
+        player.sendMessage(MM.toComponent("<red>" + banReason));
+        player.sendMessage(MM.toComponent("<gray>Serás baneado por <red>" + banHours + " horas</gray>."));
+        player.sendMessage(MM.toComponent("<gray>Este es tu baneo número <red>" + banCount));
+        
+        // Programar el baneo para ejecutarse después de un breve retraso
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            try {
+                // Banear al jugador por nombre usando la API moderna
+                BanList<PlayerProfile> banListName = Bukkit.getBanList(BanListType.PROFILE);
+                banListName.addBan(
+                    player.getPlayerProfile(),
+                    banReason,
+                    expirationDate,
+                    "VIRTHA System"
+                );
+
+                // Banear al jugador por IP
+                BanList<InetAddress> banListIP = Bukkit.getBanList(BanListType.IP);
+                if (player.getAddress() != null && player.getAddress().getAddress() != null) {
+                    banListIP.addBan(
+                        player.getAddress().getAddress(),
+                        banReason,
+                        expirationDate,
+                        "VIRTHA System"
+                    );
+                }
+
+                // Expulsar al jugador
+                player.kick(banMessage);
+                
+                // Notificar a los administradores
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(
+                    "<white>" + player.getName() + " ha sido baneado por " + banHours + " horas " +
+                    "(Baneo #" + banCount + ") - Razón: " + banReason
+                ));
+                
+                plugin.getLogger().info("Jugador " + player.getName() + " baneado por " + banHours + " horas. Razón: " + banReason);
+                
+            } catch (Exception e) {
+                plugin.getLogger().severe("Error al banear al jugador " + player.getName() + ": " + e.getMessage());
+                e.printStackTrace();
+            }
+        }, 40L); // 2 segundos de retraso (40 ticks)
+    }
 }

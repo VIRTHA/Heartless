@@ -4,7 +4,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Clase que gestiona los permisos del plugin VIRTHA-Events
+ * Clase que gestiona los permisos del plugin Heartless
  * Permite verificar si un jugador tiene permisos específicos y obtener valores
  * asociados a esos permisos.
  */
@@ -15,7 +15,7 @@ public class PermissionManager {
     private final Plugin plugin;
     
     // Permisos del plugin
-    public static final String PERM_BAN_DURATION = "virtha.ban.duration.";
+    public static final String PERM_BAN_DURATION = "heartless.ban.duration.";
     
     private PermissionManager(Plugin plugin) {
         this.plugin = plugin;

@@ -13,12 +13,10 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.projectiles.ProjectileSource;
-import org.bukkit.plugin.Plugin;
-
+import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.managers.BanManager;
 import com.darkbladedev.managers.PermissionManager;
 import com.darkbladedev.utils.MM;
-
-import net.kyori.adventure.text.Component;
 
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -28,20 +26,18 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.bukkit.BanList;
 
 public class HealthSteal implements Listener {
     
     private static final String BAN_REASON = "Has alcanzado el mínimo de corazones permitidos";
     private final Map<UUID, Integer> banCountMap = new HashMap<>();
     private final File banDataFile;
-    private final Plugin plugin;
+    private final HeartlessMain plugin;
     
-    public HealthSteal(Plugin plugin) {
+    public HealthSteal(HeartlessMain plugin) {
         this.plugin = plugin;
         this.banDataFile = new File(plugin.getDataFolder(), "ban_data.json");
         
@@ -149,7 +145,6 @@ public class HealthSteal implements Listener {
         }
     }
 
-    @SuppressWarnings("deprecation")
     public void PenalizePlayer(Player player) {
         // Obtener el contador de baneos para este jugador
         UUID playerUUID = player.getUniqueId();
@@ -161,6 +156,8 @@ public class HealthSteal implements Listener {
         
         // Obtener el gestor de permisos
         PermissionManager permManager = PermissionManager.getInstance(plugin);
+        BanManager banManager = plugin.getBanManager();
+
         
         // Calcular la duración del baneo según los permisos del jugador
         // Por defecto: 6 horas * número de baneos
@@ -173,16 +170,7 @@ public class HealthSteal implements Listener {
             player.sendMessage(MM.toComponent("<green>Estás exento de baneo gracias a tus permisos."));
             return;
         }
-        
-        Date expirationDate = new Date(System.currentTimeMillis() + (banHours * 60 * 60 * 1000));
-        
-        // Mensaje para el jugador
-        Component banMessage = MM.toComponent(
-            "<red><b>¡Has alcanzado el mínimo de corazones permitidos!\n\n" +
-            "<gray>Serás baneado por <red>" + banHours + " horas<gray>.\n" +
-            "<gray>Este es tu baneo número <red>" + banCount
-        );
-        
+                
         // Notificar al jugador antes del baneo
         player.sendMessage(MM.toComponent("<red>¡Has alcanzado el mínimo de corazones permitidos!"));
         player.sendMessage(MM.toComponent("<gray>Serás baneado por <red>" + banHours + " horas</gray>."));
@@ -190,30 +178,7 @@ public class HealthSteal implements Listener {
         
         // Programar el baneo para ejecutarse después de un breve retraso
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            // Banear al jugador por nombre
-            Bukkit.getBanList(BanList.Type.NAME).addBan(
-                player.getName(),
-                BAN_REASON,
-                expirationDate,
-                "VIRTHA System"
-            );
-
-            // Banear al jugador por IP
-            Bukkit.getBanList(BanList.Type.IP).addBan(
-                player.getAddress().getAddress().getHostAddress(),
-                BAN_REASON,
-                expirationDate,
-                "VIRTHA System"
-            );
-
-            // Expulsar al jugador
-            player.kick(banMessage);
-            
-            // Notificar a los administradores
-            Bukkit.getConsoleSender().sendMessage(MM.toComponent(
-                "<white>" + player.getName() + " ha sido baneado por " + banHours + " horas " +
-                "(Baneo #" + banCount + ")"
-            ));
+            banManager.ban(player, banHours, BAN_REASON);
         }, 40L); // 2 segundos de retraso (40 ticks)
     }
     
