@@ -11,6 +11,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.plugin.Plugin;
 
@@ -113,6 +114,38 @@ public class HealthSteal implements Listener {
 
         if (currentMaxHealth <= minHealth) {
             PenalizePlayer(player);
+        }
+    }
+    
+    /**
+     * Restablece la salud máxima a 5 corazones cuando un jugador se reconecta
+     * después de haber sido baneado por alcanzar el límite mínimo de corazones
+     */
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        UUID playerUUID = player.getUniqueId();
+        
+        // Verificar si este jugador ha sido baneado anteriormente por corazones mínimos
+        if (banCountMap.containsKey(playerUUID)) {
+            double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double resetHealth = 10.0; // 5 corazones
+            
+            // Solo restablecer si la salud máxima actual es menor a 5 corazones
+            if (currentMaxHealth < resetHealth) {
+                player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(resetHealth);
+                
+                // Ajustar la salud actual si es mayor que la nueva salud máxima
+                if (player.getHealth() > resetHealth) {
+                    player.setHealth(resetHealth);
+                }
+                
+                // Mensaje informativo al jugador
+                player.sendMessage(MM.toComponent("<green>Tu salud máxima ha sido restablecida a 5 corazones.</green>"));
+                
+                // Log para administradores
+                plugin.getLogger().info("Salud máxima restablecida para " + player.getName() + " a 5 corazones");
+            }
         }
     }
 

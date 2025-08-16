@@ -102,6 +102,22 @@ public class TimeConverter {
     }
     
     /**
+     * Convierte una expresión de tiempo a milisegundos.
+     * Utiliza la misma lógica que parseTimeToTicks pero convierte el resultado a milisegundos.
+     * 
+     * @param timeExpression La expresión de tiempo a convertir
+     * @return La cantidad de milisegundos equivalente, o -1 si la expresión es inválida
+     */
+    public static long parseTimeToMillis(String timeExpression) {
+        long ticks = parseTimeToTicks(timeExpression);
+        if (ticks == -1) {
+            return -1;
+        }
+        // Convertir ticks a milisegundos (1 tick = 50ms en Minecraft)
+        return ticks * 50L;
+    }
+    
+    /**
      * Convierte ticks de Minecraft a una representación legible de tiempo.
      * 
      * @param ticks La cantidad de ticks a convertir

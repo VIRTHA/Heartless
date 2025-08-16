@@ -40,11 +40,11 @@ public abstract class WeeklyEvent implements Listener {
      * Constructor base para eventos semanales.
      * 
      * @param plugin El plugin principal
-     * @param duration Duración del evento en ticks
+     * @param duration Duración del evento en segundos
      */
     public WeeklyEvent(HeartlessMain plugin, long duration) {
         this.plugin = plugin;
-        this.duration = duration;
+        this.duration = duration * 20L; // Convertir segundos a ticks
     }
     
     /**

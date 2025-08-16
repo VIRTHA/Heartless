@@ -95,6 +95,5 @@ public class Bootstraps implements PluginBootstrap {
         }));
 
         
-        CustomPotions.register();
     }
 }

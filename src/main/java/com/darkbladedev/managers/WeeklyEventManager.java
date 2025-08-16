@@ -256,26 +256,29 @@ public class WeeklyEventManager {
         
 
         
+        // Convertir duración de milisegundos a segundos para los constructores
+        long durationInSeconds = duration / 1000L;
+        
         // Iniciar el evento según su tipo
         switch (eventType.getEventName()) {
             case "acid_week":
-                currentEvent = new AcidWeek(plugin, duration);
+                currentEvent = new AcidWeek(plugin, durationInSeconds);
                 break;
                 
             case "toxic_fog":
-                currentEvent = new ToxicFog(plugin, duration);
+                currentEvent = new ToxicFog(plugin, durationInSeconds);
                 break;
                 
             case "undead_week":
-                currentEvent = new UndeadWeek(plugin, duration);
+                currentEvent = new UndeadWeek(plugin, durationInSeconds);
                 break;
                 
             case "explosive_week":
-                currentEvent = new ExplosiveWeek(plugin, duration);
+                currentEvent = new ExplosiveWeek(plugin, durationInSeconds);
                 break;
                 
             case "blood_and_iron_week":
-                currentEvent = new BloodAndIronWeek(plugin, duration);
+                currentEvent = new BloodAndIronWeek(plugin, durationInSeconds);
                 break;
                 
             case "empty":
@@ -335,7 +338,7 @@ public class WeeklyEventManager {
                 // Iniciar nuevo evento aleatorio
                 startRandomEvent();
             }
-        }.runTaskLater(plugin, TimeUnit.MILLISECONDS.toSeconds(adjustedDelay) * 20); // Convertir a ticks
+        }.runTaskLater(plugin, adjustedDelay / 50L); // Convertir milisegundos a ticks (1 tick = 50ms)
     }
 
 

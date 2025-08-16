@@ -64,7 +64,7 @@ public class Start implements SubcommandExecutor, TabCompletable {
         }
         
         String eventTypeName = args[0];
-        long duration = TimeConverter.parseTimeToTicks(args[1]);
+        long duration = TimeConverter.parseTimeToMillis(args[1]);
         boolean force = false;
         
         EventType eventType = EventType.getByName(eventTypeName);
