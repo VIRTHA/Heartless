@@ -443,7 +443,7 @@ public class UndeadWeek extends WeeklyEvent {
                             
                             // Debug específico para noches múltiplo de 3
                             if (nightCount > 0 && nightCount % 3 == 0) {
-                                Bukkit.getLogger().info("[DEBUG] ¡Noche múltiplo de 3! Noche " + nightCount + ", isRedMoonActive: " + isRedMoonActive + ", lastRedMoonNight: " + lastRedMoonNight);
+                                //Bukkit.getLogger().info("[DEBUG] ¡Noche múltiplo de 3! Noche " + nightCount + ", isRedMoonActive: " + isRedMoonActive + ", lastRedMoonNight: " + lastRedMoonNight);
                             }
                             
                             // Activar Luna Roja cada 3 noches, pero solo una vez por noche
@@ -1268,10 +1268,10 @@ public class UndeadWeek extends WeeklyEvent {
                 // Verificar si el jugador ya está infectado
                 if (!infectedPlayers.getOrDefault(player.getUniqueId(), false)) {
                     // 25% de probabilidad de infección por golpe
-                    if (Math.random() < 0.25) {
+                    if (Math.random() < 0.40) {
                         try {
                             infectedPlayers.put(player.getUniqueId(), true);
-                            player.sendMessage(MM.toComponent("<red>¡Has sido infectado! Come una zanahoria o manzana dorada para curarte."));
+                            player.sendMessage(MM.toComponent("<red>¡Has sido infectado! Come una manzana dorada para curarte."));
                             
                             // Efecto de sonido para la infección
                             player.playSound(player.getLocation(), Sound.ENTITY_ZOMBIE_AMBIENT, 1.0f, 0.5f);

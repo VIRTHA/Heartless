@@ -10,16 +10,16 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 
+import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.utils.MM;
 
 public class HealthRewards implements Listener {
     
     @SuppressWarnings("unused")
-    private final Plugin plugin;
+    private final HeartlessMain plugin;
     
-    public HealthRewards(Plugin plugin) {
+    public HealthRewards(HeartlessMain plugin) {
         this.plugin = plugin;
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
@@ -31,6 +31,7 @@ public class HealthRewards implements Listener {
         
         // Check if the item is an enchanted golden apple
         if (item.getType() == Material.ENCHANTED_GOLDEN_APPLE) {
+
             // Add one heart (2 health points) to max health
             double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
             double newMaxHealth = Math.min(currentMaxHealth + 2.0, 40.0); // Cap at 20 hearts (40 health)
