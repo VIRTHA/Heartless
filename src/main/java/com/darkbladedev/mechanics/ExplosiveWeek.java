@@ -42,6 +42,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.utils.MM;
+import com.darkbladedev.utils.TimeExpression;
 
 public class ExplosiveWeek extends WeeklyEvent {
     
@@ -50,6 +51,7 @@ public class ExplosiveWeek extends WeeklyEvent {
     // Tasks
     private BukkitTask ghastSpawnTask;
     private BukkitTask ghastAttackTask;
+    private BukkitTask mainTask;
     
     // Challenge tracking
     private final Set<UUID> ghastKillers = new HashSet<>();
@@ -66,9 +68,8 @@ public class ExplosiveWeek extends WeeklyEvent {
             EntityType.ENDERMAN
     ));
     
-    private BukkitTask mainTask;
     
-    public ExplosiveWeek(HeartlessMain plugin, long duration) {
+    public ExplosiveWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
         this.prefix = "<b><gradient:#ed2f2f:#f15c5c:#f58888:#f9b5b5:#fce1e1:#ffffff:#ffffff:#ffffff:#ffffff:#ffffff:#fce1e2:#f8b5b5:#f48989:#f05c5d:#ec3031>Semana Explosiva</gradient></b>";
     }

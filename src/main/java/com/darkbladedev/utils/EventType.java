@@ -93,21 +93,24 @@ public enum EventType {
      * @return Una nueva instancia de WeeklyEvent correspondiente a este tipo, o null si no está implementado
      */
     public WeeklyEvent toEvent(HeartlessMain plugin, long duration) {
+        // Crear TimeExpression desde la duración en segundos
+        TimeExpression durationExpression = TimeExpression.fromSeconds(duration);
+        
         switch (this.getEventName()) {
             case "acid_week":
-                return new AcidWeek(plugin, duration);
+                return new AcidWeek(plugin, durationExpression);
                 
             case "toxic_fog":
-                return new ToxicFog(plugin, duration);
+                return new ToxicFog(plugin, durationExpression);
                 
             case "undead_week":
-                return new UndeadWeek(plugin, duration);
+                return new UndeadWeek(plugin, durationExpression);
                 
             case "explosive_week":
-                return new ExplosiveWeek(plugin, duration);
+                return new ExplosiveWeek(plugin, durationExpression);
                 
             case "blood_and_iron_week":
-                return new BloodAndIronWeek(plugin, duration);
+                return new BloodAndIronWeek(plugin, durationExpression);
             
             case "empty":
                 return new EmptyEvent(plugin, duration);

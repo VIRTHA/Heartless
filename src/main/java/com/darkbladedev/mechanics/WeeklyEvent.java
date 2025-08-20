@@ -1,8 +1,5 @@
 package com.darkbladedev.mechanics;
 
-import java.util.Collections;
-import java.util.List;
-
 import org.bukkit.Bukkit;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
@@ -12,9 +9,11 @@ import org.bukkit.scheduler.BukkitTask;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.RewardPool;
+import com.darkbladedev.utils.TimeExpression;
 import com.darkbladedev.utils.WeeklyEventData;
 
-/**
+import java.util.Collections;
+import java.util.List;/**
  * Clase base para todos los eventos semanales del servidor.
  * Proporciona la estructura común y funcionalidades básicas que todos los eventos semanales comparten.
  */
@@ -45,6 +44,17 @@ public abstract class WeeklyEvent implements Listener {
     public WeeklyEvent(HeartlessMain plugin, long duration) {
         this.plugin = plugin;
         this.duration = duration * 20L; // Convertir segundos a ticks
+    }
+    
+    /**
+     * Constructor base para eventos semanales con TimeExpression.
+     * 
+     * @param plugin El plugin principal
+     * @param timeExpression Expresión de tiempo que define la duración del evento
+     */
+    public WeeklyEvent(HeartlessMain plugin, TimeExpression timeExpression) {
+        this.plugin = plugin;
+        this.duration = timeExpression.toTicks();
     }
     
     /**

@@ -28,6 +28,7 @@ import org.bukkit.scheduler.BukkitTask;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.DayCycleUtils;
+import com.darkbladedev.utils.TimeExpression;
 import com.darkbladedev.events.NightPassedEvent;
 import java.util.*;
 
@@ -44,6 +45,7 @@ public class UndeadWeek extends WeeklyEvent {
     
     // Tracking infected players and challenges
     private Map<UUID, Boolean> infectedPlayers = new HashMap<>();
+    private Map<UUID, Long> infectedPlayersTime = new HashMap<>(); // Rastrear cuándo se infectó cada jugador
     private Map<UUID, Integer> curedInfectionsCount = new HashMap<>();
     private Map<UUID, Integer> redMoonKillsCount = new HashMap<>();
     private Set<UUID> curedVillagers = new HashSet<>();
@@ -56,9 +58,14 @@ public class UndeadWeek extends WeeklyEvent {
         EntityType.DROWNED, EntityType.HUSK, EntityType.STRAY, EntityType.PHANTOM,
         EntityType.ZOGLIN
     );
-    
-    public UndeadWeek(HeartlessMain plugin, long duration) {
-        super(plugin, duration);
+    /**
+     * Constructor para UndeadWeek.
+     * 
+     * @param plugin El plugin principal
+     * @param timeExpression Expresión de tiempo que define la duración del evento
+     */
+    public UndeadWeek(HeartlessMain plugin, TimeExpression timeExpression) {
+        super(plugin, timeExpression);
         this.prefix = "<b><gradient:#58fd90:#56fa96:#54f69b:#51f3a1:#4ff0a7:#4decac:#4be9b2:#49e6b8:#46e2bd:#44dfc3:#42dcc9:#40d9cf:#3dd5d4:#3bd2da:#39cfe0:#37cbe5:#35c8eb:#32c5f1:#30c1f6:#2ebefc>Semana de los No Muertos</gradient></b>";
     }
     
@@ -290,6 +297,15 @@ public class UndeadWeek extends WeeklyEvent {
             } else {
                 infectedPlayers = new HashMap<>();
                 Bukkit.getLogger().info("Creada nueva lista de jugadores infectados");
+            }
+            
+            if (infectedPlayersTime != null) {
+                int size = infectedPlayersTime.size();
+                infectedPlayersTime.clear();
+                Bukkit.getLogger().info("Mapa de tiempo de infección limpiado (" + size + " registros)");
+            } else {
+                infectedPlayersTime = new HashMap<>();
+                Bukkit.getLogger().info("Creado nuevo mapa de tiempo de infección");
             }
             
             if (curedInfectionsCount != null) {
@@ -902,17 +918,23 @@ public class UndeadWeek extends WeeklyEvent {
                     continue;
                 }
                 
-                // Aplicar efecto de veneno que no mata
-                if (!player.hasPotionEffect(PotionEffectType.POISON)) {
+                // Aplicar efecto de veneno por 30 segundos (una sola vez)
+                long currentTime = System.currentTimeMillis();
+                Long infectionTime = infectedPlayersTime.get(playerId);
+                
+                // Si no tiene tiempo registrado o han pasado más de 30 segundos, aplicar veneno
+                if (infectionTime == null || (currentTime - infectionTime) >= 30000) {
                     try {
                         player.addPotionEffect(new PotionEffect(
                             PotionEffectType.POISON, 
-                            Integer.MAX_VALUE, 
+                            600, // 30 segundos (600 ticks)
                             0, // Nivel 1
                             false, 
                             true, 
                             true
                         ));
+                        // Actualizar el tiempo de aplicación del veneno
+                        infectedPlayersTime.put(playerId, currentTime);
                     } catch (Exception e) {
                         Bukkit.getLogger().warning("Error al aplicar efecto de veneno a " + player.getName() + ": " + e.getMessage());
                     }
@@ -1394,6 +1416,9 @@ public class UndeadWeek extends WeeklyEvent {
                     // Marcar como curado
                     infectedPlayers.put(playerId, false);
                     
+                    // Limpiar el tiempo de infección
+                    infectedPlayersTime.remove(playerId);
+                    
                     // Eliminar efecto de veneno
                     if (player.hasPotionEffect(PotionEffectType.POISON)) {
                         player.removePotionEffect(PotionEffectType.POISON);
@@ -1594,11 +1619,11 @@ public class UndeadWeek extends WeeklyEvent {
                     }
                 }
                 
-                Bukkit.getLogger().info(prefix + " Noche " + totalNights + " completada. " + 
-                    (totalNights % 3 == 0 ? "¡Noche Roja activada!" : "Faltan " + nightsUntilRedMoon + " noches para la Noche Roja."));
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Noche " + totalNights + " completada. " + 
+                    (totalNights % 3 == 0 ? "¡Noche Roja activada!" : "Faltan " + nightsUntilRedMoon + " noches para la Noche Roja.")));
             }
         } catch (Exception e) {
-            Bukkit.getLogger().warning(prefix + " Error al manejar evento de noche pasada: " + e.getMessage());
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Error al manejar evento de noche pasada: " + e.getMessage()));
             e.printStackTrace();
         }
     }
@@ -2380,9 +2405,12 @@ public class UndeadWeek extends WeeklyEvent {
                                 continue;
                             }
                             
-                            // Reaplicar efectos de infección
-                            player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 20 * 60, 0, false, true, true));
-                            player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 20 * 60, 0, false, true, true));
+                            // Aplicar efectos de infección por 30 segundos
+                            player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 600, 0, false, true, true)); // 30 segundos
+                            player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 600, 0, false, true, true)); // 30 segundos
+                            
+                            // Registrar el tiempo de aplicación del veneno
+                            infectedPlayersTime.put(playerId, System.currentTimeMillis());
                             
                             // Efectos visuales y sonoros
                             try {

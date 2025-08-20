@@ -27,6 +27,7 @@ import com.darkbladedev.mechanics.ToxicFog;
 import com.darkbladedev.mechanics.UndeadWeek;
 import com.darkbladedev.mechanics.WeeklyEvent;
 import com.darkbladedev.utils.TimeConverter;
+import com.darkbladedev.utils.TimeExpression;
 
 public class WeeklyEventManager {
     private static final long WEEK_IN_MILLIS = TimeUnit.DAYS.toMillis(7);
@@ -80,7 +81,7 @@ public class WeeklyEventManager {
                 
                 if (remainingTime > 0) {
                     // Reanudar el evento actual
-                    startEvent(currentEventType, remainingTime);
+                    resumeCurrentEvent();
                     
                     // Programar el siguiente evento cuando termine este
                     scheduleNextEvent(remainingTime);
@@ -257,28 +258,29 @@ public class WeeklyEventManager {
 
         
         // Convertir duración de milisegundos a segundos para los constructores
-        long durationInSeconds = duration / 1000L;
+        // Crear TimeExpression desde la duración en milisegundos
+        TimeExpression durationExpression = TimeExpression.fromMilliseconds(duration);
         
         // Iniciar el evento según su tipo
         switch (eventType.getEventName()) {
             case "acid_week":
-                currentEvent = new AcidWeek(plugin, durationInSeconds);
+                currentEvent = new AcidWeek(plugin, durationExpression);
                 break;
                 
             case "toxic_fog":
-                currentEvent = new ToxicFog(plugin, durationInSeconds);
+                currentEvent = new ToxicFog(plugin, durationExpression);
                 break;
                 
             case "undead_week":
-                currentEvent = new UndeadWeek(plugin, durationInSeconds);
+                currentEvent = new UndeadWeek(plugin, durationExpression);
                 break;
                 
             case "explosive_week":
-                currentEvent = new ExplosiveWeek(plugin, durationInSeconds);
+                currentEvent = new ExplosiveWeek(plugin, durationExpression);
                 break;
                 
             case "blood_and_iron_week":
-                currentEvent = new BloodAndIronWeek(plugin, durationInSeconds);
+                currentEvent = new BloodAndIronWeek(plugin, durationExpression);
                 break;
                 
             case "empty":
@@ -383,8 +385,8 @@ public class WeeklyEventManager {
         saveEventData();
         
         // Announce event resume
-        Bukkit.broadcast(MM.toComponent("<gold><b>¡EVENTO SEMANAL REANUDADO!"));
-        Bukkit.broadcast(MM.toComponent("<yellow>El evento continuará por el tiempo restante."));
+        Bukkit.getLogger().info("Evento semanal reanudado correctamente.");
+
     }
     
     
@@ -483,29 +485,29 @@ public class WeeklyEventManager {
                 long remainingTime = eventEndTime - currentTime;
                 
                 if (remainingTime > 0) {
-                    // Convertir duración de milisegundos a segundos para los constructores
-                    long durationInSeconds = remainingTime / 1000L;
+                    // Crear TimeExpression desde el tiempo restante en milisegundos
+                    TimeExpression durationExpression = TimeExpression.fromMilliseconds(remainingTime);
                     
                     // Crear la instancia del evento según su tipo
                     switch (currentEventType.getEventName()) {
                         case "acid_week":
-                            currentEvent = new AcidWeek(plugin, durationInSeconds);
+                            currentEvent = new AcidWeek(plugin, durationExpression);
                             break;
                             
                         case "toxic_fog":
-                            currentEvent = new ToxicFog(plugin, durationInSeconds);
+                            currentEvent = new ToxicFog(plugin, durationExpression);
                             break;
                             
                         case "undead_week":
-                            currentEvent = new UndeadWeek(plugin, durationInSeconds);
+                            currentEvent = new UndeadWeek(plugin, durationExpression);
                             break;
                             
                         case "explosive_week":
-                            currentEvent = new ExplosiveWeek(plugin, durationInSeconds);
+                            currentEvent = new ExplosiveWeek(plugin, durationExpression);
                             break;
                             
                         case "blood_and_iron_week":
-                            currentEvent = new BloodAndIronWeek(plugin, durationInSeconds);
+                            currentEvent = new BloodAndIronWeek(plugin, durationExpression);
                             break;
                             
                         default:

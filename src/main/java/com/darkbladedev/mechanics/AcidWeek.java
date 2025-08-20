@@ -25,6 +25,7 @@ import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.utils.BiomeUtils;
 import com.darkbladedev.utils.MM;
+import com.darkbladedev.utils.TimeExpression;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -38,7 +39,7 @@ public class AcidWeek extends WeeklyEvent {
     private BukkitTask acidTask;
     private BukkitTask weatherTask;
 
-    public AcidWeek(HeartlessMain plugin, long duration) {
+    public AcidWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
         this.prefix = "<b><gradient:#befd58:#c4fb54:#caf950:#d1f64b:#d7f447:#ddf243:#e3f03f:#e9ee3b:#f0eb36:#f6e932:#fce72e>Semana acida</gradient></b>";
     }

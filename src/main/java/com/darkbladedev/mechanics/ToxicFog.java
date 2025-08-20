@@ -9,6 +9,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.utils.TimeExpression;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,13 +23,11 @@ public class ToxicFog extends WeeklyEvent {
     private BukkitTask toxicFogTask;
     private boolean isActive = false;
     private boolean isPaused = false;
-
     
-    public ToxicFog(HeartlessMain plugin, long duration) {
+    public ToxicFog(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
         this.affectedPlayers = new HashSet<>();
     }
-    
     
     public void start() {
         if (isActive) return;
