@@ -74,6 +74,13 @@ public class ExplosiveWeek extends WeeklyEvent {
     }
     
     @Override
+    public void start() {
+        super.start();
+    }
+
+
+
+    @Override
     protected void startEventTasks() {
         startMainTask();
         

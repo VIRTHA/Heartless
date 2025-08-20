@@ -54,6 +54,11 @@ public class HeartlessMain extends JavaPlugin {
     public void onDisable() {
         // Plugin shutdown logic
         
+        // Guardar datos del evento semanal activo
+        if (weeklyEventManager != null) {
+            weeklyEventManager.shutdown();
+        }
+        
         // Guardar datos del ciclo de día
         if (storageManager != null) {
             storageManager.saveDayCycleData();

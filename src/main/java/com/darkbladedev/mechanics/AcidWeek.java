@@ -42,6 +42,13 @@ public class AcidWeek extends WeeklyEvent {
         super(plugin, duration);
         this.prefix = "<b><gradient:#befd58:#c4fb54:#caf950:#d1f64b:#d7f447:#ddf243:#e3f03f:#e9ee3b:#f0eb36:#f6e932:#fce72e>Semana acida</gradient></b>";
     }
+
+    @Override
+    public void start() {
+        super.start();
+    }
+
+
     
     @Override
     protected void startEventTasks() {

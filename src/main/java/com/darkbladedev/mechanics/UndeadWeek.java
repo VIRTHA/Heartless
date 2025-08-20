@@ -13,12 +13,11 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.Event.Result;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityTransformEvent;
 import org.bukkit.event.player.PlayerBedEnterEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -1053,7 +1052,7 @@ public class UndeadWeek extends WeeklyEvent {
                 }
                 
                 // Si hay demasiadas entidades no-muertas en el chunk, cancelar el spawn
-                if (undeadCount > 15) { // Límite razonable para evitar lag
+                if (undeadCount > 20) { // Límite razonable para evitar lag
                     event.setCancelled(true);
                     return;
                 }
@@ -1226,7 +1225,7 @@ public class UndeadWeek extends WeeklyEvent {
      * Maneja el evento de daño entre entidades
      * Gestiona infecciones, muertes en luna roja y recompensas por matar al Wither
      */
-    @EventHandler(priority = EventPriority.NORMAL)
+    @EventHandler(priority = EventPriority.HIGH)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         if (!isActive || isPaused) {
             return;
@@ -1262,7 +1261,7 @@ public class UndeadWeek extends WeeklyEvent {
             }
             
             // Infectar jugadores si son golpeados por zombies (con probabilidad)
-            if (isUndead(damager) && damager.getType() == EntityType.ZOMBIE && victim instanceof Player) {
+            if (isUndead(damager) && victim instanceof Player) {
                 Player player = (Player) victim;
                 
                 // Verificar si el jugador ya está infectado
@@ -1604,84 +1603,13 @@ public class UndeadWeek extends WeeklyEvent {
         }
     }
     
-    /**
-     * Maneja el evento de jugador intentando dormir en una cama
-     * Durante la Noche Roja, las camas explotan al intentar usarlas
-     * 
-     * SOLUCIÓN: Se usa PlayerInteractEvent en lugar de PlayerBedEnterEvent
-     * porque PlayerBedEnterEvent puede no dispararse en ciertas condiciones
-     * (como cuando no es de noche o hay monstruos cerca)
-     */
-    @SuppressWarnings("deprecation")
-    @EventHandler(priority = EventPriority.NORMAL)
-    public void onPlayerInteractWithBed(PlayerInteractEvent event) {
-        if (!isActive || isPaused || !isRedMoonActive) {
-            return;
-        }
-        
-        try {
-            // Verificar si el evento es válido
-            if (event == null || event.isCancelled()) {
-                return;
-            }
-            
-            // Solo procesar clics derechos
-            if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
-                return;
-            }
-            
-            // Verificar si el jugador es válido
-            Player player = event.getPlayer();
-            if (player == null || !player.isOnline()) {
-                return;
-            }
-            
-            // Verificar si el bloque clickeado es una cama
-            Block clickedBlock = event.getClickedBlock();
-            if (clickedBlock == null || !isBed(clickedBlock.getType())) {
-                return;
-            }
-            
-            // Verificar si el mundo es válido
-            World world = player.getWorld();
-            if (world == null) {
-                return;
-            }
-            
-            // Cancelar el evento de interacción
-            event.setCancelled(true);
-            
-            // Enviar mensaje al jugador
-            player.sendMessage(MM.toComponent("<red>¡No puedes dormir durante la Noche Roja! <dark_red>¡Tu cama ha explotado!</dark_red></red>"));
-            
-            // Efectos de sonido y visuales
-            player.playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 0.5f, 1.5f);
-            
-            // Crear explosión con un pequeño retraso para efectos dramáticos
-            Location bedLocation = clickedBlock.getLocation();
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                try {
-                    // Verificar si el mundo sigue siendo válido
-                    if (world != null && bedLocation != null) {
-                        world.spawnParticle(Particle.FLAME, bedLocation.add(0.5, 0.5, 0.5), 30, 0.5, 0.5, 0.5, 0.05);
-                        world.createExplosion(bedLocation, 4f, false, true);
-                    }
-                } catch (Exception e) {
-                    Bukkit.getLogger().warning("Error al crear explosión de cama: " + e.getMessage());
-                }
-            }, 10L); // Medio segundo de retraso
-            
-        } catch (Exception e) {
-            Bukkit.getLogger().severe("Error en onPlayerInteractWithBed: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-    
+
     /**
      * Verifica si el material dado es una cama
      * @param material El material a verificar
      * @return true si es una cama, false en caso contrario
      */
+    @SuppressWarnings("unused")
     private boolean isBed(Material material) {
         return material != null && material.name().contains("BED") && !material.name().contains("BEDROCK");
     }
@@ -1690,12 +1618,12 @@ public class UndeadWeek extends WeeklyEvent {
      * Mantener el evento original como respaldo
      * En caso de que PlayerBedEnterEvent sí se dispare en algunas situaciones
      */
-    @EventHandler(priority = EventPriority.NORMAL)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerBedEnter(PlayerBedEnterEvent event) {
-        if (!isActive || isPaused || !isRedMoonActive) {
+        if (isActive == false || isPaused == true || isRedMoonActive == false) {
             return;
         }
-        
+       
         try {
             // Verificar si el evento es válido
             if (event == null || event.isCancelled()) {
@@ -1721,8 +1649,9 @@ public class UndeadWeek extends WeeklyEvent {
             }
             
             // Cancelar el evento de dormir
-            event.setCancelled(true);
-            
+            event.setUseBed(Result.DENY);
+
+
             // Enviar mensaje al jugador
             player.sendMessage(MM.toComponent("<red>¡No puedes dormir durante la Noche Roja! <dark_red>¡Tu cama ha explotado!</dark_red></red>"));
             
@@ -1736,12 +1665,14 @@ public class UndeadWeek extends WeeklyEvent {
                     // Verificar si el mundo sigue siendo válido
                     if (world != null && bedLocation != null) {
                         world.spawnParticle(Particle.FLAME, bedLocation.add(0.5, 0.5, 0.5), 30, 0.5, 0.5, 0.5, 0.05);
-                        world.createExplosion(bedLocation, 4f, false, true);
+                        world.createExplosion(bedLocation, 2.5f, false, true);
+                        player.damage(10);
                     }
+
                 } catch (Exception e) {
                     Bukkit.getLogger().warning("Error al crear explosión de cama: " + e.getMessage());
                 }
-            }, 10L); // Medio segundo de retraso
+            }, 5L); // 1/4 de segundo de retraso
         } catch (Exception e) {
             Bukkit.getLogger().severe("Error en onPlayerBedEnter: " + e.getMessage());
         }
@@ -2766,6 +2697,8 @@ public class UndeadWeek extends WeeklyEvent {
             isRedMoonActive = false;
             lastRedMoonNight = -1; // Inicializar el rastreador de noche de Luna Roja
             
+            Bukkit.getPluginManager().registerEvents(this, plugin);
+
             // Iniciar la tarea principal que se ejecuta periódicamente
             mainTask = new BukkitRunnable() {
                 @Override
