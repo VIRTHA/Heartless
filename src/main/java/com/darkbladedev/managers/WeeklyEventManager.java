@@ -30,7 +30,7 @@ import com.darkbladedev.utils.TimeConverter;
 
 public class WeeklyEventManager {
     private static final long WEEK_IN_MILLIS = TimeUnit.DAYS.toMillis(7);
-    private static final String DATA_FILE = "weekly_event_data.json";
+    private static final String DATA_FILENAME = "weekly_event_data.json";
     
     private final HeartlessMain plugin;
     private final Random random = new Random();
@@ -51,7 +51,7 @@ public class WeeklyEventManager {
     
     public WeeklyEventManager(HeartlessMain plugin) {
         this.plugin = plugin;
-        this.dataFile = new File(plugin.getDataFolder(), DATA_FILE);
+        this.dataFile = new File(plugin.getDataFolder(), DATA_FILENAME);
 
     }
     
@@ -405,7 +405,8 @@ public class WeeklyEventManager {
         try (FileWriter writer = new FileWriter(dataFile)) {
             writer.write(data.toJSONString());
             writer.flush();
-            Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + "<green>Event data saved successfully"));
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + "<green>Evento semanal guardado correctamente."));
+
         } catch (IOException e) {
             Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + "<red>Error al guardar datos del evento semanal: " + e.getMessage()));
         }
@@ -413,6 +414,7 @@ public class WeeklyEventManager {
     
     private boolean loadSavedEventData() {
         if (!dataFile.exists()) {
+            plugin.getLogger().warning("No se encontraron datos guardados del evento semanal.");
             return false;
         }
         
@@ -475,7 +477,55 @@ public class WeeklyEventManager {
                 return false;
             }
             
-            isEventActive = (currentEventType != null);
+            // Crear la instancia del evento si el tipo es válido
+            if (currentEventType != null) {
+                long currentTime = System.currentTimeMillis();
+                long remainingTime = eventEndTime - currentTime;
+                
+                if (remainingTime > 0) {
+                    // Convertir duración de milisegundos a segundos para los constructores
+                    long durationInSeconds = remainingTime / 1000L;
+                    
+                    // Crear la instancia del evento según su tipo
+                    switch (currentEventType.getEventName()) {
+                        case "acid_week":
+                            currentEvent = new AcidWeek(plugin, durationInSeconds);
+                            break;
+                            
+                        case "toxic_fog":
+                            currentEvent = new ToxicFog(plugin, durationInSeconds);
+                            break;
+                            
+                        case "undead_week":
+                            currentEvent = new UndeadWeek(plugin, durationInSeconds);
+                            break;
+                            
+                        case "explosive_week":
+                            currentEvent = new ExplosiveWeek(plugin, durationInSeconds);
+                            break;
+                            
+                        case "blood_and_iron_week":
+                            currentEvent = new BloodAndIronWeek(plugin, durationInSeconds);
+                            break;
+                            
+                        default:
+                            plugin.getLogger().warning("Evento no implementado para carga: " + currentEventType.getEventName());
+                            currentEventType = null;
+                            isEventActive = false;
+                            return false;
+                    }
+                    
+                    isEventActive = true;
+                    plugin.getLogger().info("Evento cargado correctamente: " + currentEventType.getEventName());
+                } else {
+                    // El evento ya debería haber terminado
+                    plugin.getLogger().info("Evento expirado encontrado en datos guardados, ignorando...");
+                    currentEventType = null;
+                    isEventActive = false;
+                    clearEventData();
+                    return false;
+                }
+            }
             
             return currentEventType != null;
         } catch (IOException | ParseException e) {

@@ -33,7 +33,7 @@ public class StorageManager {
         if (!plugin.getDataFolder().exists()) {
             plugin.getDataFolder().mkdirs();
         }
-        createEmptyEventFileIfNeeded();
+        // Removido createEmptyEventFileIfNeeded() - WeeklyEventManager maneja su propia persistencia
         createDayCycleFileIfNeeded();
         DayCycleUtils.init(YamlConfiguration.loadConfiguration(dayCycleDataFile), plugin.getLogger());
     }
@@ -98,8 +98,7 @@ public class StorageManager {
      * @return Los datos del evento recargados o null si hay un error
      */
     public WeeklyEventData reloadEventData() {
-        // Asegurar que el archivo existe
-        createEmptyEventFileIfNeeded();
+        // WeeklyEventManager maneja su propia persistencia, no crear archivo vacío
         // Cargar datos frescos
         return loadEvent();
     }
