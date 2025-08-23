@@ -1609,7 +1609,7 @@ public class UndeadWeek extends WeeklyEvent {
                                 } else {
                                     // Noches previas - sonidos sutiles
                                     player.playSound(player.getLocation(), Sound.AMBIENT_CAVE, 0.5f, 0.5f);
-                                    player.playSound(player.getLocation(), Sound.ENTITY_WOLF_HOWL, 0.3f, 0.7f);
+                                    player.playSound(player.getLocation(), Sound.ENTITY_WOLF_GROWL, 0.3f, 0.7f);
                                 }
                             } catch (Exception e) {
                                 Bukkit.getLogger().warning(prefix + " Error al enviar mensaje de noche a jugador " 
@@ -2405,8 +2405,7 @@ public class UndeadWeek extends WeeklyEvent {
                                 continue;
                             }
                             
-                            // Aplicar efectos de infección por 30 segundos
-                            player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 600, 0, false, true, true)); // 30 segundos
+                            // Aplicar efectos de infección por 30 segundos (sin veneno)
                             player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 600, 0, false, true, true)); // 30 segundos
                             
                             // Registrar el tiempo de aplicación del veneno

@@ -33,32 +33,40 @@ public class Unban implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        // Los args aquí incluyen todos los argumentos del comando, incluyendo grupo y acción
-        // Necesitamos ajustar el índice para que coincida con los argumentos específicos de este subcomando
-        // args[0] y args[1] son el grupo y la acción, por lo que args[2] es el primer argumento real del subcomando
+        // Verificar permisos primero
+        if (!sender.hasPermission("heartless.bansystem.unban")) {
+            return Collections.emptyList();
+        }
         
-        // Calculamos el índice real restando 2 (grupo y acción)
-        int adjustedIndex = args.length;
-        
-        if (adjustedIndex == 1) {
-            // Idealmente, esto debería devolver una lista de jugadores baneados
-            // Esta es una implementación básica que podría mejorarse
+        // args[0] es el primer argumento del subcomando (nombre del jugador)
+        if (args.length == 1) {
             List<String> bannedPlayers = new ArrayList<>();
             Set<UUID> banList = BanManager.getBanList_();
             
-            // Filtramos por el argumento actual (args[2])
-            String currentArg = args.length > 2 ? args[2].toLowerCase() : "";
+            // Obtener el argumento actual para filtrar
+            String currentArg = args[0].toLowerCase();
             
-            banList.forEach(entry -> {
-                OfflinePlayer player = Bukkit.getOfflinePlayer(entry);
-                if (player != null && player.getName() != null && 
-                    player.getName().toLowerCase().startsWith(currentArg)) {
-                    bannedPlayers.add(player.getName());
+            // Iterar sobre la lista de jugadores baneados
+            for (UUID uuid : banList) {
+                try {
+                    OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
+                    if (player != null && player.getName() != null) {
+                        String playerName = player.getName();
+                        // Verificar que el jugador esté realmente baneado y coincida con el filtro
+                        if (player.isBanned() && playerName.toLowerCase().startsWith(currentArg)) {
+                            bannedPlayers.add(playerName);
+                        }
+                    }
+                } catch (Exception e) {
+                    // Ignorar errores al obtener información del jugador
                 }
-            });
+            }
             
+            // Ordenar la lista alfabéticamente
+            bannedPlayers.sort(String.CASE_INSENSITIVE_ORDER);
             return bannedPlayers;
         }
+        
         return Collections.emptyList();
     }
 
@@ -83,36 +91,74 @@ public class Unban implements SubcommandExecutor, TabCompletable {
             Set<UUID> banList = plugin.getBanManager().getBanList();
             UUID targetUUID = null;
             OfflinePlayer targetPlayer = null;
-            try {
-                Player onlinePlayer = Bukkit.getPlayerExact(targetName);
-                if (onlinePlayer != null) {
-                    targetPlayer = onlinePlayer;
-                } else {
-                    // Si no está online, buscar por nombre exacto entre los jugadores offline
-                    for (OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
-                        if (offlinePlayer.getName() != null && offlinePlayer.getName().equalsIgnoreCase(targetName)) {
-                            targetPlayer = offlinePlayer;
-                            break;
-                        }
+            
+            // Buscar jugador online primero
+            Player onlinePlayer = Bukkit.getPlayerExact(targetName);
+            if (onlinePlayer != null) {
+                targetPlayer = onlinePlayer;
+                targetUUID = onlinePlayer.getUniqueId();
+            } else {
+                // Si no está online, buscar por nombre exacto entre los jugadores offline
+                for (OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
+                    if (offlinePlayer.getName() != null && offlinePlayer.getName().equalsIgnoreCase(targetName)) {
+                        targetPlayer = offlinePlayer;
+                        targetUUID = offlinePlayer.getUniqueId();
+                        break;
                     }
-                targetUUID = targetPlayer.getUniqueId();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            if (banList.contains(targetUUID)) {
-                if (!targetPlayer.isBanned()) {
-                    sender.sendMessage(MM.toComponent("<red>El jugador " + targetPlayer.getName() + " no está baneado</red>"));
-                    return;
-                } else {
-                    plugin.getBanManager().unBan(targetPlayer.getPlayer());
-                    banList.remove(targetUUID);
                 }
             }
             
+            // Verificar si se encontró el jugador
+            if (targetPlayer == null || targetUUID == null) {
+                sender.sendMessage(MM.toComponent("<red>No se pudo encontrar al jugador " + targetName + "."));
+                return;
+            }
+            
+            // Verificar si el jugador está en la lista de baneos del plugin
+            if (!banList.contains(targetUUID)) {
+                sender.sendMessage(MM.toComponent("<red>El jugador " + targetPlayer.getName() + " no está en la lista de baneos del plugin."));
+                return;
+            }
+            
+            // Verificar si el jugador está realmente baneado en el servidor
+            if (!targetPlayer.isBanned()) {
+                // El jugador está en la lista pero no baneado realmente, limpiar la lista
+                banList.remove(targetUUID);
+                sender.sendMessage(MM.toComponent("<yellow>El jugador " + targetPlayer.getName() + " no estaba baneado, pero se ha limpiado de la lista."));
+                return;
+            }
+            
+            // Desbanear al jugador
+            if (targetPlayer instanceof Player) {
+                // Jugador online
+                plugin.getBanManager().unBan((Player) targetPlayer);
+            } else {
+                // Jugador offline - usar la API directamente
+                 try {
+                     // Usar la API de Bukkit directamente para jugadores offline
+                     var profileBanList = Bukkit.getBanList(io.papermc.paper.ban.BanListType.PROFILE);
+                     profileBanList.pardon(targetPlayer.getPlayerProfile());
+                     
+                     // También intentar desbanear por IP si es posible (aunque es limitado para jugadores offline)
+                     // Esto se manejará cuando el jugador se conecte
+                 } catch (Exception e) {
+                     sender.sendMessage(MM.toComponent("<red>Error al desbanear al jugador offline: " + e.getMessage()));
+                     return;
+                 }
+            }
+            
+            // Remover de la lista del plugin
+            banList.remove(targetUUID);
+            
             sender.sendMessage(MM.toComponent("<green>Has desbaneado a " + targetName + " correctamente."));
+            
+            // Log para administradores
+            plugin.getLogger().info("El jugador " + targetName + " ha sido desbaneado por " + sender.getName());
+            
         } catch (Exception e) {
+            sender.sendMessage(MM.toComponent("<red>Error al desbanear al jugador: " + e.getMessage()));
+            HeartlessMain.getInstance().getLogger().severe("Error en comando unban: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

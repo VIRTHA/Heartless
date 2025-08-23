@@ -43,12 +43,22 @@ public class ZombieInfection extends CustomEffectsBase {
     
     @Override
     protected void applyEffectToPlayer(Player player) {
-        // Obtener el tiempo del mundo del jugador
-        World world = player.getWorld();
-        long time = world.getTime();
+        // Validar que el jugador esté online antes de aplicar efectos
+        if (player == null || !player.isOnline()) {
+            return;
+        }
         
-        // Aplicar efectos basados en el tiempo
-        applyTimeBasedEffects(player, time);
+        try {
+            // Obtener el tiempo del mundo del jugador
+            World world = player.getWorld();
+            long time = world.getTime();
+            
+            // Aplicar efectos basados en el tiempo
+            applyTimeBasedEffects(player, time);
+        } catch (Exception e) {
+            // Log del error si ocurre algún problema durante la aplicación
+            plugin.getLogger().warning("Error al aplicar efectos de infección zombie al jugador " + player.getName() + ": " + e.getMessage());
+        }
     }
     
     @Override
@@ -58,12 +68,25 @@ public class ZombieInfection extends CustomEffectsBase {
     
     @Override
     protected void removeEffectsFromPlayer(Player player) {
-        // Eliminar todos los efectos negativos
-        player.removePotionEffect(PotionEffectType.HUNGER);
-        player.removePotionEffect(PotionEffectType.NAUSEA);
-        player.removePotionEffect(PotionEffectType.WITHER);
-        player.removePotionEffect(PotionEffectType.STRENGTH);
-        player.setFireTicks(0);
+        // Validar que el jugador esté online antes de remover efectos
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        
+        // Eliminar todos los efectos negativos de forma segura
+        try {
+            player.removePotionEffect(PotionEffectType.HUNGER);
+            player.removePotionEffect(PotionEffectType.NAUSEA);
+            player.removePotionEffect(PotionEffectType.WITHER);
+            player.removePotionEffect(PotionEffectType.STRENGTH);
+            player.setFireTicks(0);
+            
+            // Limpiar cualquier efecto visual residual
+            player.sendActionBar(MM.toComponent("<green>¡Te has curado de la infección zombie!"));
+        } catch (Exception e) {
+            // Log del error si ocurre algún problema durante la remoción
+            plugin.getLogger().warning("Error al remover efectos de infección zombie del jugador " + player.getName() + ": " + e.getMessage());
+        }
     }
     
     @Override
@@ -92,15 +115,29 @@ public class ZombieInfection extends CustomEffectsBase {
      * @return true si hay bloques sobre el jugador, false si está expuesto al cielo
      */
     private boolean hasBlockAbove(Player player) {
+        if (player == null || !player.isOnline()) {
+            return true; // Asumir que está cubierto si no está online
+        }
+        
         Location loc = player.getLocation();
         int maxHeight = player.getWorld().getMaxHeight();
         int playerY = loc.getBlockY();
         
-        // Verificar desde la posición del jugador hasta el límite del mundo
-        for (int y = playerY + 2; y < maxHeight; y++) {
+        // Optimización: limitar búsqueda a 50 bloques máximo para mejorar rendimiento
+        int searchLimit = Math.min(maxHeight, playerY + 50);
+        
+        // Verificar desde la posición del jugador hasta el límite optimizado
+        for (int y = playerY + 2; y < searchLimit; y++) {
             Block block = player.getWorld().getBlockAt(loc.getBlockX(), y, loc.getBlockZ());
-            if (block.getType().isOccluding() || block.getType().toString().contains("LEAVES")) {
-                return true; // Hay un bloque sólido o hojas sobre el jugador
+            Material blockType = block.getType();
+            
+            // Verificar si es un bloque que bloquea la luz solar
+            if (blockType.isOccluding() || 
+                blockType.toString().contains("LEAVES") ||
+                blockType.toString().contains("GLASS") ||
+                blockType == Material.WATER ||
+                blockType == Material.ICE) {
+                return true; // Hay un bloque que bloquea la luz sobre el jugador
             }
         }
         
@@ -139,8 +176,8 @@ public class ZombieInfection extends CustomEffectsBase {
                 player.setFireTicks(0);
                 
                 if (!player.hasPotionEffect(PotionEffectType.NAUSEA)) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 40, 0, false, true, true));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 40, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 30, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 30, 0, false, true, true));
                     player.sendActionBar(MM.toComponent("<gray>La infección zombie te debilita durante este momento del día..."));
                 }
                 break;
@@ -171,8 +208,8 @@ public class ZombieInfection extends CustomEffectsBase {
                     player.setFireTicks(0);
                     player.removePotionEffect(PotionEffectType.WITHER);
                     player.sendActionBar(MM.toComponent("<yellow>La infección te debilita, pero estás a salvo de la luz solar directa."));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 40, 0, false, true, true));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 40, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 30, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 30, 0, false, true, true));
                 }
                 break;
                 
@@ -190,12 +227,21 @@ public class ZombieInfection extends CustomEffectsBase {
                 
             case "TRANSITION":
             default:
-                // Eliminar todos los efectos en períodos de transición
-                player.removePotionEffect(PotionEffectType.NAUSEA);
-                player.removePotionEffect(PotionEffectType.HUNGER);
+                // Transición suave: reducir gradualmente los efectos en lugar de eliminarlos abruptamente
+                // Solo eliminar efectos extremos (fuego y wither) pero mantener efectos base leves
                 player.removePotionEffect(PotionEffectType.WITHER);
                 player.removePotionEffect(PotionEffectType.STRENGTH);
                 player.setFireTicks(0);
+                
+                // Aplicar efectos leves de transición
+                if (!player.hasPotionEffect(PotionEffectType.NAUSEA)) {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 25, 0, false, true, true));
+                }
+                if (!player.hasPotionEffect(PotionEffectType.HUNGER)) {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 25, 0, false, true, true));
+                }
+                
+                player.sendActionBar(MM.toComponent("<gray>La infección fluctúa durante este período de transición..."));
                 break;
         }
         
@@ -279,7 +325,7 @@ public class ZombieInfection extends CustomEffectsBase {
             Player player = (Player) event.getTarget();
             
             // Si el jugador está infectado, hay una probabilidad de que el zombie lo ignore
-            if (isAffected(player) && Math.random() < 0.7) {
+            if (isAffected(player) && Math.random() < 0.6) {
                 event.setCancelled(true);
             }
         }

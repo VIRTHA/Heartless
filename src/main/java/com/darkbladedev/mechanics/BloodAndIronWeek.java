@@ -1,6 +1,8 @@
 package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.content.custom.CustomEnchantments;
+import com.darkbladedev.managers.ContentManager;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 
@@ -41,9 +43,11 @@ public class BloodAndIronWeek extends WeeklyEvent {
     private final Set<UUID> survivedPlayers = new HashSet<>();
     private final Set<UUID> deadPlayers = new HashSet<>();
     private final Set<UUID> awardedAdrenaline = new HashSet<>();
+    private final Set<UUID> mobKillWarningGiven = new HashSet<>(); // Track who has received the 10-minute warning
     
     // Constants
-    private static final long MOB_KILL_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
+    private static final long MOB_KILL_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
+    private static final long MOB_KILL_WARNING_TIME = 10 * 60 * 1000; // 10 minutes in milliseconds (5 minutes before timeout)
     private static final long PLAYER_KILL_TIMEOUT = 60 * 60 * 1000; // 1 hour in milliseconds
     
     public BloodAndIronWeek(HeartlessMain plugin, TimeExpression duration) {
@@ -116,6 +120,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
         survivedPlayers.clear();
         deadPlayers.clear();
         awardedAdrenaline.clear();
+        mobKillWarningGiven.clear();
     }
     
     @Override
@@ -178,6 +183,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
         survivedPlayers.clear();
         deadPlayers.clear();
         awardedAdrenaline.clear();
+        mobKillWarningGiven.clear();
 
         // Unregister events
         PlayerDeathEvent.getHandlerList().unregister(this);
@@ -265,15 +271,33 @@ public class BloodAndIronWeek extends WeeklyEvent {
                     
                     // Check mob kills
                     Long lastMobKillTime = lastHostileMobKillTime.get(playerId);
-                    if (lastMobKillTime == null || (currentTime - lastMobKillTime) > 10 * 60 * 1000) {
-                        // No mob kill in 10 minutes
-                        reducePlayerHealth(player, 4); // 2 hearts
+                    if (lastMobKillTime != null) {
+                        long timeSinceLastKill = currentTime - lastMobKillTime;
+                        
+                        // Check for 10-minute warning (5 minutes before timeout)
+                        if (timeSinceLastKill > MOB_KILL_WARNING_TIME && !mobKillWarningGiven.contains(playerId)) {
+                            player.sendMessage(MM.toComponent("<yellow>⚠ <bold>ADVERTENCIA</bold> ⚠</yellow>"));
+                            player.sendMessage(MM.toComponent("<gold>¡No has matado a un mob hostil en 10 minutos!</gold>"));
+                            player.sendMessage(MM.toComponent("<red>Tienes 5 minutos más o perderás 2 corazones.</red>"));
+                            mobKillWarningGiven.add(playerId);
+                        }
+                        
+                        // Check for timeout (15 minutes)
+                        if (timeSinceLastKill > MOB_KILL_TIMEOUT) {
+                            // No mob kill in 15 minutes
+                            reducePlayerHealth(player, 2); // 1 heart
+                            player.sendMessage(MM.toComponent("<red>¡No has matado a un mob hostil en 15 minutos! Pierdes 2 corazones."));
+                            
+                            // Reset the timer and warning flag
+                            lastHostileMobKillTime.put(playerId, currentTime);
+                            mobKillWarningGiven.remove(playerId);
+                        }
                     }
                     
                     // Check player kills
                     if (lastPlayerKillTime.get(playerId) == null || (currentTime - lastPlayerKillTime.get(playerId)) > 60 * 60 * 1000) {
                         // No player kill in 1 hour
-                        reducePlayerHealth(player, 10); // 5 hearts
+                        reducePlayerHealth(player, 5); // 2.5 hearts
                     }
                 }
             }
@@ -315,12 +339,25 @@ public class BloodAndIronWeek extends WeeklyEvent {
             }
             
             long lastKillTime = lastHostileMobKillTime.get(playerId);
-            if (currentTime - lastKillTime > MOB_KILL_TIMEOUT) {
-                // Player hasn't killed a hostile mob in 10 minutes
+            long timeSinceLastKill = currentTime - lastKillTime;
+            
+            // Check for 10-minute warning (5 minutes before timeout)
+            if (timeSinceLastKill > MOB_KILL_WARNING_TIME && !mobKillWarningGiven.contains(playerId)) {
+                player.sendMessage(MM.toComponent("<yellow>⚠ <bold>ADVERTENCIA</bold> ⚠</yellow>"));
+                player.sendMessage(MM.toComponent("<gold>¡No has matado a un mob hostil en 10 minutos!</gold>"));
+                player.sendMessage(MM.toComponent("<red>Tienes 5 minutos más o perderás 2 corazones.</red>"));
+                mobKillWarningGiven.add(playerId);
+            }
+            
+            // Check for timeout (15 minutes)
+            if (timeSinceLastKill > MOB_KILL_TIMEOUT) {
+                // Player hasn't killed a hostile mob in 15 minutes
                 // Reduce health by 2 hearts (4 health points)
                 double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
-                double newMaxHealth = Math.max(2.0, currentMaxHealth - 4.0); // Minimum 1 heart
+                double newMaxHealth = Math.max(2.0, currentMaxHealth - 2.0); // Minimum 1 heart
                 
+                player.sendMessage(MM.toComponent("<red>¡No has matado a un mob hostil en 15 minutos! Pierdes 2 corazones."));
+
                 player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
                 
                 // Ensure current health doesn't exceed max health
@@ -328,10 +365,9 @@ public class BloodAndIronWeek extends WeeklyEvent {
                     player.setHealth(newMaxHealth);
                 }
                 
-                player.sendMessage(MM.toComponent("<red>¡No has matado a un mob hostil en 10 minutos! Pierdes 2 corazones."));
-                
-                // Reset the timer
+                // Reset the timer and warning flag
                 lastHostileMobKillTime.put(playerId, currentTime);
+                mobKillWarningGiven.remove(playerId);
             }
         }
     }
@@ -416,7 +452,9 @@ public class BloodAndIronWeek extends WeeklyEvent {
             // Check if holding diamond or netherite sword
             if (mainHand != null && (
                 mainHand.getType() == Material.DIAMOND_SWORD || 
-                mainHand.getType() == Material.NETHERITE_SWORD)) {
+                mainHand.getType() == Material.NETHERITE_SWORD ||
+                mainHand.getType() == Material.DIAMOND_AXE ||
+                mainHand.getType() == Material.NETHERITE_AXE)) {
                 
                 player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 200, 0)); // Nausea I for 10 seconds
             }
@@ -447,8 +485,11 @@ public class BloodAndIronWeek extends WeeklyEvent {
         
         // Check if the killed entity is a hostile mob
         if (isHostileMob(entity.getType())) {
+            UUID killerId = killer.getUniqueId();
             // Update last hostile mob kill time
-            lastHostileMobKillTime.put(killer.getUniqueId(), System.currentTimeMillis());
+            lastHostileMobKillTime.put(killerId, System.currentTimeMillis());
+            // Reset warning flag so they can receive warning again in next cycle
+            mobKillWarningGiven.remove(killerId);
         }
     }
     
@@ -569,6 +610,12 @@ public class BloodAndIronWeek extends WeeklyEvent {
         if (awardedAdrenaline.contains(playerId)) {
             return; // Already awarded
         }
+
+        ContentManager contentManager = HeartlessMain.getContentManager();
+        ItemStack adrenalineItem = contentManager.getEnchantmentItem(CustomEnchantments.ENCHANTMENTS.ADRENALINE.toEnchantment(), 1);
+
+        player.getInventory().addItem(adrenalineItem);
+
         
         player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
         player.sendMessage(MM.toComponent("<yellow>Has matado a 3 jugadores.</yellow>"));

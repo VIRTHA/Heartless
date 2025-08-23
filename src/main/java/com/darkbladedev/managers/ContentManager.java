@@ -46,6 +46,18 @@ public class ContentManager {
 
 /*
  * ITEMS SECTION
+ * ENCHANTMENTS
+ */
+
+    public @NotNull ItemStack getEnchantmentItem(Enchantment enchantment, int level) {
+        ItemStack item = new ItemStack(Material.ENCHANTED_BOOK);
+        item.getItemMeta().addEnchant(enchantment, level, true);
+        return item;
+    }
+
+
+/*
+ * ITEMS SECTION
  * POTIONS
  */
     public @NotNull ItemStack getFuryPotionItem() {

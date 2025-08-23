@@ -70,18 +70,15 @@ public class Apply implements SubcommandExecutor, TabCompletable {
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
         List<String> completions = new ArrayList<>();
-        
-        int adjustedIndex = args.length;
 
-
-        if (adjustedIndex == 1) {
+        if (args.length == 1) {
             // Completar con nombres de efectos activos
             for (Map.Entry<String, CustomEffectsBase> entry : effectsManager.getAllEffects().entrySet()) {
                 if (effectsManager.getActiveEffects().contains(entry.getKey())) {
                     completions.add(entry.getValue().getid());
                 }
             }
-        } else if (adjustedIndex == 2) {
+        } else if (args.length == 2) {
             // Completar con nombres de jugadores
             for (Player player : Bukkit.getOnlinePlayers()) {
                 completions.add(player.getName());

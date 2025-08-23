@@ -24,7 +24,6 @@ import net.kyori.adventure.text.Component;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -54,22 +53,19 @@ public class BanManager implements Listener {
     public void onPlayerLogin(PlayerLoginEvent event) {
         // Check if the player is banned
         if (event.getResult() == Result.KICK_BANNED) {
-            // Get ban entry from the name ban list
+            // Get ban entry from the profile ban list
             BanList<PlayerProfile> banList = Bukkit.getBanList(BanListType.PROFILE);
-            BanList<InetAddress> ipBanList = Bukkit.getBanList(BanListType.IP);
             
-            InetAddress playerIP = event.getPlayer().getAddress().getAddress();
             UUID playerUUID = event.getPlayer().getUniqueId();
             PlayerProfile playerProfile = event.getPlayer().getPlayerProfile();
 
-            
             // Get ban count for this player
             int banCount = banCountMap.getOrDefault(playerUUID, 0);
             
-            // Check if player is banned by name using modern API
-            var nameBanEntry = banList.getBanEntry(playerProfile);
-            if (nameBanEntry != null) {
-                Date expiration = nameBanEntry.getExpiration();
+            // Check if player is banned by profile using modern API
+            var profileBanEntry = banList.getBanEntry(playerProfile);
+            if (profileBanEntry != null) {
+                Date expiration = profileBanEntry.getExpiration();
                 
                 // If the ban has an expiration date
                 if (expiration != null) {
@@ -79,7 +75,7 @@ public class BanManager implements Listener {
                     // Only process if there's time remaining
                     if (remainingMillis > 0) {
                         String formattedTime = formatRemainingTime(remainingMillis);
-                        String reason = nameBanEntry.getReason();
+                        String reason = profileBanEntry.getReason();
                         
                         // Create a custom ban message with remaining time using modern Component API
                         Component banMessage = MM.toComponent(
@@ -92,38 +88,6 @@ public class BanManager implements Listener {
                         
                         // Set the kick message using modern API
                         event.kickMessage(banMessage);
-                    }
-                }
-            }
-            // Check if player is banned by IP using modern API
-            else {
-                var ipBanEntry = ipBanList.getBanEntry(playerIP);
-
-                if (ipBanEntry != null) {
-                    Date expiration = ipBanEntry.getExpiration();
-                
-                    // If the ban has an expiration date
-                    if (expiration != null) {
-                        // Calculate remaining time
-                        long remainingMillis = expiration.getTime() - System.currentTimeMillis();
-                        
-                        // Only process if there's time remaining
-                        if (remainingMillis > 0) {
-                            String formattedTime = formatRemainingTime(remainingMillis);
-                            String reason = ipBanEntry.getReason();
-                            
-                            // Create a custom ban message with remaining time using modern Component API
-                            Component banMessage = MM.toComponent(
-                                "<red><b>¡ESTÁS BANEADO!</b></red>\n\n" +
-                                "<white>Razón: <yellow>" + (reason != null ? reason : "No especificada") + "</yellow></white>\n" +
-                                "<white>Tiempo restante: <yellow>" + formattedTime + "</yellow></white>\n" +
-                                "<white>Baneo número: <yellow>" + banCount + "</yellow></white>\n\n" +
-                                "<gray>Si crees que esto es un error, contacta a un administrador.</gray>"
-                            );
-                            
-                            // Set the kick message using modern API
-                            event.kickMessage(banMessage);
-                        }
                     }
                 }
             }
@@ -214,12 +178,6 @@ public class BanManager implements Listener {
             // Unban by profile (UUID) using modern API
             BanList<PlayerProfile> profileBanList = Bukkit.getBanList(BanListType.PROFILE);
             profileBanList.pardon(targetPlayer.getPlayerProfile());
-            
-            // Unban by IP using modern API if player has an address
-            if (targetPlayer.getAddress() != null) {
-                BanList<InetAddress> ipBanList = Bukkit.getBanList(BanListType.IP);
-                ipBanList.pardon(targetPlayer.getAddress().getAddress());
-            }
         } catch (Exception e) {
             CustomException ce = ExceptionBuilder.build(e.getClass(), this, "<red><b>Ha ocurrido un error indefinido al desbanear al jugador " + "<aqua><u>" + targetPlayer.getName() + "</u></aqua>" + "</b></red>");
             ExceptionBuilder.sendToConsole(ce);
@@ -281,25 +239,14 @@ public class BanManager implements Listener {
         // Programar el baneo para ejecutarse después de un breve retraso
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             try {
-                // Banear al jugador por nombre usando la API moderna
-                BanList<PlayerProfile> banListName = Bukkit.getBanList(BanListType.PROFILE);
-                banListName.addBan(
+                // Banear al jugador por perfil usando la API moderna
+                BanList<PlayerProfile> banListProfile = Bukkit.getBanList(BanListType.PROFILE);
+                banListProfile.addBan(
                     player.getPlayerProfile(),
                     banReason,
                     expirationDate,
                     "VIRTHA System"
                 );
-
-                // Banear al jugador por IP
-                BanList<InetAddress> banListIP = Bukkit.getBanList(BanListType.IP);
-                if (player.getAddress() != null && player.getAddress().getAddress() != null) {
-                    banListIP.addBan(
-                        player.getAddress().getAddress(),
-                        banReason,
-                        expirationDate,
-                        "VIRTHA System"
-                    );
-                }
 
                 // Expulsar al jugador
                 player.kick(banMessage);
