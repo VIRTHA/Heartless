@@ -50,7 +50,7 @@ public class EnchantmentListeners implements Listener {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        logger.info("EnchantmentListeners registered successfully");
+        logger.info("Custom enchantment registered successfully");
     }
 
     /**

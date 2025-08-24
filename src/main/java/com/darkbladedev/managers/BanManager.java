@@ -257,8 +257,6 @@ public class BanManager implements Listener {
                     "(Baneo #" + banCount + ") - Razón: " + banReason
                 ));
                 
-                plugin.getLogger().info("Jugador " + player.getName() + " baneado por " + banHours + " horas. Razón: " + banReason);
-                
             } catch (Exception e) {
                 plugin.getLogger().severe("Error al banear al jugador " + player.getName() + ": " + e.getMessage());
                 e.printStackTrace();

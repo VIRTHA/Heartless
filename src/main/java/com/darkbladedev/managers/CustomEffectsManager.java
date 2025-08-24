@@ -69,7 +69,7 @@ public class CustomEffectsManager implements Listener {
         loadSavedData();
         
         Bukkit.getConsoleSender().sendMessage(
-            MM.toComponent(plugin.getPrefix() + "<gray>Sistema de efectos personalizados <green>inicializado</green>.")
+            MM.toComponent(plugin.getPrefix() + " <gray>Sistema de efectos personalizados <green>inicializado</green>.")
         );
     }
     
@@ -83,7 +83,7 @@ public class CustomEffectsManager implements Listener {
         // Aquí se pueden registrar más efectos personalizados
         
         Bukkit.getConsoleSender().sendMessage(
-            MM.toComponent(plugin.getPrefix() + "<gray>Se han registrado <green>" + registeredEffects.size() + "</green> efectos personalizados.")
+            MM.toComponent(plugin.getPrefix() + " <gray>Se han registrado <green>" + registeredEffects.size() + "</green> efectos personalizados.")
         );
     }
     
@@ -129,7 +129,7 @@ public class CustomEffectsManager implements Listener {
         saveData();
         
         Bukkit.getConsoleSender().sendMessage(
-            MM.toComponent(plugin.getPrefix() + "<gray>Efecto <green>" + effect.getid() + "</green> activado.")
+            MM.toComponent(plugin.getPrefix() + " <gray>Efecto <green>" + effect.getid() + "</green> activado.")
         );
         
         return true;
@@ -159,7 +159,7 @@ public class CustomEffectsManager implements Listener {
         saveData();
         
         Bukkit.getConsoleSender().sendMessage(
-            MM.toComponent(plugin.getPrefix() + "<gray>Efecto <red>" + effect.getid() + "</red> desactivado.")
+            MM.toComponent(plugin.getPrefix() + " <gray>Efecto <red>" + effect.getid() + "</red> desactivado.")
         );
         
         return true;
@@ -305,7 +305,7 @@ public class CustomEffectsManager implements Listener {
             writer.write(data.toJSONString());
         } catch (IOException e) {
             Bukkit.getConsoleSender().sendMessage(
-                MM.toComponent(plugin.getPrefix() + "<red>Error al guardar datos de efectos personalizados: " + e.getMessage())
+                MM.toComponent(plugin.getPrefix() + " <red>Error al guardar datos de efectos personalizados: " + e.getMessage())
             );
         }
     }
@@ -354,7 +354,7 @@ public class CustomEffectsManager implements Listener {
             
         } catch (IOException | ParseException e) {
             Bukkit.getConsoleSender().sendMessage(
-                MM.toComponent(plugin.getPrefix() + "<red>Error al cargar datos de efectos personalizados: " + e.getMessage())
+                MM.toComponent(plugin.getPrefix() + " <red>Error al cargar datos de efectos personalizados: " + e.getMessage())
             );
         }
     }
@@ -392,7 +392,7 @@ public class CustomEffectsManager implements Listener {
         loadSavedData();
         
         Bukkit.getConsoleSender().sendMessage(
-            MM.toComponent(plugin.getPrefix() + "<gray>Sistema de efectos personalizados <green>recargado</green>.")
+            MM.toComponent(plugin.getPrefix() + " <gray>Sistema de efectos personalizados <green>recargado</green>.")
         );
     }
     

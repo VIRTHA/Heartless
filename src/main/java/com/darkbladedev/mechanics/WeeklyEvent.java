@@ -67,8 +67,8 @@ public abstract class WeeklyEvent implements Listener {
         isActive = true;
         isPaused = false;
         
-        // Registrar eventos
-        Bukkit.getPluginManager().registerEvents(this, plugin);
+        // Asegurar que los eventos estén registrados
+        ensureEventHandlersRegistered();
         
         // Iniciar tareas específicas del evento
         startEventTasks();
@@ -132,13 +132,35 @@ public abstract class WeeklyEvent implements Listener {
      * Reanuda el evento semanal.
      */
     public void resume() {
-        if (!isActive || !isPaused) return;
+        // Activar el evento si no está activo (para carga desde persistencia)
+        if (!isActive) {
+            isActive = true;
+        }
         
         isPaused = false;
+        
+        // Asegurar que los eventos estén registrados
+        ensureEventHandlersRegistered();
+        
         resumeEventTasks();
         resumeMoment = System.currentTimeMillis();
         
         totalPausedTime = resumeMoment - pauseMoment;
+    }
+    
+    /**
+     * Asegura que los EventHandlers estén registrados sin duplicados
+     */
+    private void ensureEventHandlersRegistered() {
+        try {
+            // Primero desregistrar para evitar duplicados
+            HandlerList.unregisterAll(this);
+            // Luego registrar nuevamente
+            Bukkit.getPluginManager().registerEvents(this, plugin);
+            plugin.getLogger().info("EventHandlers registrados para: " + this.getClass().getSimpleName());
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error al registrar EventHandlers para " + this.getClass().getSimpleName() + ": " + e.getMessage());
+        }
     }
     
     /**

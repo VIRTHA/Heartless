@@ -63,6 +63,76 @@ public class AcidWeek extends WeeklyEvent {
     @Override
     protected void announceEventStart() {
         Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La lluvia ácida ha comenzado! Busca refugio y protege tu equipo."));
+        announceAcidChallenges();
+    }
+    
+    /**
+     * Anuncia el fin del evento y muestra estadísticas individuales a cada jugador
+     */
+    @Override
+    protected void announceEventEnd() {
+        // Anuncio general del fin del evento
+        Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La lluvia ácida ha cesado! El mundo vuelve a la normalidad."));
+        Bukkit.broadcast(MM.toComponent(prefix + " <yellow>¡Revisando las estadísticas de supervivencia ácida!"));
+        
+        // Enviar estadísticas individuales a cada jugador
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            sendPlayerStatistics(player);
+        }
+    }
+    
+    /**
+     * Envía las estadísticas individuales del evento a un jugador específico
+     * @param player El jugador al que enviar las estadísticas
+     */
+    private void sendPlayerStatistics(Player player) {
+        UUID playerId = player.getUniqueId();
+        
+        // Separador visual
+        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+        player.sendMessage(MM.toComponent("<green><b>TUS ESTADÍSTICAS - SEMANA ÁCIDA</b></green>"));
+        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+        
+        // Estado de supervivencia
+        boolean inWater = playersInWater.contains(playerId);
+        boolean inRain = playersInRain.contains(playerId);
+        boolean hasResistance = hasAcidResistanceGear(player);
+        
+        player.sendMessage(MM.toComponent("<yellow>🌊 <white>Supervivencia en agua ácida:</white> " + (inWater ? "<green>Logrado</green>" : "<red>No logrado</red>")));
+        player.sendMessage(MM.toComponent("<yellow>🌧 <white>Supervivencia bajo lluvia ácida:</white> " + (inRain ? "<green>Logrado</green>" : "<red>No logrado</red>")));
+        player.sendMessage(MM.toComponent("<yellow>🛡 <white>Equipo resistente al ácido:</white> " + (hasResistance ? "<green>Obtenido</green>" : "<red>No obtenido</red>")));
+        
+        // Desafíos completados
+        player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
+        player.sendMessage(MM.toComponent("<gold><b>DESAFÍOS COMPLETADOS:</b></gold>"));
+        
+        // Verificar cada desafío
+        boolean acidSwimmer = hasChallengeCompleted(playerId, "acid_swimmer");
+        boolean acidRainSurvivor = hasChallengeCompleted(playerId, "acid_rain_survivor");
+        boolean acidResistant = hasChallengeCompleted(playerId, "acid_resistant");
+        
+        player.sendMessage(MM.toComponent("<yellow>🏊 Nadador Ácido:</yellow> " + (acidSwimmer ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        player.sendMessage(MM.toComponent("<yellow>☔ Superviviente de Lluvia Ácida:</yellow> " + (acidRainSurvivor ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        player.sendMessage(MM.toComponent("<yellow>🛡 Resistente al Ácido:</yellow> " + (acidResistant ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        
+        // Mensaje final
+        int completedChallenges = (acidSwimmer ? 1 : 0) + (acidRainSurvivor ? 1 : 0) + (acidResistant ? 1 : 0);
+        player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
+        player.sendMessage(MM.toComponent("<gold>Desafíos completados: <white>" + completedChallenges + "/3</white></gold>"));
+        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+    }
+    
+    /**
+     * Anuncia los desafíos disponibles durante la Semana Ácida
+     */
+    private void announceAcidChallenges() {
+        Bukkit.broadcast(MM.toComponent("<gray><b>=== <green>DESAFÍOS DE LA SEMANA</green> <gray><b>==="));
+        Bukkit.broadcast(MM.toComponent("<yellow>1. <green>Sobrevive</green> nadando en agua ácida</yellow>"));
+        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Resistencia temporal al ácido</gray>"));
+        Bukkit.broadcast(MM.toComponent("<yellow>2. <green>Sobrevive</green> bajo la lluvia ácida durante el día</yellow>"));
+        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Protección mejorada</gray>"));
+        Bukkit.broadcast(MM.toComponent("<yellow>3. <green>Obtén</green> equipo con resistencia al ácido</yellow>"));
+        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Inmunidad temporal</gray>"));
     }
     
 

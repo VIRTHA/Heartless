@@ -72,7 +72,7 @@ public class WeeklyEventManager {
             // Cargar datos guardados o iniciar un nuevo evento
             if (loadSavedEventData()) {
                 Bukkit.getConsoleSender().sendMessage(
-                    MM.toComponent(plugin.getPrefix() + "<gray>Reanudando evento semanal: <green><u>" + currentEventType.getEventName())
+                    MM.toComponent(plugin.getPrefix() + " <gray>Reanudando evento semanal: <green><u>" + currentEventType.getEventName())
                 );
                 
                 // Calcular tiempo restante
@@ -360,7 +360,7 @@ public class WeeklyEventManager {
         
         // Announce event pause
         Bukkit.broadcast(MM.toComponent("<gold><b>¡EVENTO SEMANAL PAUSADO!"));
-        Bukkit.broadcast(MM.toComponent("<yellow>El evento se reanudará cuando un administrador lo indique."));
+        Bukkit.broadcast(MM.toComponent("<gray><u>El evento se reanudará cuando un administrador lo indique."));
     }
     
     public void resumeCurrentEvent() {
@@ -378,13 +378,18 @@ public class WeeklyEventManager {
         
         isPaused = false;
         
-        // Resume the event
+        // Resume the event (EventHandlers se registrarán automáticamente en resume())
         currentEvent.resume();
         
         // Save the updated event data after resuming
         saveEventData();
         
         // Announce event resume
+
+        Bukkit.broadcast(MM.toComponent("<gold><b>EVENTO SEMANAL REANUDADO!"));
+        Bukkit.broadcast(MM.toComponent("<gray><u>El evento continua su ejecución normal nuevamente."));
+
+
         Bukkit.getLogger().info("Evento semanal reanudado correctamente.");
 
     }
@@ -407,10 +412,10 @@ public class WeeklyEventManager {
         try (FileWriter writer = new FileWriter(dataFile)) {
             writer.write(data.toJSONString());
             writer.flush();
-            Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + "<green>Evento semanal guardado correctamente."));
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + " <green>Evento semanal guardado correctamente."));
 
         } catch (IOException e) {
-            Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + "<red>Error al guardar datos del evento semanal: " + e.getMessage()));
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + " <red>Error al guardar datos del evento semanal: " + e.getMessage()));
         }
     }
     
@@ -517,11 +522,14 @@ public class WeeklyEventManager {
                             return false;
                     }
                     
+                    // Los EventHandlers se registrarán automáticamente cuando se llame a resume()
+                    // No es necesario registrarlos aquí para evitar duplicados
+                    
                     isEventActive = true;
-                    plugin.getLogger().info("Evento cargado correctamente: " + currentEventType.getEventName());
+                    Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + " <gray>Evento cargado correctamente: <green>" + currentEventType.getEventName()));
                 } else {
                     // El evento ya debería haber terminado
-                    plugin.getLogger().info("Evento expirado encontrado en datos guardados, ignorando...");
+                    Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + " <yellow>Evento expirado encontrado en datos guardados, ignorando..."));
                     currentEventType = null;
                     isEventActive = false;
                     clearEventData();
@@ -582,7 +590,7 @@ public class WeeklyEventManager {
         
         // Anunciar fin del evento
         Bukkit.broadcast(MM.toComponent("<gold><b>¡EVENTO SEMANAL FINALIZADO!"));
-        Bukkit.broadcast(MM.toComponent("<yellow>El próximo evento comenzará pronto..."));
+        Bukkit.broadcast(MM.toComponent("<gray>El próximo evento comenzará pronto..."));
     }
 
     // Update getTimeRemaining to account for paused time
@@ -641,7 +649,7 @@ public class WeeklyEventManager {
             
             // Anunciar que el evento ha sido detenido
             Bukkit.broadcast(MM.toComponent("<red><b>¡EVENTO SEMANAL DETENIDO!</b>"));
-            Bukkit.broadcast(MM.toComponent("<yellow>El evento '" + eventType.getEventName() + "' ha sido detenido manualmente."));
+            Bukkit.broadcast(MM.toComponent("<gray>El evento '" + eventType.getEventName() + "' ha sido detenido manualmente."));
             
             plugin.getLogger().info("Evento '" + eventType.getEventName() + "' detenido manualmente.");
         } else {
@@ -657,7 +665,7 @@ public class WeeklyEventManager {
         // Verificar si hay un evento en proceso de inicialización
         if (isEventStarting) {
             Bukkit.getConsoleSender().sendMessage(
-                MM.toComponent("<red>Ya hay un evento inicializándose. Operación de recarga cancelada.")
+                MM.toComponent(plugin.getPrefix() + " <red>Ya hay un evento inicializándose. Operación de recarga cancelada.")
             );
             return;
         }
@@ -666,11 +674,11 @@ public class WeeklyEventManager {
         try {
             loadSavedEventData();
             Bukkit.getConsoleSender().sendMessage(
-                MM.toComponent(plugin.getPrefix() + "<gray>Datos de eventos recargados correctamente.")
+                MM.toComponent(plugin.getPrefix() + " <gray>Datos de eventos recargados correctamente.")
             );
         } catch (Exception e) {
             Bukkit.getConsoleSender().sendMessage(
-                MM.toComponent(plugin.getPrefix() + "<red>Error al recargar datos de eventos: " + e.getMessage())
+                MM.toComponent(plugin.getPrefix() + " <red>Error al recargar datos de eventos: " + e.getMessage())
             );
         }
     }
@@ -711,7 +719,7 @@ public class WeeklyEventManager {
         
         plugin.getLogger().info("Estado del gestor de eventos limpiado forzadamente.");
         Bukkit.getConsoleSender().sendMessage(
-            MM.toComponent(plugin.getPrefix() + "<green>Estado del gestor de eventos limpiado correctamente.")
+            MM.toComponent(plugin.getPrefix() + " <green>Estado del gestor de eventos limpiado correctamente.")
         );
     }
 }

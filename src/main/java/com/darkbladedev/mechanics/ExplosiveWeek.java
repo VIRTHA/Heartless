@@ -99,6 +99,73 @@ public class ExplosiveWeek extends WeeklyEvent {
         announceExplosiveWeekChallenges();
     }
     
+    /**
+     * Anuncia el fin del evento y muestra estadísticas individuales a cada jugador
+     */
+    @Override
+    protected void announceEventEnd() {
+        // Anuncio general del fin del evento
+        Bukkit.broadcast(MM.toComponent(prefix + " <red>¡La semana explosiva ha terminado! El mundo vuelve a la calma."));
+        Bukkit.broadcast(MM.toComponent(prefix + " <yellow>¡Revisando las estadísticas de supervivencia explosiva!"));
+        
+        // Enviar estadísticas individuales a cada jugador
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            sendPlayerStatistics(player);
+        }
+    }
+    
+    /**
+     * Envía las estadísticas individuales del evento a un jugador específico
+     * @param player El jugador al que enviar las estadísticas
+     */
+    private void sendPlayerStatistics(Player player) {
+        UUID playerId = player.getUniqueId();
+        
+        // Separador visual
+        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+        player.sendMessage(MM.toComponent("<red><b>TUS ESTADÍSTICAS - SEMANA EXPLOSIVA</b></red>"));
+        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+        
+        // Estadísticas de supervivencia
+        player.sendMessage(MM.toComponent("<yellow>💥 <white>Estado de supervivencia:</white> <green>Sobreviviste a las explosiones</green>"));
+        
+        // Desafíos completados
+        player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
+        player.sendMessage(MM.toComponent("<gold><b>DESAFÍOS COMPLETADOS:</b></gold>"));
+        
+        // Verificar cada desafío
+        boolean ghastKiller = hasChallengeCompleted(playerId, "ghast_killer");
+        boolean mobHeadCollector = hasChallengeCompleted(playerId, "mob_head_collector");
+        boolean explosionKiller = hasChallengeCompleted(playerId, "explosion_killer");
+        boolean wardenCreeperKiller = hasChallengeCompleted(playerId, "warden_creeper_killer");
+        
+        player.sendMessage(MM.toComponent("<yellow>👻 Cazador de Ghasts:</yellow> " + (ghastKiller ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        if (ghastKiller) {
+            player.sendMessage(MM.toComponent("<gray>   Recompensa: Encantamiento Carve</gray>"));
+        }
+        
+        player.sendMessage(MM.toComponent("<yellow>💀 Coleccionista de Cabezas:</yellow> " + (mobHeadCollector ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        if (mobHeadCollector) {
+            player.sendMessage(MM.toComponent("<gray>   Recompensa: +1 corazón permanente</gray>"));
+        }
+        
+        player.sendMessage(MM.toComponent("<yellow>💣 TNTómano:</yellow> " + (explosionKiller ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        if (explosionKiller) {
+            player.sendMessage(MM.toComponent("<gray>   Recompensa: Tag \"TNTómano\"</gray>"));
+        }
+        
+        player.sendMessage(MM.toComponent("<yellow>⚡ Domador de Wardens:</yellow> " + (wardenCreeperKiller ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        if (wardenCreeperKiller) {
+            player.sendMessage(MM.toComponent("<gray>   Recompensa: +1 corazón permanente</gray>"));
+        }
+        
+        // Mensaje final
+        int completedChallenges = (ghastKiller ? 1 : 0) + (mobHeadCollector ? 1 : 0) + (explosionKiller ? 1 : 0) + (wardenCreeperKiller ? 1 : 0);
+        player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
+        player.sendMessage(MM.toComponent("<gold>Desafíos completados: <white>" + completedChallenges + "/4</white></gold>"));
+        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+    }
+    
     @Override
     protected void stopEventTasks() {
         // Cancel tasks
