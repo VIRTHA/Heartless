@@ -471,7 +471,8 @@ public class AcidWeek extends WeeklyEvent {
     public void resume() {
         if (!isActive || !isPaused) return;
         
-        isPaused = false;
+        // Call parent resume to register event handlers
+        super.resume();
         
         // Restart tasks
         startAcidDamageTask();

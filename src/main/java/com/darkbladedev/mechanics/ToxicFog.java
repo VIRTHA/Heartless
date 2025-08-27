@@ -21,52 +21,22 @@ public class ToxicFog extends WeeklyEvent {
     
     private final Set<UUID> affectedPlayers;
     private BukkitTask toxicFogTask;
-    private boolean isActive = false;
-    private boolean isPaused = false;
     
     public ToxicFog(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
         this.affectedPlayers = new HashSet<>();
     }
     
+    @Override
     public void start() {
-        if (isActive) return;
-        
-        isActive = true;
-        isPaused = false;
-        
-        // Start the toxic fog task
-        startToxicFogTask();
-        
-        // Schedule the end of the event
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                stop();
-            }
-        }.runTaskLater(plugin, duration * 20L);
+        // Delegate lifecycle to base class (registers handlers and schedules end)
+        super.start();
     }
 
+    @Override
     public void stop() {
-        if (!isActive) return;
-        
-        isActive = false;
-        
-        if (toxicFogTask != null) {
-            toxicFogTask.cancel();
-            toxicFogTask = null;
-        }
-        
-        // Remove all effects from affected players
-        for (UUID uuid : affectedPlayers) {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player != null && player.isOnline()) {
-                player.removePotionEffect(PotionEffectType.POISON);
-                player.removePotionEffect(PotionEffectType.DARKNESS);
-            }
-        }
-        
-        affectedPlayers.clear();
+        // Delegate lifecycle to base class (cancels end task, unregisters handlers)
+        super.stop();
     }
     
 
@@ -85,8 +55,10 @@ public class ToxicFog extends WeeklyEvent {
         return true;
     }
     
+    @Override
     public boolean isActive() {
-        return isActive;
+        // Use base class state
+        return super.isActive();
     }
 
     private List<PotionEffect> getPotionEffects() {
@@ -98,34 +70,16 @@ public class ToxicFog extends WeeklyEvent {
         return potionEffects;
     }
 
+    @Override
     public void pause() {
-        if (!isActive || isPaused) return;
-        
-        isPaused = true;
-        
-        // Cancel the toxic fog task
-        if (toxicFogTask != null) {
-            toxicFogTask.cancel();
-            toxicFogTask = null;
-        }
-        
-        // Remove effects temporarily
-        for (UUID uuid : affectedPlayers) {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player != null && player.isOnline()) {
-                player.removePotionEffect(PotionEffectType.POISON);
-                player.removePotionEffect(PotionEffectType.DARKNESS);
-            }
-        }
+        // Delegate pause state handling to base class
+        super.pause();
     }
 
+    @Override
     public void resume() {
-        if (!isActive || !isPaused) return;
-        
-        isPaused = false;
-        
-        // Restart the toxic fog task
-        startToxicFogTask();
+        // Ensure handlers are (re)registered and state flags updated
+        super.resume();
     }
 
     /**
@@ -176,13 +130,51 @@ public class ToxicFog extends WeeklyEvent {
 
     @Override
     protected void startEventTasks() {
-        start();
+        // Start only the event-specific repeating task
+        startToxicFogTask();
     }
 
 
     @Override
     protected void stopEventTasks() {
-        stop();
+        // Cancel running task
+        if (toxicFogTask != null) {
+            toxicFogTask.cancel();
+            toxicFogTask = null;
+        }
+        
+        // Remove all effects from affected players
+        for (UUID uuid : affectedPlayers) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline()) {
+                player.removePotionEffect(PotionEffectType.POISON);
+                player.removePotionEffect(PotionEffectType.DARKNESS);
+            }
+        }
+    }
+
+    @Override
+    protected void pauseEventTasks() {
+        // Cancel the toxic fog task
+        if (toxicFogTask != null) {
+            toxicFogTask.cancel();
+            toxicFogTask = null;
+        }
+        
+        // Remove effects temporarily
+        for (UUID uuid : affectedPlayers) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline()) {
+                player.removePotionEffect(PotionEffectType.POISON);
+                player.removePotionEffect(PotionEffectType.DARKNESS);
+            }
+        }
+    }
+
+    @Override
+    protected void resumeEventTasks() {
+        // Restart the toxic fog task
+        startToxicFogTask();
     }
 
 

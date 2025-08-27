@@ -80,11 +80,27 @@ public class WeeklyEventManager {
                 long remainingTime = eventEndTime - currentTime;
                 
                 if (remainingTime > 0) {
-                    // Reanudar el evento actual
-                    resumeCurrentEvent();
+                    // Reactivar el evento después del reinicio
+                    if (isPaused) {
+                        // Si estaba pausado, usar el método normal de reanudación
+                        resumeCurrentEvent();
+                    } else {
+                        // Si no estaba pausado, solo necesitamos registrar los event handlers y reanudar las tareas
+                        currentEvent.resume();
+                        Bukkit.getConsoleSender().sendMessage(
+                            MM.toComponent(plugin.getPrefix() + " <green>Evento reactivado después del reinicio: " + currentEventType.getEventName())
+                        );
+                    }
                     
+                    // Recalcular el tiempo restante después de reanudar (puede cambiar si estaba en pausa)
+                    long adjustedRemaining = Math.max(0L, eventEndTime - System.currentTimeMillis());
                     // Programar el siguiente evento cuando termine este
-                    scheduleNextEvent(remainingTime);
+                    if (adjustedRemaining > 0L) {
+                        scheduleNextEvent(adjustedRemaining);
+                    } else {
+                        // Si por alguna razón ya no queda tiempo, iniciar uno nuevo
+                        startRandomEvent();
+                    }
                 } else {
                     // Si el evento ya debería haber terminado, iniciar uno nuevo
                     startRandomEvent();
@@ -186,7 +202,7 @@ public class WeeklyEventManager {
             return;
         }
         
-        // Stop the current event
+        // Stop the current event (this calls announceEventEnd() which shows individual statistics)
         currentEvent.stop();
         
         isEventActive = false;
@@ -197,14 +213,17 @@ public class WeeklyEventManager {
         // Clear the JSON file to indicate no active event
         clearEventData();
         
+        // Clear event specific data
+        plugin.getStorageManager().clearEventSpecificData();
+        
         // Cancel any scheduled tasks
         if (weeklyTask != null) {
             weeklyTask.cancel();
             weeklyTask = null;
         }
         
-        // Announce the end of the event
-        Bukkit.broadcast(MM.toComponent("<gold><b>¡EVENTO SEMANAL FINALIZADO!"));
+        // Additional announcement for manual stop
+        Bukkit.broadcast(MM.toComponent("<red><b>¡EVENTO SEMANAL DETENIDO MANUALMENTE!"));
     }
     
     /**
@@ -412,6 +431,12 @@ public class WeeklyEventManager {
         try (FileWriter writer = new FileWriter(dataFile)) {
             writer.write(data.toJSONString());
             writer.flush();
+            
+            // Guardar datos específicos del evento si hay un evento activo
+            if (isEventActive && currentEvent != null) {
+                plugin.getStorageManager().saveEventSpecificData(currentEvent);
+            }
+            
             Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + " <green>Evento semanal guardado correctamente."));
 
         } catch (IOException e) {
@@ -524,6 +549,11 @@ public class WeeklyEventManager {
                     
                     // Los EventHandlers se registrarán automáticamente cuando se llame a resume()
                     // No es necesario registrarlos aquí para evitar duplicados
+                    
+                    // Cargar datos específicos del evento si existe
+                    if (currentEvent != null) {
+                        plugin.getStorageManager().loadEventSpecificData(currentEvent);
+                    }
                     
                     isEventActive = true;
                     Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + " <gray>Evento cargado correctamente: <green>" + currentEventType.getEventName()));
@@ -658,8 +688,8 @@ public class WeeklyEventManager {
     }
 
     /**
-     * Recarga los datos del evento sin iniciar nuevos eventos
-     * Este método es útil para recargar la configuración sin alterar el estado actual
+     * Recarga los datos del evento y reanuda el evento si es necesario
+     * Este método es útil para recargar la configuración y reactivar eventos después de un reinicio
      */
     public void reload() {
         // Verificar si hay un evento en proceso de inicialización
@@ -670,9 +700,49 @@ public class WeeklyEventManager {
             return;
         }
         
-        // Cargar datos guardados sin iniciar nuevos eventos
+        // Cargar datos guardados y reanudar eventos si es necesario
         try {
-            loadSavedEventData();
+            if (loadSavedEventData()) {
+                Bukkit.getConsoleSender().sendMessage(
+                    MM.toComponent(plugin.getPrefix() + " <gray>Reanudando evento semanal: <green><u>" + currentEventType.getEventName())
+                );
+                
+                // Calcular tiempo restante
+                long currentTime = System.currentTimeMillis();
+                long remainingTime = eventEndTime - currentTime;
+                
+                if (remainingTime > 0) {
+                    // Reanudar el evento actual (si estaba pausado) o solo registrar handlers/tareas si no lo estaba
+                    if (isPaused) {
+                        resumeCurrentEvent();
+                    } else if (currentEvent != null) {
+                        currentEvent.resume();
+                        Bukkit.getConsoleSender().sendMessage(
+                            MM.toComponent(plugin.getPrefix() + " <green>Evento reactivado después del reinicio: " + currentEventType.getEventName())
+                        );
+                    }
+                    
+                    // Recalcular el tiempo restante tras la reanudación (eventEndTime pudo ajustarse)
+                    long adjustedRemaining = Math.max(0L, eventEndTime - System.currentTimeMillis());
+                    if (adjustedRemaining > 0L) {
+                        // Programar el siguiente evento cuando termine este
+                        scheduleNextEvent(adjustedRemaining);
+                    } else {
+                        // Si el evento ya debería haber terminado, limpiar datos
+                        Bukkit.getConsoleSender().sendMessage(
+                            MM.toComponent(plugin.getPrefix() + " <yellow>Evento expirado encontrado durante recarga, limpiando datos...")
+                        );
+                        clearEventData();
+                    }
+                } else {
+                    // Si el evento ya debería haber terminado, limpiar datos
+                    Bukkit.getConsoleSender().sendMessage(
+                        MM.toComponent(plugin.getPrefix() + " <yellow>Evento expirado encontrado durante recarga, limpiando datos...")
+                    );
+                    clearEventData();
+                }
+            }
+            
             Bukkit.getConsoleSender().sendMessage(
                 MM.toComponent(plugin.getPrefix() + " <gray>Datos de eventos recargados correctamente.")
             );

@@ -60,6 +60,9 @@ permissions:
   heartless.events.start:
     description: Permite iniciar eventos
     default: op
+  heartless.events.stop:
+    description: Permite detener eventos
+    default: op
     
   # Ban Duration Permissions
   heartless.ban.duration.exempt:

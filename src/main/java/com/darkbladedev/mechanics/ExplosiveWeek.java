@@ -646,7 +646,8 @@ public class ExplosiveWeek extends WeeklyEvent {
     public void resume() {
         if (!isActive || !isPaused) return;
         
-        isPaused = false;
+        // Call parent resume to register event handlers
+        super.resume();
         
         // Restart the main task
         startMainTask();

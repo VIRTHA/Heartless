@@ -75,9 +75,6 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
         } else {
             sender.sendMessage(MM.toComponent("<yellow>Este evento no tiene desafíos específicos definidos."));
         }
-        
-        // Información adicional
-        sender.sendMessage(MM.toComponent("<gray>Usa </gray><white>/heartless event status</white><gray> para ver el estado del evento."));
     }
     
     /**

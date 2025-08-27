@@ -24,7 +24,8 @@ public class EventManager {
 
     public EventManager(HeartlessMain plugin) {
         this.plugin = plugin;
-        this.weeklyEventManager = new WeeklyEventManager(plugin);
+        // Usar la instancia de WeeklyEventManager del plugin principal en lugar de crear una nueva
+        this.weeklyEventManager = plugin.getWeeklyEventManager();
         this.healthStealSystem = new HealthSteal(plugin);
         this.healthRewardsSystem = new HealthRewards(plugin);
 

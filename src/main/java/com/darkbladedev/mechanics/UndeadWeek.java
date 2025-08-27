@@ -58,6 +58,137 @@ public class UndeadWeek extends WeeklyEvent {
         EntityType.DROWNED, EntityType.HUSK, EntityType.STRAY, EntityType.PHANTOM,
         EntityType.ZOGLIN
     );
+    
+    // Métodos getter para persistencia de datos
+    public Map<UUID, Boolean> getInfectedPlayers() {
+        return infectedPlayers != null ? new HashMap<>(infectedPlayers) : new HashMap<>();
+    }
+    
+    public Map<UUID, Long> getInfectedPlayersTime() {
+        return infectedPlayersTime != null ? new HashMap<>(infectedPlayersTime) : new HashMap<>();
+    }
+    
+    public Map<UUID, Integer> getCuredInfectionsCount() {
+        return curedInfectionsCount != null ? new HashMap<>(curedInfectionsCount) : new HashMap<>();
+    }
+    
+    public Map<UUID, Integer> getRedMoonKillsCount() {
+        return redMoonKillsCount != null ? new HashMap<>(redMoonKillsCount) : new HashMap<>();
+    }
+    
+    public Set<UUID> getCuredVillagers() {
+        return curedVillagers != null ? new HashSet<>(curedVillagers) : new HashSet<>();
+    }
+    
+    public Set<UUID> getWitherKilledInRedMoon() {
+        return witherKilledInRedMoon != null ? new HashSet<>(witherKilledInRedMoon) : new HashSet<>();
+    }
+    
+    public long getLastRedMoonNight() {
+        return lastRedMoonNight;
+    }
+    
+    public boolean isRedMoonActive() {
+        return isRedMoonActive;
+    }
+    
+    // Métodos setter para persistencia de datos
+    public void setRedMoonActive(boolean active) {
+        this.isRedMoonActive = active;
+    }
+    
+    public void setLastRedMoonNight(long night) {
+        this.lastRedMoonNight = night;
+    }
+    
+    // Métodos de carga para persistencia
+    public void loadInfectedPlayers(Map<String, Object> data) {
+        if (infectedPlayers == null) infectedPlayers = new HashMap<>();
+        infectedPlayers.clear();
+        
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            try {
+                UUID playerId = UUID.fromString(entry.getKey());
+                Boolean infected = (Boolean) entry.getValue();
+                infectedPlayers.put(playerId, infected);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error cargando jugador infectado: " + entry.getKey());
+            }
+        }
+    }
+    
+    public void loadInfectedPlayersTime(Map<String, Object> data) {
+        if (infectedPlayersTime == null) infectedPlayersTime = new HashMap<>();
+        infectedPlayersTime.clear();
+        
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            try {
+                UUID playerId = UUID.fromString(entry.getKey());
+                Long time = ((Number) entry.getValue()).longValue();
+                infectedPlayersTime.put(playerId, time);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error cargando tiempo de infección: " + entry.getKey());
+            }
+        }
+    }
+    
+    public void loadCuredInfectionsCount(Map<String, Object> data) {
+        if (curedInfectionsCount == null) curedInfectionsCount = new HashMap<>();
+        curedInfectionsCount.clear();
+        
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            try {
+                UUID playerId = UUID.fromString(entry.getKey());
+                Integer count = ((Number) entry.getValue()).intValue();
+                curedInfectionsCount.put(playerId, count);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error cargando contador de curaciones: " + entry.getKey());
+            }
+        }
+    }
+    
+    public void loadRedMoonKillsCount(Map<String, Object> data) {
+        if (redMoonKillsCount == null) redMoonKillsCount = new HashMap<>();
+        redMoonKillsCount.clear();
+        
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            try {
+                UUID playerId = UUID.fromString(entry.getKey());
+                Integer count = ((Number) entry.getValue()).intValue();
+                redMoonKillsCount.put(playerId, count);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error cargando contador de muertes en Luna Roja: " + entry.getKey());
+            }
+        }
+    }
+    
+    public void loadCuredVillagers(List<String> data) {
+        if (curedVillagers == null) curedVillagers = new HashSet<>();
+        curedVillagers.clear();
+        
+        for (String uuidStr : data) {
+            try {
+                UUID playerId = UUID.fromString(uuidStr);
+                curedVillagers.add(playerId);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error cargando aldeano curado: " + uuidStr);
+            }
+        }
+    }
+    
+    public void loadWitherKilledInRedMoon(List<String> data) {
+        if (witherKilledInRedMoon == null) witherKilledInRedMoon = new HashSet<>();
+        witherKilledInRedMoon.clear();
+        
+        for (String uuidStr : data) {
+            try {
+                UUID playerId = UUID.fromString(uuidStr);
+                witherKilledInRedMoon.add(playerId);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error cargando Wither eliminado en Luna Roja: " + uuidStr);
+            }
+        }
+    }
     /**
      * Constructor para UndeadWeek.
      * 
@@ -2136,12 +2267,6 @@ public class UndeadWeek extends WeeklyEvent {
     public boolean isActive() {
         return isActive;
     }
-    
-    public boolean isRedMoonActive() {
-        return isRedMoonActive;
-    }
-
-
     /**
      * Pausa todas las tareas del evento y restaura temporalmente
      * el ciclo día/noche normal y elimina efectos de jugadores infectados
@@ -2813,10 +2938,8 @@ public class UndeadWeek extends WeeklyEvent {
                 return false;
             }
             
-            // Verificar si el evento está activo
-            if (!isActive) {
-                return false;
-            }
+            // Nota: Permitimos comprobar desafíos incluso si el evento ya ha terminado
+            // para poder mostrar estadísticas al anunciar el fin del evento.
             
             // Verificar el tipo de desafío
             switch (challengeId) {
@@ -3033,7 +3156,7 @@ public class UndeadWeek extends WeeklyEvent {
     
     /**
      * Anuncia el fin del evento a todos los jugadores
-     * Incluye efectos visuales y sonoros, y mensajes de finalización
+     * Incluye efectos visuales y sonoros, y muestra estadísticas individuales por jugador
      */
     @Override
     protected void announceEventEnd() {
@@ -3045,7 +3168,7 @@ public class UndeadWeek extends WeeklyEvent {
             Bukkit.broadcast(MM.toComponent(eventPrefix + " <green>¡La amenaza de los no-muertos ha sido contenida!"));
             Bukkit.broadcast(MM.toComponent(eventPrefix + " <yellow>El mundo vuelve a la normalidad... por ahora."));
             
-            // Efectos de sonido y visuales para todos los jugadores
+            // Efectos de sonido y visuales para todos los jugadores y estadísticas individuales
             int playersProcessed = 0;
             final int maxPlayersToProcess = 100; // Límite para evitar sobrecarga
             
@@ -3073,15 +3196,8 @@ public class UndeadWeek extends WeeklyEvent {
                     // Mensaje personalizado para el jugador
                     player.sendMessage(MM.toComponent(eventPrefix + " <green>¡Has sobrevivido a la Semana No-Muerta!"));
                     
-                    // Mostrar estadísticas personales si el jugador participó
-                    if (infectedPlayers != null && infectedPlayers.containsKey(player.getUniqueId())) {
-                        int curedCount = curedInfectionsCount.getOrDefault(player.getUniqueId(), 0);
-                        int redMoonKills = redMoonKillsCount.getOrDefault(player.getUniqueId(), 0);
-                        
-                        player.sendMessage(MM.toComponent(eventPrefix + " <yellow>Tus estadísticas:"));
-                        player.sendMessage(MM.toComponent("<gray>- <white>Infecciones curadas: <gold>" + curedCount));
-                        player.sendMessage(MM.toComponent("<gray>- <white>Eliminaciones en Luna Roja: <red>" + redMoonKills));
-                    }
+                    // Enviar estadísticas detalladas del jugador (paridad con otros eventos)
+                    sendPlayerStatistics(player);
                     
                     playersProcessed++;
                 } catch (Exception e) {
@@ -3095,5 +3211,64 @@ public class UndeadWeek extends WeeklyEvent {
             Bukkit.getLogger().severe("Error al anunciar el fin del evento UndeadWeek: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Envía las estadísticas individuales del evento a un jugador específico
+     * Incluye progreso de desafíos y contadores personales
+     */
+    private void sendPlayerStatistics(Player player) {
+        if (player == null) return;
+        UUID playerId = player.getUniqueId();
+        
+        // Separador visual
+        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+        player.sendMessage(MM.toComponent("<green><b>TUS ESTADÍSTICAS - SEMANA DE LOS NO-MUERTOS</b></green>"));
+        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+        
+        // Contadores personales
+        int curedCount = curedInfectionsCount != null ? curedInfectionsCount.getOrDefault(playerId, 0) : 0;
+        int redMoonKills = redMoonKillsCount != null ? redMoonKillsCount.getOrDefault(playerId, 0) : 0;
+        boolean villagerCured = curedVillagers != null && curedVillagers.contains(playerId);
+        boolean witherKilledRM = witherKilledInRedMoon != null && witherKilledInRedMoon.contains(playerId);
+        
+        player.sendMessage(MM.toComponent("<yellow>🧪 Infecciones curadas:</yellow> <gold>" + curedCount + "</gold>"));
+        player.sendMessage(MM.toComponent("<yellow><red>🌑</red> Eliminaciones en Luna Roja:</yellow> <red>" + redMoonKills + "</red>"));
+        player.sendMessage(MM.toComponent("<yellow>🧟 Aldeanos curados:</yellow> " + (villagerCured ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        player.sendMessage(MM.toComponent("<yellow>☠ Wither eliminado en Luna Roja:</yellow> " + (witherKilledRM ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        
+        // Desafíos completados
+        player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
+        player.sendMessage(MM.toComponent("<gold><b>DESAFÍOS COMPLETADOS:</b></gold>"));
+        
+        boolean cureInfection = hasChallengeCompleted(playerId, "cure_infection");
+        boolean cureVillager = hasChallengeCompleted(playerId, "cure_villager");
+        boolean redMoonKillsCh = hasChallengeCompleted(playerId, "red_moon_kills");
+        boolean witherRedMoon = hasChallengeCompleted(playerId, "wither_red_moon");
+        
+        player.sendMessage(MM.toComponent("<yellow>🧴 Doctor inmune (curar 10 infecciones):</yellow> " + (cureInfection ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        if (cureInfection) {
+            player.sendMessage(MM.toComponent("<gray>   Recompensa: Encantamiento Curse of Undead</gray>"));
+        }
+        
+        player.sendMessage(MM.toComponent("<yellow>🧟 Sanador de aldeanos zombis:</yellow> " + (cureVillager ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        if (cureVillager) {
+            player.sendMessage(MM.toComponent("<gray>   Recompensa: <gray><u>Tag</u> \"Dr. Zomboss\"</gray>"));
+        }
+        
+        player.sendMessage(MM.toComponent("<yellow><red>🔴</red> Cazador nocturno (10 kills en Luna Roja):</yellow> " + (redMoonKillsCh ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        if (redMoonKillsCh) {
+            player.sendMessage(MM.toComponent("<gray>   Recompensa: +1 corazón permanente</gray>"));
+        }
+        
+        player.sendMessage(MM.toComponent("<yellow><red>☠</red> Asesino del Wither en Luna Roja:</yellow> " + (witherRedMoon ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        if (witherRedMoon) {
+            player.sendMessage(MM.toComponent("<gray>   Recompensa: +1 corazón permanente</gray>"));
+        }
+        
+        int completedChallenges = (cureInfection ? 1 : 0) + (cureVillager ? 1 : 0) + (redMoonKillsCh ? 1 : 0) + (witherRedMoon ? 1 : 0);
+        player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
+        player.sendMessage(MM.toComponent("<gold>Desafíos completados: <white>" + completedChallenges + "/4</white></gold>"));
+        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
     }
 }

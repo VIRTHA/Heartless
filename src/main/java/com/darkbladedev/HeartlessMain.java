@@ -36,9 +36,11 @@ public class HeartlessMain extends JavaPlugin {
     public void onEnable() {
         // Plugin startup logic
         instance = this;
+        
+        // Inicializar WeeklyEventManager primero ya que EventManager lo necesita
+        weeklyEventManager = new WeeklyEventManager(instance);
         eventManager = new EventManager(instance);
         contentManager = new ContentManager(instance);
-        weeklyEventManager = new WeeklyEventManager(instance);
         papiManager = new PlaceholderApiManager(instance);
         banManager = new BanManager(instance);
         storageManager = new StorageManager(instance);

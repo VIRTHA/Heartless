@@ -302,7 +302,8 @@ public class BloodAndIronWeek extends WeeklyEvent {
     public void resume() {
         if (!isActive || !isPaused) return;
         
-        isPaused = false;
+        // Call parent resume to register event handlers
+        super.resume();
         
         // Restart tasks
         startMainTask();
@@ -770,6 +771,9 @@ public class BloodAndIronWeek extends WeeklyEvent {
 
     // Helper methods
     private void checkAndApplyArmorEffects(Player player) {
+        // No aplicar efectos si el evento está pausado
+        if (!isActive || isPaused) return;
+        
         // Check if player is wearing diamond/netherite armor
         boolean hasHeavyArmor = false;
         for (ItemStack item : player.getInventory().getArmorContents()) {
@@ -794,6 +798,9 @@ public class BloodAndIronWeek extends WeeklyEvent {
     }
 
     private void checkAndApplySwordEffects(Player player) {
+        // No aplicar efectos si el evento está pausado
+        if (!isActive || isPaused) return;
+        
         ItemStack item = player.getInventory().getItemInMainHand();
         if (item != null) {
             Material type = item.getType();
