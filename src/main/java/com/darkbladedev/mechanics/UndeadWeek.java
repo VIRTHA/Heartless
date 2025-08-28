@@ -1334,33 +1334,35 @@ public class UndeadWeek extends WeeklyEvent {
                         }
                         
                         try {
-                            // Spawnear la entidad adicional
-                            Entity newEntity = world.spawnEntity(newSpawnLoc, randomUndeadType);
+                            // Spawnear la entidad adicional solo si no es un Wither
+                            if (randomUndeadType != EntityType.WITHER) {
+                                Entity newEntity = world.spawnEntity(newSpawnLoc, randomUndeadType);
                             
-                            if (newEntity instanceof LivingEntity) {
-                                LivingEntity livingEntity = (LivingEntity) newEntity;
-                                
-                                // Aplicar efectos inmediatamente
-                                livingEntity.addPotionEffect(new PotionEffect(
-                                    PotionEffectType.STRENGTH,
-                                    Integer.MAX_VALUE,
-                                    1, // Nivel II
-                                    false,
-                                    false,
-                                    true
-                                ));
-                                
-                                // Aplicar aumento de velocidad durante Luna Roja
-                                if (livingEntity.getAttribute(Attribute.MOVEMENT_SPEED) != null) {
-                                    double baseSpeed = livingEntity.getAttribute(Attribute.MOVEMENT_SPEED).getBaseValue();
-                                    livingEntity.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(Math.min(baseSpeed * 2, 0.5));
-                                }
-                                
-                                // Efectos visuales para indicar spawn durante Luna Roja
-                                if (Math.random() < 0.5) {
-                                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, 
-                                        newSpawnLoc.add(0, 1, 0), 
-                                        8, 0.3, 0.3, 0.3, 0.1);
+                                if (newEntity instanceof LivingEntity) {
+                                    LivingEntity livingEntity = (LivingEntity) newEntity;
+                                    
+                                    // Aplicar efectos inmediatamente
+                                    livingEntity.addPotionEffect(new PotionEffect(
+                                        PotionEffectType.STRENGTH,
+                                        Integer.MAX_VALUE,
+                                        1, // Nivel II
+                                        false,
+                                        false,
+                                        true
+                                    ));
+                                    
+                                    // Aplicar aumento de velocidad durante Luna Roja
+                                    if (livingEntity.getAttribute(Attribute.MOVEMENT_SPEED) != null) {
+                                        double baseSpeed = livingEntity.getAttribute(Attribute.MOVEMENT_SPEED).getBaseValue();
+                                        livingEntity.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(Math.min(baseSpeed * 2, 0.5));
+                                    }
+                                    
+                                    // Efectos visuales para indicar spawn durante Luna Roja
+                                    if (Math.random() < 0.5) {
+                                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, 
+                                            newSpawnLoc.add(0, 1, 0), 
+                                            8, 0.3, 0.3, 0.3, 0.1);
+                                    }
                                 }
                             }
                         } catch (Exception e) {
@@ -1420,7 +1422,7 @@ public class UndeadWeek extends WeeklyEvent {
                 // Verificar si el jugador ya está infectado
                 if (!infectedPlayers.getOrDefault(player.getUniqueId(), false)) {
                     // 25% de probabilidad de infección por golpe
-                    if (Math.random() < 0.40) {
+                    if (Math.random() < 0.25) {
                         try {
                             infectedPlayers.put(player.getUniqueId(), true);
                             player.sendMessage(MM.toComponent("<red>¡Has sido infectado! Come una manzana dorada para curarte."));
@@ -1846,55 +1848,55 @@ public class UndeadWeek extends WeeklyEvent {
         try {
             // Verificar si el plugin es válido
             if (plugin == null) {
-                Bukkit.getLogger().severe(prefix + " No se pueden dar recompensas: plugin no válido");
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " No se pueden dar recompensas: plugin no válido"));
                 return;
             }
             
             // Verificar si el evento está activo o pausado
             if (!isActive && !isPaused) {
-                Bukkit.getLogger().warning(prefix + " No se pueden dar recompensas: el evento no está activo ni pausado");
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " No se pueden dar recompensas: el evento no está activo ni pausado"));
                 return;
             }
             
             // Inicializar estructuras de datos si son nulas
             if (infectedPlayers == null) {
                 infectedPlayers = new HashMap<>();
-                Bukkit.getLogger().warning(prefix + " Se inicializó la lista de jugadores infectados durante giveRewards");
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Se inicializó la lista de jugadores infectados durante giveRewards"));
             }
             
             if (curedInfectionsCount == null) {
                 curedInfectionsCount = new HashMap<>();
-                Bukkit.getLogger().warning(prefix + " Se inicializó el contador de curaciones durante giveRewards");
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Se inicializó el contador de curaciones durante giveRewards"));
             }
             
             if (redMoonKillsCount == null) {
                 redMoonKillsCount = new HashMap<>();
-                Bukkit.getLogger().warning(prefix + " Se inicializó el contador de eliminaciones durante giveRewards");
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Se inicializó el contador de eliminaciones durante giveRewards"));
             }
             
             if (curedVillagers == null) {
                 curedVillagers = new HashSet<>();
-                Bukkit.getLogger().warning(prefix + " Se inicializó el registro de aldeanos curados durante giveRewards");
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Se inicializó el registro de aldeanos curados durante giveRewards"));
             }
             
             if (witherKilledInRedMoon == null) {
                 witherKilledInRedMoon = new HashSet<>();
-                Bukkit.getLogger().warning(prefix + " Se inicializó el registro de Withers eliminados durante giveRewards");
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Se inicializó el registro de Withers eliminados durante giveRewards"));
             }
             
             // Verificar si hay jugadores que hayan participado
             if (infectedPlayers.isEmpty()) {
-                Bukkit.getLogger().info(prefix + " No hay jugadores infectados para dar recompensas");
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " No hay jugadores infectados para dar recompensas"));
                 return;
             }
             
             // Registrar estadísticas antes de dar recompensas
-            Bukkit.getLogger().info(prefix + " Estadísticas del evento antes de dar recompensas:");
-            Bukkit.getLogger().info(prefix + " - Jugadores infectados: " + infectedPlayers.size());
-            Bukkit.getLogger().info(prefix + " - Total de curaciones realizadas: " + getTotalCuredCount());
-            Bukkit.getLogger().info(prefix + " - Total de eliminaciones en Luna Roja: " + getTotalRedMoonKills());
-            Bukkit.getLogger().info(prefix + " - Aldeanos curados: " + curedVillagers.size());
-            Bukkit.getLogger().info(prefix + " - Withers eliminados en Luna Roja: " + witherKilledInRedMoon.size());
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Estadísticas del evento antes de dar recompensas:"));
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " - Jugadores infectados: " + infectedPlayers.size()));
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " - Total de curaciones realizadas: " + getTotalCuredCount()));
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " - Total de eliminaciones en Luna Roja: " + getTotalRedMoonKills()));
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " - Aldeanos curados: " + curedVillagers.size()));
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " - Withers eliminados en Luna Roja: " + witherKilledInRedMoon.size()));
             
             // Contador para limitar el procesamiento
             int playersProcessed = 0;
@@ -1907,13 +1909,13 @@ public class UndeadWeek extends WeeklyEvent {
             for (UUID playerId : playerIds) {
                 // Verificar si el ID es válido
                 if (playerId == null) {
-                    Bukkit.getLogger().warning(prefix + " Se encontró un UUID nulo en la lista de jugadores infectados");
+                    Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Se encontró un UUID nulo en la lista de jugadores infectados"));
                     continue;
                 }
                 
                 // Limitar la cantidad de jugadores procesados
                 if (playersProcessed >= maxPlayersToProcess) {
-                    Bukkit.getLogger().warning(prefix + " Límite de jugadores procesados alcanzado al dar recompensas (" + maxPlayersToProcess + ")");
+                    Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Límite de jugadores procesados alcanzado al dar recompensas (" + maxPlayersToProcess + ")"));
                     break;
                 }
                 
@@ -1932,54 +1934,45 @@ public class UndeadWeek extends WeeklyEvent {
                     boolean killedWither = witherKilledInRedMoon != null && witherKilledInRedMoon.contains(playerId);
                     
                     // Recompensas base
-                    int emeralds = 5;
                     int experience = 500;
                     
                     // Bonificaciones por curar infecciones
                     if (curedCount >= 10) {
-                        emeralds += 15;
                         experience += 1000;
                         sendSafeMessage(player, prefix + " <gold>¡Bonificación por curar a 10 o más jugadores!");
                     } else if (curedCount >= 5) {
-                        emeralds += 8;
                         experience += 500;
                         sendSafeMessage(player, prefix + " <gold>¡Bonificación por curar a 5 o más jugadores!");
                     } else if (curedCount > 0) {
-                        emeralds += 3;
                         experience += 200;
                         sendSafeMessage(player, prefix + " <gold>¡Bonificación por curar jugadores!");
                     }
                     
                     // Bonificaciones por matar durante la Luna Roja
                     if (redMoonKills >= 50) {
-                        emeralds += 20;
                         experience += 2000;
                         sendSafeMessage(player, prefix + " <red>¡Bonificación por 50+ eliminaciones durante la Luna Roja!");
                     } else if (redMoonKills >= 20) {
-                        emeralds += 10;
                         experience += 1000;
                         sendSafeMessage(player, prefix + " <red>¡Bonificación por 20+ eliminaciones durante la Luna Roja!");
                     } else if (redMoonKills > 0) {
-                        emeralds += 5;
                         experience += 500;
                         sendSafeMessage(player, prefix + " <red>¡Bonificación por eliminaciones durante la Luna Roja!");
                     }
                     
                     // Bonificaciones especiales
                     if (curedVillager) {
-                        emeralds += 10;
                         experience += 1000;
                         sendSafeMessage(player, prefix + " <green>¡Bonificación por curar a un aldeano zombificado!");
                     }
                     
                     if (killedWither) {
-                        emeralds += 25;
                         experience += 3000;
                         sendSafeMessage(player, prefix + " <dark_purple>¡Bonificación por derrotar al Wither durante la Luna Roja!");
                     }
                     
                     // Entregar recompensas
-                    givePlayerRewards(player, emeralds, experience);
+                    givePlayerRewards(player, experience);
                     playersProcessed++;
                     
                 } catch (Exception e) {
@@ -2146,7 +2139,7 @@ public class UndeadWeek extends WeeklyEvent {
         }
     }
     
-    private void givePlayerRewards(Player player, int emeralds, int experience) {
+    private void givePlayerRewards(Player player, int experience) {
         try {
             // Verificar si el plugin es válido
             if (plugin == null) {
@@ -2181,43 +2174,14 @@ public class UndeadWeek extends WeeklyEvent {
                 return;
             }
             
-            // Validar cantidades de recompensa
-            if (emeralds <= 0) {
-                Bukkit.getLogger().warning("[UndeadWeek] Cantidad de esmeraldas inválida: " + emeralds + ", ajustando a 1");
-                emeralds = 1;
-            }
-            
             if (experience <= 0) {
                 Bukkit.getLogger().warning("[UndeadWeek] Cantidad de experiencia inválida: " + experience + ", ajustando a 100");
                 experience = 100;
             }
             
-            // Limitar cantidades máximas para evitar problemas
-            if (emeralds > 64) {
-                Bukkit.getLogger().info("[UndeadWeek] Limitando cantidad de esmeraldas de " + emeralds + " a 64");
-                emeralds = 64;
-            }
-            
             if (experience > 10000) {
                 Bukkit.getLogger().info("[UndeadWeek] Limitando cantidad de experiencia de " + experience + " a 10000");
                 experience = 10000;
-            }
-            
-            try {
-                // Dar esmeraldas
-                ItemStack emeraldStack = new ItemStack(Material.EMERALD, emeralds);
-                HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(emeraldStack);
-                
-                // Si no hay espacio en el inventario, soltar los items en el suelo
-                if (!leftover.isEmpty()) {
-                    for (ItemStack item : leftover.values()) {
-                        if (item != null) {
-                            world.dropItemNaturally(player.getLocation(), item);
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                Bukkit.getLogger().warning("[UndeadWeek] Error al entregar esmeraldas a " + player.getName() + ": " + e.getMessage());
             }
             
             try {
@@ -2236,16 +2200,13 @@ public class UndeadWeek extends WeeklyEvent {
                 player.spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1.5, 0), 15, 0.5, 0.5, 0.5, 0.1);
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.5f);
                 
-                // Mensaje de recompensa con prefijo verificado
-                String safePrefix = (prefix != null) ? prefix : "<red>[Semana No-Muerta]</red>";
-                sendSafeMessage(player, safePrefix + " <green>¡Has recibido <gold>" + emeralds + " esmeraldas</gold> y <yellow>" + experience + " puntos de experiencia</yellow> como recompensa!");
             } catch (Exception e) {
                 Bukkit.getLogger().warning("[UndeadWeek] Error al mostrar efectos de recompensa a " + player.getName() + ": " + e.getMessage());
             }
             
             Bukkit.getLogger().info(String.format(
-                "[UndeadWeek] Recompensas entregadas a %s: %d esmeraldas, %d experiencia", 
-                player.getName(), emeralds, experience
+                "[UndeadWeek] Recompensas entregadas a %s: %d experiencia", 
+                player.getName(), experience
             ));
             
         } catch (Exception e) {
@@ -2530,7 +2491,7 @@ public class UndeadWeek extends WeeklyEvent {
                                 continue;
                             }
                             
-                            // Aplicar efectos de infección por 30 segundos (sin veneno)
+                            // Aplicar efectos de infección por 30 segundos
                             player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 600, 0, false, true, true)); // 30 segundos
                             
                             // Registrar el tiempo de aplicación del veneno
@@ -2951,9 +2912,9 @@ public class UndeadWeek extends WeeklyEvent {
                     // Jugador ha curado a un aldeano zombificado
                     return curedVillagers != null && curedVillagers.contains(playerId);
                 case "red_moon_kills":
-                    // Jugador ha matado 10 no-muertos durante la Luna Roja
+                    // Jugador ha matado 50 no-muertos durante la Luna Roja
                     int kills = redMoonKillsCount.getOrDefault(playerId, 0);
-                    return kills >= 10;
+                    return kills >= 50;
                 case "wither_red_moon":
                     // Jugador ha matado al Wither durante la Luna Roja
                     return witherKilledInRedMoon != null && witherKilledInRedMoon.contains(playerId);
@@ -3143,7 +3104,7 @@ public class UndeadWeek extends WeeklyEvent {
             Bukkit.broadcast(MM.toComponent("<yellow>Desafíos disponibles:"));
             Bukkit.broadcast(MM.toComponent("<gray>- <white>Curar tu infección 10 veces <gray>(Recompensa: Encantamiento Curse of Undead)"));
             Bukkit.broadcast(MM.toComponent("<gray>- <white>Curar a 5 aldeano zombificado <gray>(Recompensa: <gray><u>Tag</u> \"Dr. Zomboss\")"));
-            Bukkit.broadcast(MM.toComponent("<gray>- <white>Matar 10 no-muertos durante la Noche Roja <gray>(Recompensa: +1 corazón)"));
+            Bukkit.broadcast(MM.toComponent("<gray>- <white>Matar 50 no-muertos durante la Noche Roja <gray>(Recompensa: +1 corazón)"));
             Bukkit.broadcast(MM.toComponent("<gray>- <white>Matar al Wither durante la Noche Roja <gray>(Recompensa: +1 corazón)"));
             
             // Registrar en el log

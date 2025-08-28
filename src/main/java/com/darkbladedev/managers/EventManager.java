@@ -4,7 +4,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
 import com.darkbladedev.HeartlessMain;
-import com.darkbladedev.exceptions.CustomException;
 import com.darkbladedev.mechanics.AcidWeek;
 import com.darkbladedev.mechanics.HealthRewards;
 import com.darkbladedev.mechanics.HealthSteal;
@@ -52,7 +51,7 @@ public class EventManager {
         }
     }
 
-    public boolean stopEvent(CommandSender executor) throws CustomException {
+    public boolean stopEvent(CommandSender executor) {
         try {
             weeklyEventManager.stopCurrentEvent();
             return true;

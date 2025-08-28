@@ -213,8 +213,6 @@ public class WeeklyEventManager {
         // Clear the JSON file to indicate no active event
         clearEventData();
         
-        // Clear event specific data
-        plugin.getStorageManager().clearEventSpecificData();
         
         // Cancel any scheduled tasks
         if (weeklyTask != null) {
@@ -431,11 +429,7 @@ public class WeeklyEventManager {
         try (FileWriter writer = new FileWriter(dataFile)) {
             writer.write(data.toJSONString());
             writer.flush();
-            
-            // Guardar datos específicos del evento si hay un evento activo
-            if (isEventActive && currentEvent != null) {
-                plugin.getStorageManager().saveEventSpecificData(currentEvent);
-            }
+
             
             Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + " <green>Evento semanal guardado correctamente."));
 
@@ -545,14 +539,6 @@ public class WeeklyEventManager {
                             currentEventType = null;
                             isEventActive = false;
                             return false;
-                    }
-                    
-                    // Los EventHandlers se registrarán automáticamente cuando se llame a resume()
-                    // No es necesario registrarlos aquí para evitar duplicados
-                    
-                    // Cargar datos específicos del evento si existe
-                    if (currentEvent != null) {
-                        plugin.getStorageManager().loadEventSpecificData(currentEvent);
                     }
                     
                     isEventActive = true;
