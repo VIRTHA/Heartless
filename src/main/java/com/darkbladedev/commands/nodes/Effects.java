@@ -13,7 +13,7 @@ public class Effects implements CommandFunction {
     
     public Effects() {
         subcommands.put("apply", new Apply());
-        subcommands.put("clear", new Clear());
+        subcommands.put("remove", new Clear());
         subcommands.put("info", new Info());
         subcommands.put("list", new List());
         subcommands.put("activate", new Activate());
