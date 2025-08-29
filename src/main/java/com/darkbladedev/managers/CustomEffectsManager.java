@@ -20,6 +20,9 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.content.semi_custom.CustomEffectsBase;
@@ -38,6 +41,7 @@ public class CustomEffectsManager implements Listener {
     private final File dataFile;
     private final Map<String, CustomEffectsBase> registeredEffects;
     private final Set<String> activeEffects;
+    private final Gson gson;
     
     // Mapa para almacenar jugadores afectados por cada efecto
     private final Map<String, Set<UUID>> affectedPlayers;
@@ -52,6 +56,7 @@ public class CustomEffectsManager implements Listener {
         this.registeredEffects = new HashMap<>();
         this.activeEffects = new HashSet<>();
         this.affectedPlayers = new HashMap<>();
+        this.gson = new GsonBuilder().setPrettyPrinting().create();
         
         // Registrar eventos
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -278,31 +283,30 @@ public class CustomEffectsManager implements Listener {
     /**
      * Guarda los datos de efectos activos y jugadores afectados
      */
-    @SuppressWarnings("unchecked")
     private void saveData() {
-        JSONObject data = new JSONObject();
+        JsonObject data = new JsonObject();
         
-        // Guardar efectos activos
-        JSONArray activeEffectsArray = new JSONArray();
-        for (String effectName : activeEffects) {
-            activeEffectsArray.add(effectName);
+        // Convertir activeEffects a JsonArray
+        com.google.gson.JsonArray activeEffectsArray = new com.google.gson.JsonArray();
+        for (String effect : activeEffects) {
+            activeEffectsArray.add(effect);
         }
-        data.put("activeEffects", activeEffectsArray);
+        data.add("activeEffects", activeEffectsArray);
         
         // Guardar jugadores afectados por cada efecto
-        JSONObject affectedPlayersObj = new JSONObject();
+        JsonObject affectedPlayersObj = new JsonObject();
         for (Map.Entry<String, Set<UUID>> entry : affectedPlayers.entrySet()) {
-            JSONArray playersArray = new JSONArray();
+            com.google.gson.JsonArray playersArray = new com.google.gson.JsonArray();
             for (UUID playerId : entry.getValue()) {
                 playersArray.add(playerId.toString());
             }
-            affectedPlayersObj.put(entry.getKey(), playersArray);
+            affectedPlayersObj.add(entry.getKey(), playersArray);
         }
-        data.put("affectedPlayers", affectedPlayersObj);
+        data.add("affectedPlayers", affectedPlayersObj);
         
         // Guardar datos en archivo
         try (FileWriter writer = new FileWriter(dataFile)) {
-            writer.write(data.toJSONString());
+            gson.toJson(data, writer);
         } catch (IOException e) {
             Bukkit.getConsoleSender().sendMessage(
                 MM.toComponent(plugin.getPrefix() + " <red>Error al guardar datos de efectos personalizados: " + e.getMessage())

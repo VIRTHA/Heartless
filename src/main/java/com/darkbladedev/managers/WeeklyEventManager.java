@@ -15,6 +15,9 @@ import org.bukkit.scheduler.BukkitTask;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 
 import com.darkbladedev.utils.EmptyEvent;
 import com.darkbladedev.utils.EventType;
@@ -36,6 +39,7 @@ public class WeeklyEventManager {
     private final HeartlessMain plugin;
     private final Random random = new Random();
     private final File dataFile;
+    private final Gson gson;
     
     private BukkitTask weeklyTask;
     private long eventStartTime;
@@ -53,7 +57,7 @@ public class WeeklyEventManager {
     public WeeklyEventManager(HeartlessMain plugin) {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), DATA_FILENAME);
-
+        this.gson = new GsonBuilder().setPrettyPrinting().create();
     }
     
     public void initialize() {
@@ -244,12 +248,11 @@ public class WeeklyEventManager {
     /**
      * Clears the event data file
      */
-    @SuppressWarnings("unchecked")
     private void clearEventData() {
         try (FileWriter writer = new FileWriter(dataFile)) {
-            JSONObject data = new JSONObject();
-            data.put("eventActive", false);
-            writer.write(data.toJSONString());
+            JsonObject data = new JsonObject();
+            data.addProperty("eventActive", false);
+            gson.toJson(data, writer);
             writer.flush();
             plugin.getLogger().info("Event data cleared successfully");
         } catch (IOException e) {
@@ -412,22 +415,21 @@ public class WeeklyEventManager {
     }
     
     
-    @SuppressWarnings("unchecked")
     private void saveEventData() {
-        JSONObject data = new JSONObject();
-        data.put("eventActive", isEventActive);
+        JsonObject data = new JsonObject();
+        data.addProperty("eventActive", isEventActive);
         
         if (isEventActive && currentEventType != null) {
-            data.put("eventType", currentEventType.getEventName());
-            data.put("startTime", eventStartTime);
-            data.put("endTime", eventEndTime);
-            data.put("isPaused", isPaused);
-            data.put("pauseStartTime", pauseStartTime);
-            data.put("totalPausedTime", totalPausedTime);
+            data.addProperty("eventType", currentEventType.getEventName());
+            data.addProperty("startTime", eventStartTime);
+            data.addProperty("endTime", eventEndTime);
+            data.addProperty("isPaused", isPaused);
+            data.addProperty("pauseStartTime", pauseStartTime);
+            data.addProperty("totalPausedTime", totalPausedTime);
         }
         
         try (FileWriter writer = new FileWriter(dataFile)) {
-            writer.write(data.toJSONString());
+            gson.toJson(data, writer);
             writer.flush();
 
             
@@ -542,6 +544,12 @@ public class WeeklyEventManager {
                     }
                     
                     isEventActive = true;
+                    
+                    // Cargar datos específicos del evento
+                    if (currentEvent != null) {
+                        plugin.getStorageManager().loadEventSpecificData(currentEvent);
+                    }
+                    
                     Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + " <gray>Evento cargado correctamente: <green>" + currentEventType.getEventName()));
                 } else {
                     // El evento ya debería haber terminado

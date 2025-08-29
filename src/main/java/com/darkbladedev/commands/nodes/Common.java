@@ -5,7 +5,7 @@ import java.util.Map;
 
 import com.darkbladedev.commands.CommandFunction;
 import com.darkbladedev.commands.SubcommandExecutor;
-import com.darkbladedev.commands.functions.common.Reload;
+import com.darkbladedev.commands.functions.common.*;
 
 public class Common implements CommandFunction {
 
@@ -13,6 +13,8 @@ public class Common implements CommandFunction {
 
     public Common() {
         subcommands.put("reload", new Reload());
+        subcommands.put("diagnostic", new Diagnostic());
+        subcommands.put("test-persistence", new TestPersistence());
     }
 
     @Override

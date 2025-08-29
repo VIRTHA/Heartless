@@ -586,4 +586,40 @@ public class AcidWeek extends WeeklyEvent {
             }
         }
     }
+    
+    // ========== MÉTODOS DE PERSISTENCIA ==========
+    
+    /**
+     * Obtiene el conjunto de jugadores que están en agua
+     * @return Set de UUIDs de jugadores en agua
+     */
+    public Set<UUID> getPlayersInWater() {
+        return new HashSet<>(playersInWater);
+    }
+    
+    /**
+     * Obtiene el conjunto de jugadores que están en lluvia
+     * @return Set de UUIDs de jugadores en lluvia
+     */
+    public Set<UUID> getPlayersInRain() {
+        return new HashSet<>(playersInRain);
+    }
+    
+    /**
+     * Establece los jugadores que están en agua (para carga desde persistencia)
+     * @param playersInWater Set con UUIDs de jugadores en agua
+     */
+    public void loadPlayersInWater(Set<UUID> playersInWater) {
+        this.playersInWater.clear();
+        this.playersInWater.addAll(playersInWater);
+    }
+    
+    /**
+     * Establece los jugadores que están en lluvia (para carga desde persistencia)
+     * @param playersInRain Set con UUIDs de jugadores en lluvia
+     */
+    public void loadPlayersInRain(Set<UUID> playersInRain) {
+        this.playersInRain.clear();
+        this.playersInRain.addAll(playersInRain);
+    }
 }

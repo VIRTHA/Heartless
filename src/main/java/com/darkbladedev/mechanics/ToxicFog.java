@@ -97,29 +97,61 @@ public class ToxicFog extends WeeklyEvent {
         if (toxicFogTask != null) {
             toxicFogTask.cancel();
         }
-
-        // Start toxic fog task
+        
         toxicFogTask = new BukkitRunnable() {
             @Override
             public void run() {
+                if (!isActive()) {
+                    cancel();
+                    return;
+                }
+                
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    // Verificar si el jugador está en agua o bajo techo
+                    UUID playerId = player.getUniqueId();
+                    
                     if (!isPlayerSafe(player)) {
-                        // Aplicar los efectos
-                        player.addPotionEffects(getPotionEffects());
+                        // Player is not safe, apply toxic effects
+                        if (!affectedPlayers.contains(playerId)) {
+                            affectedPlayers.add(playerId);
+                        }
                         
-                        affectedPlayers.add(player.getUniqueId());
+                        // Apply poison and darkness effects
+                        for (PotionEffect effect : getPotionEffects()) {
+                            player.addPotionEffect(effect);
+                        }
                     } else {
-                        // Remover los efectos si el jugador está en un entorno seguro
+                        // Player is safe, remove from affected players
+                        affectedPlayers.remove(playerId);
+                        
+                        // Remove toxic effects
                         player.removePotionEffect(PotionEffectType.POISON);
                         player.removePotionEffect(PotionEffectType.DARKNESS);
-
-                        affectedPlayers.remove(player.getUniqueId());
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 20L); // Verificar cada 1 segundo (20 ticks)
+        }.runTaskTimer(plugin, 0L, 20L); // Run every second
     }
+    
+    // ========== MÉTODOS DE PERSISTENCIA ==========
+    
+    /**
+     * Obtiene el conjunto de jugadores afectados por la niebla tóxica
+     * @return Set de UUIDs de jugadores afectados
+     */
+    public Set<UUID> getAffectedPlayers() {
+        return new HashSet<>(affectedPlayers);
+    }
+    
+    /**
+     * Carga los jugadores afectados por la niebla tóxica (para carga desde persistencia)
+     * @param affectedPlayers Set con UUIDs de jugadores afectados
+     */
+    public void loadAffectedPlayers(Set<UUID> affectedPlayers) {
+        this.affectedPlayers.clear();
+        this.affectedPlayers.addAll(affectedPlayers);
+    }
+
+
 
 
     @Override

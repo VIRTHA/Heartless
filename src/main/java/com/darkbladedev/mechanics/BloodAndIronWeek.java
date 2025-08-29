@@ -830,4 +830,176 @@ public class BloodAndIronWeek extends WeeklyEvent {
                 return false;
         }
     }
+    
+    // ========== MÉTODOS DE PERSISTENCIA ==========
+    
+    /**
+     * Obtiene el mapa de tiempo del último asesinato de mobs hostiles
+     * @return Map de UUID a Long con los tiempos
+     */
+    public Map<UUID, Long> getLastHostileMobKillTime() {
+        return new HashMap<>(lastHostileMobKillTime);
+    }
+    
+    /**
+     * Obtiene el mapa de tiempo del último asesinato de jugadores
+     * @return Map de UUID a Long con los tiempos
+     */
+    public Map<UUID, Long> getLastPlayerKillTime() {
+        return new HashMap<>(lastPlayerKillTime);
+    }
+    
+    /**
+     * Obtiene el mapa de conteo de asesinatos de jugadores
+     * @return Map de UUID a Integer con los conteos
+     */
+    public Map<UUID, Integer> getPlayerKillCount() {
+        return new HashMap<>(playerKillCount);
+    }
+    
+    /**
+     * Obtiene el mapa de asesinatos consecutivos
+     * @return Map de UUID a Integer con los asesinatos consecutivos
+     */
+    public Map<UUID, Integer> getConsecutiveKills() {
+        return new HashMap<>(consecutiveKills);
+    }
+    
+    /**
+     * Obtiene el conjunto de jugadores que matan instantáneamente
+     * @return Set de UUIDs
+     */
+    public Set<UUID> getInstantDamageKillers() {
+        return new HashSet<>(instantDamageKillers);
+    }
+    
+    /**
+     * Obtiene el conjunto de jugadores con pentakill
+     * @return Set de UUIDs
+     */
+    public Set<UUID> getPentakillPlayers() {
+        return new HashSet<>(pentakillPlayers);
+    }
+    
+    /**
+     * Obtiene el conjunto de jugadores que sobreviven
+     * @return Set de UUIDs
+     */
+    public Set<UUID> getSurvivedPlayers() {
+        return new HashSet<>(survivedPlayers);
+    }
+    
+    /**
+     * Obtiene el conjunto de jugadores muertos
+     * @return Set de UUIDs
+     */
+    public Set<UUID> getDeadPlayers() {
+        return new HashSet<>(deadPlayers);
+    }
+    
+    /**
+     * Obtiene el conjunto de jugadores a los que se les ha otorgado adrenalina
+     * @return Set de UUIDs
+     */
+    public Set<UUID> getAwardedAdrenaline() {
+        return new HashSet<>(awardedAdrenaline);
+    }
+    
+    /**
+     * Obtiene el conjunto de jugadores que han recibido advertencia de asesinato de mob
+     * @return Set de UUIDs
+     */
+    public Set<UUID> getMobKillWarningGiven() {
+        return new HashSet<>(mobKillWarningGiven);
+    }
+    
+    /**
+     * Carga el tiempo del último asesinato de mobs hostiles
+     * @param lastHostileMobKillTime Map con datos de tiempos
+     */
+    public void loadLastHostileMobKillTime(Map<UUID, Long> lastHostileMobKillTime) {
+        this.lastHostileMobKillTime.clear();
+        this.lastHostileMobKillTime.putAll(lastHostileMobKillTime);
+    }
+    
+    /**
+     * Carga el tiempo del último asesinato de jugadores
+     * @param lastPlayerKillTime Map con datos de tiempos
+     */
+    public void loadLastPlayerKillTime(Map<UUID, Long> lastPlayerKillTime) {
+        this.lastPlayerKillTime.clear();
+        this.lastPlayerKillTime.putAll(lastPlayerKillTime);
+    }
+    
+    /**
+     * Carga el conteo de asesinatos de jugadores
+     * @param playerKillCount Map con datos de conteos
+     */
+    public void loadPlayerKillCount(Map<UUID, Integer> playerKillCount) {
+        this.playerKillCount.clear();
+        this.playerKillCount.putAll(playerKillCount);
+    }
+    
+    /**
+     * Carga los asesinatos consecutivos
+     * @param consecutiveKills Map con datos de asesinatos consecutivos
+     */
+    public void loadConsecutiveKills(Map<UUID, Integer> consecutiveKills) {
+        this.consecutiveKills.clear();
+        this.consecutiveKills.putAll(consecutiveKills);
+    }
+    
+    /**
+     * Carga los jugadores que matan instantáneamente
+     * @param instantDamageKillers Set con UUIDs de jugadores
+     */
+    public void loadInstantDamageKillers(Set<UUID> instantDamageKillers) {
+        this.instantDamageKillers.clear();
+        this.instantDamageKillers.addAll(instantDamageKillers);
+    }
+    
+    /**
+     * Carga los jugadores con pentakill
+     * @param pentakillPlayers Set con UUIDs de jugadores
+     */
+    public void loadPentakillPlayers(Set<UUID> pentakillPlayers) {
+        this.pentakillPlayers.clear();
+        this.pentakillPlayers.addAll(pentakillPlayers);
+    }
+    
+    /**
+     * Carga los jugadores que sobreviven
+     * @param survivedPlayers Set con UUIDs de jugadores
+     */
+    public void loadSurvivedPlayers(Set<UUID> survivedPlayers) {
+        this.survivedPlayers.clear();
+        this.survivedPlayers.addAll(survivedPlayers);
+    }
+    
+    /**
+     * Carga los jugadores muertos
+     * @param deadPlayers Set con UUIDs de jugadores
+     */
+    public void loadDeadPlayers(Set<UUID> deadPlayers) {
+        this.deadPlayers.clear();
+        this.deadPlayers.addAll(deadPlayers);
+    }
+    
+    /**
+     * Carga los jugadores a los que se les ha otorgado adrenalina
+     * @param awardedAdrenaline Set con UUIDs de jugadores
+     */
+    public void loadAwardedAdrenaline(Set<UUID> awardedAdrenaline) {
+        this.awardedAdrenaline.clear();
+        this.awardedAdrenaline.addAll(awardedAdrenaline);
+    }
+    
+    /**
+     * Carga los jugadores que han recibido advertencia de asesinato de mob
+     * @param mobKillWarningGiven Set con UUIDs de jugadores
+     */
+    public void loadMobKillWarningGiven(Set<UUID> mobKillWarningGiven) {
+        this.mobKillWarningGiven.clear();
+        this.mobKillWarningGiven.addAll(mobKillWarningGiven);
+    }
 }

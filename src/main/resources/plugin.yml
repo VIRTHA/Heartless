@@ -27,6 +27,9 @@ permissions:
   heartless.reload:
     description: "Allows to reload Heartless plugin."
     default: op
+  heartless.diagnostic:
+    description: "Allows to use diagnostic commands for system troubleshooting."
+    default: op
 
   # Command Permissions
   heartless.command.health:

@@ -696,4 +696,78 @@ public class ExplosiveWeek extends WeeklyEvent {
                 return false;
         }
     }
+    
+    // ========== MÉTODOS DE PERSISTENCIA ==========
+    
+    /**
+     * Obtiene el conjunto de jugadores que han matado ghasts
+     * @return Set de UUIDs de jugadores que mataron ghasts
+     */
+    public Set<UUID> getGhastKillers() {
+        return new HashSet<>(ghastKillers);
+    }
+    
+    /**
+     * Obtiene el mapa de jugadores y las cabezas de mobs que han recolectado
+     * @return Map de UUID a Set de EntityType
+     */
+    public Map<UUID, Set<EntityType>> getMobHeadCollectors() {
+        Map<UUID, Set<EntityType>> copy = new HashMap<>();
+        for (Map.Entry<UUID, Set<EntityType>> entry : mobHeadCollectors.entrySet()) {
+            copy.put(entry.getKey(), new HashSet<>(entry.getValue()));
+        }
+        return copy;
+    }
+    
+    /**
+     * Obtiene el conjunto de jugadores que han matado a otros con explosiones
+     * @return Set de UUIDs de jugadores que mataron con explosiones
+     */
+    public Set<UUID> getPlayerExplosionKillers() {
+        return new HashSet<>(playerExplosionKillers);
+    }
+    
+    /**
+     * Obtiene el conjunto de jugadores que han matado wardens con creepers
+     * @return Set de UUIDs de jugadores que mataron wardens con creepers
+     */
+    public Set<UUID> getWardenCreeperKillers() {
+        return new HashSet<>(wardenCreeperKillers);
+    }
+    
+    /**
+     * Carga los jugadores que han matado ghasts (para carga desde persistencia)
+     * @param ghastKillers Set con UUIDs de jugadores que mataron ghasts
+     */
+    public void loadGhastKillers(Set<UUID> ghastKillers) {
+        this.ghastKillers.clear();
+        this.ghastKillers.addAll(ghastKillers);
+    }
+    
+    /**
+     * Carga los jugadores que han matado a otros con explosiones (para carga desde persistencia)
+     * @param playerExplosionKillers Set con UUIDs de jugadores que mataron con explosiones
+     */
+    public void loadPlayerExplosionKillers(Set<UUID> playerExplosionKillers) {
+        this.playerExplosionKillers.clear();
+        this.playerExplosionKillers.addAll(playerExplosionKillers);
+    }
+    
+    /**
+     * Carga los jugadores que han matado wardens con creepers (para carga desde persistencia)
+     * @param wardenCreeperKillers Set con UUIDs de jugadores que mataron wardens con creepers
+     */
+    public void loadWardenCreeperKillers(Set<UUID> wardenCreeperKillers) {
+        this.wardenCreeperKillers.clear();
+        this.wardenCreeperKillers.addAll(wardenCreeperKillers);
+    }
+    
+    /**
+     * Carga los coleccionistas de cabezas de mobs (para carga desde persistencia)
+     * @param mobHeadCollectors Map con datos de coleccionistas de cabezas
+     */
+    public void loadMobHeadCollectors(Map<UUID, Set<EntityType>> mobHeadCollectors) {
+        this.mobHeadCollectors.clear();
+        this.mobHeadCollectors.putAll(mobHeadCollectors);
+    }
 }

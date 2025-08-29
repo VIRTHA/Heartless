@@ -101,6 +101,44 @@ public class UndeadWeek extends WeeklyEvent {
         this.lastRedMoonNight = night;
     }
     
+    // Métodos setter adicionales para persistencia
+    private long redMoonStartTime = 0;
+    private long redMoonEndTime = 0;
+    
+    public long getRedMoonStartTime() {
+        return redMoonStartTime;
+    }
+    
+    public void setRedMoonStartTime(long startTime) {
+        this.redMoonStartTime = startTime;
+    }
+    
+    public long getRedMoonEndTime() {
+        return redMoonEndTime;
+    }
+    
+    public void setRedMoonEndTime(long endTime) {
+        this.redMoonEndTime = endTime;
+    }
+    
+    public int getInfectedPlayersCount() {
+        return infectedPlayers != null ? infectedPlayers.size() : 0;
+    }
+    
+    public void setInfectedPlayersCount(int count) {
+        // Este método es principalmente para compatibilidad con la persistencia
+        // El conteo real se maneja a través del mapa infectedPlayers
+    }
+    
+    public int getTotalCuredInfectionsCount() {
+        return curedInfectionsCount != null ? curedInfectionsCount.values().stream().mapToInt(Integer::intValue).sum() : 0;
+    }
+    
+    public void setCuredInfectionsCount(int count) {
+        // Este método es principalmente para compatibilidad con la persistencia
+        // El conteo real se maneja a través del mapa curedInfectionsCount
+    }
+    
     // Métodos de carga para persistencia
     public void loadInfectedPlayers(Map<String, Object> data) {
         if (infectedPlayers == null) infectedPlayers = new HashMap<>();
@@ -654,6 +692,7 @@ public class UndeadWeek extends WeeklyEvent {
         try {
             // Activar la Noche Roja
             isRedMoonActive = true;
+            redMoonStartTime = System.currentTimeMillis();
             
             // Verificar si el prefijo es válido
             String eventPrefix = prefix != null ? prefix : "[Semana No-Muerta]";
@@ -839,6 +878,7 @@ public class UndeadWeek extends WeeklyEvent {
         try {
             // Desactivar la Noche Roja
             isRedMoonActive = false;
+            redMoonEndTime = System.currentTimeMillis();
             lastRedMoonNight = -1; // Resetear para permitir activación en futuras noches
             
             // Verificar si el prefijo es válido
