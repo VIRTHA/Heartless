@@ -110,6 +110,27 @@ public class StorageManager {
     }
     
     /**
+     * Carga los datos del ciclo de día desde el archivo
+     */
+    public void loadDayCycleData() {
+        try {
+            if (dayCycleDataFile.exists()) {
+                YamlConfiguration config = YamlConfiguration.loadConfiguration(dayCycleDataFile);
+                DayCycleUtils.init(config, plugin.getLogger());
+                plugin.getLogger().info("Datos del ciclo de día cargados correctamente desde: " + dayCycleDataFile.getAbsolutePath());
+            } else {
+                plugin.getLogger().warning("Archivo de datos del ciclo de día no existe: " + dayCycleDataFile.getAbsolutePath());
+                // Crear el archivo si no existe
+                createDayCycleFileIfNeeded();
+                // Inicializar DayCycleUtils con configuración vacía
+                DayCycleUtils.init(new YamlConfiguration(), plugin.getLogger());
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error cargando los datos del ciclo de día", e);
+        }
+    }
+    
+    /**
      * Recarga los datos del evento desde el archivo
      * @return Los datos del evento recargados o null si hay un error
      */
@@ -182,6 +203,28 @@ public class StorageManager {
                      curedInfectionsJson.addProperty(entry.getKey().toString(), entry.getValue());
                  }
                  eventData.add("curedInfections", curedInfectionsJson);
+                
+                // Guardar contador de eliminaciones en Luna Roja
+                JsonObject redMoonKillsJson = new JsonObject();
+                for (Map.Entry<UUID, Integer> entry : undeadWeek.getRedMoonKillsCount().entrySet()) {
+                    redMoonKillsJson.addProperty(entry.getKey().toString(), entry.getValue());
+                }
+                eventData.add("redMoonKills", redMoonKillsJson);
+                
+                // Guardar conjunto de aldeanos curados
+                JsonObject curedVillagersJson = new JsonObject();
+                for (UUID playerId : undeadWeek.getCuredVillagers()) {
+                    curedVillagersJson.addProperty(playerId.toString(), true);
+                }
+                eventData.add("curedVillagers", curedVillagersJson);
+                
+                // Guardar conjunto de Withers eliminados en Luna Roja
+                JsonObject witherKilledJson = new JsonObject();
+                for (UUID playerId : undeadWeek.getWitherKilledInRedMoon()) {
+                    witherKilledJson.addProperty(playerId.toString(), true);
+                }
+                eventData.add("witherKilledInRedMoon", witherKilledJson);
+                
                 eventData.addProperty("isPaused", undeadWeek.isPaused());
                 
             } else if (event instanceof AcidWeek) {
@@ -399,6 +442,40 @@ public class StorageManager {
                         undeadWeek.loadCuredInfectionsCount(curedInfections);
                     }
                     
+                    // Cargar contador de eliminaciones en Luna Roja
+                    if (eventData.has("redMoonKills")) {
+                        JsonObject redMoonKillsJson = eventData.getAsJsonObject("redMoonKills");
+                        Map<String, Object> redMoonKills = new HashMap<>();
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : redMoonKillsJson.entrySet()) {
+                            redMoonKills.put(entry.getKey(), entry.getValue().getAsInt());
+                        }
+                        undeadWeek.loadRedMoonKillsCount(redMoonKills);
+                    }
+                    
+                    // Cargar conjunto de aldeanos curados
+                    if (eventData.has("curedVillagers")) {
+                        JsonObject curedVillagersJson = eventData.getAsJsonObject("curedVillagers");
+                        Set<UUID> curedVillagers = new HashSet<>();
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : curedVillagersJson.entrySet()) {
+                            if (entry.getValue().getAsBoolean()) {
+                                curedVillagers.add(UUID.fromString(entry.getKey()));
+                            }
+                        }
+                        undeadWeek.loadCuredVillagers(curedVillagers);
+                    }
+                    
+                    // Cargar conjunto de Withers eliminados en Luna Roja
+                    if (eventData.has("witherKilledInRedMoon")) {
+                        JsonObject witherKilledJson = eventData.getAsJsonObject("witherKilledInRedMoon");
+                        Set<UUID> witherKilled = new HashSet<>();
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : witherKilledJson.entrySet()) {
+                            if (entry.getValue().getAsBoolean()) {
+                                witherKilled.add(UUID.fromString(entry.getKey()));
+                            }
+                        }
+                        undeadWeek.loadWitherKilledInRedMoon(witherKilled);
+                    }
+                    
                     plugin.getLogger().info("Datos específicos de UndeadWeek cargados correctamente");
                 }
                 
@@ -407,19 +484,19 @@ public class StorageManager {
                     AcidWeek acidWeek = (AcidWeek) event;
                     
                     if (eventData.has("playersInWater")) {
-                        JsonArray playersInWaterArray = eventData.getAsJsonArray("playersInWater");
+                        JsonObject playersInWaterJson = eventData.getAsJsonObject("playersInWater");
                         Set<UUID> playersInWater = new HashSet<>();
-                        for (com.google.gson.JsonElement element : playersInWaterArray) {
-                            playersInWater.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : playersInWaterJson.entrySet()) {
+                            playersInWater.add(UUID.fromString(entry.getKey()));
                         }
                         acidWeek.loadPlayersInWater(playersInWater);
                     }
                     
                     if (eventData.has("playersInRain")) {
-                        JsonArray playersInRainArray = eventData.getAsJsonArray("playersInRain");
+                        JsonObject playersInRainJson = eventData.getAsJsonObject("playersInRain");
                         Set<UUID> playersInRain = new HashSet<>();
-                        for (com.google.gson.JsonElement element : playersInRainArray) {
-                            playersInRain.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : playersInRainJson.entrySet()) {
+                            playersInRain.add(UUID.fromString(entry.getKey()));
                         }
                         acidWeek.loadPlayersInRain(playersInRain);
                     }
@@ -432,10 +509,10 @@ public class StorageManager {
                     ExplosiveWeek explosiveWeek = (ExplosiveWeek) event;
                     
                     if (eventData.has("ghastKillers")) {
-                        JsonArray ghastKillersArray = eventData.getAsJsonArray("ghastKillers");
+                        JsonObject ghastKillersJson = eventData.getAsJsonObject("ghastKillers");
                         Set<UUID> ghastKillers = new HashSet<>();
-                        for (com.google.gson.JsonElement element : ghastKillersArray) {
-                            ghastKillers.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : ghastKillersJson.entrySet()) {
+                            ghastKillers.add(UUID.fromString(entry.getKey()));
                         }
                         explosiveWeek.loadGhastKillers(ghastKillers);
                     }
@@ -456,19 +533,19 @@ public class StorageManager {
                     }
                     
                     if (eventData.has("playerExplosionKillers")) {
-                        JsonArray playerExplosionKillersArray = eventData.getAsJsonArray("playerExplosionKillers");
+                        JsonObject playerExplosionKillersJson = eventData.getAsJsonObject("playerExplosionKillers");
                         Set<UUID> playerExplosionKillers = new HashSet<>();
-                        for (com.google.gson.JsonElement element : playerExplosionKillersArray) {
-                            playerExplosionKillers.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : playerExplosionKillersJson.entrySet()) {
+                            playerExplosionKillers.add(UUID.fromString(entry.getKey()));
                         }
                         explosiveWeek.loadPlayerExplosionKillers(playerExplosionKillers);
                     }
                     
                     if (eventData.has("wardenCreeperKillers")) {
-                        JsonArray wardenCreeperKillersArray = eventData.getAsJsonArray("wardenCreeperKillers");
+                        JsonObject wardenCreeperKillersJson = eventData.getAsJsonObject("wardenCreeperKillers");
                         Set<UUID> wardenCreeperKillers = new HashSet<>();
-                        for (com.google.gson.JsonElement element : wardenCreeperKillersArray) {
-                            wardenCreeperKillers.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : wardenCreeperKillersJson.entrySet()) {
+                            wardenCreeperKillers.add(UUID.fromString(entry.getKey()));
                         }
                         explosiveWeek.loadWardenCreeperKillers(wardenCreeperKillers);
                     }
@@ -481,10 +558,10 @@ public class StorageManager {
                     ToxicFog toxicFog = (ToxicFog) event;
                     
                     if (eventData.has("affectedPlayers")) {
-                        JsonArray affectedPlayersArray = eventData.getAsJsonArray("affectedPlayers");
+                        JsonObject affectedPlayersJson = eventData.getAsJsonObject("affectedPlayers");
                         Set<UUID> affectedPlayers = new HashSet<>();
-                        for (com.google.gson.JsonElement element : affectedPlayersArray) {
-                            affectedPlayers.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : affectedPlayersJson.entrySet()) {
+                            affectedPlayers.add(UUID.fromString(entry.getKey()));
                         }
                         toxicFog.loadAffectedPlayers(affectedPlayers);
                     }
@@ -533,55 +610,55 @@ public class StorageManager {
                     }
                     
                     if (eventData.has("instantDamageKillers")) {
-                        JsonArray instantDamageKillersArray = eventData.getAsJsonArray("instantDamageKillers");
+                        JsonObject instantDamageKillersJson = eventData.getAsJsonObject("instantDamageKillers");
                         Set<UUID> instantDamageKillers = new HashSet<>();
-                        for (com.google.gson.JsonElement element : instantDamageKillersArray) {
-                            instantDamageKillers.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : instantDamageKillersJson.entrySet()) {
+                            instantDamageKillers.add(UUID.fromString(entry.getKey()));
                         }
                         bloodAndIronWeek.loadInstantDamageKillers(instantDamageKillers);
                     }
                     
                     if (eventData.has("pentakillPlayers")) {
-                        JsonArray pentakillPlayersArray = eventData.getAsJsonArray("pentakillPlayers");
+                        JsonObject pentakillPlayersJson = eventData.getAsJsonObject("pentakillPlayers");
                         Set<UUID> pentakillPlayers = new HashSet<>();
-                        for (com.google.gson.JsonElement element : pentakillPlayersArray) {
-                            pentakillPlayers.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : pentakillPlayersJson.entrySet()) {
+                            pentakillPlayers.add(UUID.fromString(entry.getKey()));
                         }
                         bloodAndIronWeek.loadPentakillPlayers(pentakillPlayers);
                     }
                     
                     if (eventData.has("survivedPlayers")) {
-                        JsonArray survivedPlayersArray = eventData.getAsJsonArray("survivedPlayers");
+                        JsonObject survivedPlayersJson = eventData.getAsJsonObject("survivedPlayers");
                         Set<UUID> survivedPlayers = new HashSet<>();
-                        for (com.google.gson.JsonElement element : survivedPlayersArray) {
-                            survivedPlayers.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : survivedPlayersJson.entrySet()) {
+                            survivedPlayers.add(UUID.fromString(entry.getKey()));
                         }
                         bloodAndIronWeek.loadSurvivedPlayers(survivedPlayers);
                     }
                     
                     if (eventData.has("deadPlayers")) {
-                        JsonArray deadPlayersArray = eventData.getAsJsonArray("deadPlayers");
+                        JsonObject deadPlayersJson = eventData.getAsJsonObject("deadPlayers");
                         Set<UUID> deadPlayers = new HashSet<>();
-                        for (com.google.gson.JsonElement element : deadPlayersArray) {
-                            deadPlayers.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : deadPlayersJson.entrySet()) {
+                            deadPlayers.add(UUID.fromString(entry.getKey()));
                         }
                         bloodAndIronWeek.loadDeadPlayers(deadPlayers);
                     }
                     
                     if (eventData.has("awardedAdrenaline")) {
-                        JsonArray awardedAdrenalineArray = eventData.getAsJsonArray("awardedAdrenaline");
+                        JsonObject awardedAdrenalineJson = eventData.getAsJsonObject("awardedAdrenaline");
                         Set<UUID> awardedAdrenaline = new HashSet<>();
-                        for (com.google.gson.JsonElement element : awardedAdrenalineArray) {
-                            awardedAdrenaline.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : awardedAdrenalineJson.entrySet()) {
+                            awardedAdrenaline.add(UUID.fromString(entry.getKey()));
                         }
                         bloodAndIronWeek.loadAwardedAdrenaline(awardedAdrenaline);
                     }
                     
                     if (eventData.has("mobKillWarningGiven")) {
-                        JsonArray mobKillWarningGivenArray = eventData.getAsJsonArray("mobKillWarningGiven");
+                        JsonObject mobKillWarningGivenJson = eventData.getAsJsonObject("mobKillWarningGiven");
                         Set<UUID> mobKillWarningGiven = new HashSet<>();
-                        for (com.google.gson.JsonElement element : mobKillWarningGivenArray) {
-                            mobKillWarningGiven.add(UUID.fromString(element.getAsString()));
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : mobKillWarningGivenJson.entrySet()) {
+                            mobKillWarningGiven.add(UUID.fromString(entry.getKey()));
                         }
                         bloodAndIronWeek.loadMobKillWarningGiven(mobKillWarningGiven);
                     }

@@ -26,10 +26,13 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.managers.StorageManager;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.DayCycleUtils;
 import com.darkbladedev.utils.TimeExpression;
 import com.darkbladedev.events.NightPassedEvent;
+import com.darkbladedev.events.PlayerInfectedEvent;
+import com.darkbladedev.events.PlayerCuredEvent;
 import java.util.*;
 
 // Add this import at the top with other imports
@@ -200,31 +203,23 @@ public class UndeadWeek extends WeeklyEvent {
         }
     }
     
-    public void loadCuredVillagers(List<String> data) {
+    public void loadCuredVillagers(Set<UUID> data) {
         if (curedVillagers == null) curedVillagers = new HashSet<>();
         curedVillagers.clear();
         
-        for (String uuidStr : data) {
-            try {
-                UUID playerId = UUID.fromString(uuidStr);
-                curedVillagers.add(playerId);
-            } catch (Exception e) {
-                plugin.getLogger().warning("Error cargando aldeano curado: " + uuidStr);
-            }
+        if (data != null) {
+            curedVillagers.addAll(data);
+            plugin.getLogger().info("Cargados " + data.size() + " aldeanos curados");
         }
     }
     
-    public void loadWitherKilledInRedMoon(List<String> data) {
+    public void loadWitherKilledInRedMoon(Set<UUID> data) {
         if (witherKilledInRedMoon == null) witherKilledInRedMoon = new HashSet<>();
         witherKilledInRedMoon.clear();
         
-        for (String uuidStr : data) {
-            try {
-                UUID playerId = UUID.fromString(uuidStr);
-                witherKilledInRedMoon.add(playerId);
-            } catch (Exception e) {
-                plugin.getLogger().warning("Error cargando Wither eliminado en Luna Roja: " + uuidStr);
-            }
+        if (data != null) {
+            witherKilledInRedMoon.addAll(data);
+            plugin.getLogger().info("Cargados " + data.size() + " Withers eliminados en Luna Roja");
         }
     }
     /**
@@ -252,18 +247,18 @@ public class UndeadWeek extends WeeklyEvent {
                 try {
                     if (!mainTask.isCancelled()) {
                         mainTask.cancel();
-                        Bukkit.getLogger().info(prefix + " Tarea principal cancelada correctamente (ID: " + mainTask.getTaskId() + ")");
+                        Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Tarea principal cancelada correctamente (ID: " + mainTask.getTaskId() + ")"));
                     } else {
-                        Bukkit.getLogger().info(prefix + " La tarea principal ya estaba cancelada");
+                        Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " La tarea principal ya estaba cancelada"));
                     }
                 } catch (Exception e) {
-                    Bukkit.getLogger().warning(prefix + " Error al cancelar la tarea principal: " + e.getMessage());
+                    Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Error al cancelar la tarea principal: " + e.getMessage()));
                     e.printStackTrace();
                 } finally {
                     mainTask = null;
                 }
             } else {
-                Bukkit.getLogger().info(prefix + " No había tarea principal activa para cancelar");
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " No había tarea principal activa para cancelar"));
             }
             
             // Cancelar la tarea de finalización si existe
@@ -271,10 +266,10 @@ public class UndeadWeek extends WeeklyEvent {
                 try {
                     if (!endTask.isCancelled()) {
                         endTask.cancel();
-                        Bukkit.getLogger().info(prefix + " Tarea de finalización cancelada correctamente");
+                        Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Tarea de finalización cancelada correctamente"));
                     }
                 } catch (Exception e) {
-                    Bukkit.getLogger().warning(prefix + " Error al cancelar la tarea de finalización: " + e.getMessage());
+                    Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Error al cancelar la tarea de finalización: " + e.getMessage()));
                     e.printStackTrace();
                 } finally {
                     endTask = null;
@@ -477,6 +472,8 @@ public class UndeadWeek extends WeeklyEvent {
                 Bukkit.getLogger().info("Creado nuevo mapa de tiempo de infección");
             }
             
+            // Limpiar mapas de estadísticas DESPUÉS de procesar las recompensas
+            // cleanupEventData() se llama DESPUÉS de giveRewards(), por lo que es seguro limpiar aquí
             if (curedInfectionsCount != null) {
                 int size = curedInfectionsCount.size();
                 curedInfectionsCount.clear();
@@ -1469,6 +1466,14 @@ public class UndeadWeek extends WeeklyEvent {
                             
                             // Efecto de sonido para la infección
                             player.playSound(player.getLocation(), Sound.ENTITY_ZOMBIE_AMBIENT, 1.0f, 0.5f);
+                            
+                            // Disparar evento personalizado de infección
+                            String infectionSource = damager.getType().name().toLowerCase() + "_attack";
+                            PlayerInfectedEvent infectedEvent = new PlayerInfectedEvent(player, infectionSource);
+                            Bukkit.getPluginManager().callEvent(infectedEvent);
+                            
+                            // Log para debugging
+                            Bukkit.getLogger().info("[UndeadWeek] Jugador " + player.getName() + " infectado por " + infectionSource);
                         } catch (Exception e) {
                             Bukkit.getLogger().warning("Error al infectar jugador: " + e.getMessage());
                         }
@@ -1605,6 +1610,13 @@ public class UndeadWeek extends WeeklyEvent {
                     // Registrar para el desafío
                     int curedCount = curedInfectionsCount.getOrDefault(playerId, 0) + 1;
                     curedInfectionsCount.put(playerId, curedCount);
+                    
+                    // Disparar evento personalizado de curación
+                    PlayerCuredEvent curedEvent = new PlayerCuredEvent(player, item, curedCount);
+                    Bukkit.getPluginManager().callEvent(curedEvent);
+                    
+                    // Log para debugging
+                    Bukkit.getLogger().info("[UndeadWeek] Jugador " + player.getName() + " se curó usando " + item.getType().name() + " (total: " + curedCount + ")");
                     
                     // Mostrar progreso ocasionalmente
                     if (curedCount < 10 && curedCount % 2 == 0) {
@@ -2476,16 +2488,26 @@ public class UndeadWeek extends WeeklyEvent {
                 return;
             }
             
-            // Verificar si el evento está pausado
-            if (!isPaused) {
-                Bukkit.getLogger().warning("[UndeadWeek] No se pueden reanudar las tareas: el evento no está pausado");
-                return;
-            }
-            
             Bukkit.getLogger().info("[UndeadWeek] Iniciando reanudación del evento...");
             
-            // Cambiar el estado de pausa
+            // Cambiar el estado de pausa (si estaba pausado)
             isPaused = false;
+            
+            // Reinicializar DayCycleUtils para sincronizar con el estado actual del mundo
+            try {
+                // Obtener la configuración actual de DayCycleUtils desde StorageManager
+                StorageManager storageManager = HeartlessMain.getInstance().getStorageManager();
+                if (storageManager != null) {
+                    // Recargar los datos del ciclo día/noche desde el archivo
+                    storageManager.loadDayCycleData();
+                    Bukkit.getLogger().info("[UndeadWeek] DayCycleUtils reinicializado correctamente");
+                } else {
+                    Bukkit.getLogger().warning("[UndeadWeek] No se pudo obtener StorageManager para reinicializar DayCycleUtils");
+                }
+            } catch (Exception e) {
+                Bukkit.getLogger().severe("[UndeadWeek] Error al reinicializar DayCycleUtils: " + e.getMessage());
+                e.printStackTrace();
+            }
             
             // Reiniciar la tarea principal
             try {
@@ -2767,14 +2789,14 @@ public class UndeadWeek extends WeeklyEvent {
             
             // Verificar si la tarea se inició correctamente
             if (mainTask != null && mainTask.getTaskId() > 0) {
-                Bukkit.getLogger().info(prefix + " Tarea principal iniciada correctamente con ID: " + mainTask.getTaskId());
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Tarea principal iniciada correctamente con ID: " + mainTask.getTaskId()));
                 return true;
             } else {
-                Bukkit.getLogger().warning(prefix + " La tarea principal se creó pero puede no estar funcionando correctamente");
+                Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " La tarea principal se creó pero puede no estar funcionando correctamente"));
                 return false;
             }
         } catch (Exception e) {
-            Bukkit.getLogger().severe(prefix + " Error crítico al iniciar la tarea principal: " + e.getMessage());
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " Error crítico al iniciar la tarea principal: " + e.getMessage()));
             e.printStackTrace();
             return false;
         }
@@ -2999,7 +3021,8 @@ public class UndeadWeek extends WeeklyEvent {
                 duration = 7 * 24 * 60 * 60; // 7 días en segundos
             }
             
-            // Inicializar estructuras de datos si son nulas
+            // Inicializar estructuras de datos si son nulas (sin limpiar datos existentes)
+            // La limpieza se hace en cleanupEventData() DESPUÉS de procesar las recompensas
             if (infectedPlayers == null) {
                 infectedPlayers = new HashMap<>();
                 Bukkit.getLogger().info(prefix + " Inicializado mapa de jugadores infectados");
@@ -3013,6 +3036,24 @@ public class UndeadWeek extends WeeklyEvent {
             if (redMoonKillsCount == null) {
                 redMoonKillsCount = new HashMap<>();
                 Bukkit.getLogger().info(prefix + " Inicializado contador de muertes en Luna Roja");
+            }
+            
+            if (curedVillagers == null) {
+                curedVillagers = new HashSet<>();
+                Bukkit.getLogger().info(prefix + " Inicializada lista de aldeanos curados");
+            }
+            
+            if (witherKilledInRedMoon == null) {
+                witherKilledInRedMoon = new HashSet<>();
+                Bukkit.getLogger().info(prefix + " Inicializada lista de Withers eliminados");
+            }
+            
+            if (infectedPlayersTime == null) {
+                infectedPlayersTime = new HashMap<>();
+                Bukkit.getLogger().info(prefix + " Inicializado mapa de tiempo de infección");
+            } else {
+                infectedPlayersTime.clear();
+                Bukkit.getLogger().info(prefix + " Limpiado mapa de tiempo de infección para nuevo evento");
             }
             
             // Iniciar la tarea principal

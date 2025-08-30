@@ -184,9 +184,10 @@ public class AcidWeek extends WeeklyEvent {
     
     @Override
     protected void resumeEventTasks() {
-        if (isActive && isPaused) {
+        if (isActive) {
             startAcidDamageTask();
             startWeatherControlTask();
+            isPaused = false;
         }
     }
     

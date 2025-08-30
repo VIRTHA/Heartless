@@ -138,9 +138,10 @@ public class BloodAndIronWeek extends WeeklyEvent {
     
     @Override
     protected void resumeEventTasks() {
-        if (isActive && isPaused) {
+        if (isActive) {
             startMainTask();
             startCheckKillsTask();
+            isPaused = false;
         }
     }
         

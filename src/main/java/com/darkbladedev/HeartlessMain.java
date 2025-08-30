@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 import com.darkbladedev.commands.CommandHandler;
 import com.darkbladedev.content.custom.listeners.EnchantmentListeners;
+import com.darkbladedev.listeners.UndeadWeekStatsListener;
 import com.darkbladedev.managers.BanManager;
 import com.darkbladedev.managers.ContentManager;
 import com.darkbladedev.managers.CustomEffectsManager;
@@ -37,6 +38,9 @@ public class HeartlessMain extends JavaPlugin {
         // Plugin startup logic
         instance = this;
         
+        // Mostrar banner de inicio
+        displayStartupBanner();
+        
         // Inicializar WeeklyEventManager primero ya que EventManager lo necesita
         weeklyEventManager = new WeeklyEventManager(instance);
         eventManager = new EventManager(instance);
@@ -49,7 +53,8 @@ public class HeartlessMain extends JavaPlugin {
 
         initializeSystems();
 
-        Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " <green>Plugin activado correctamente."));
+        // Mostrar resumen final
+        displayStartupSummary();
     }
     
     @Override
@@ -82,6 +87,10 @@ public class HeartlessMain extends JavaPlugin {
     private void initializeSystems() {
         weeklyEventManager.initialize();
         customEffectsManager.initialize();
+
+        // Registrar listeners personalizados
+        getServer().getPluginManager().registerEvents(new UndeadWeekStatsListener(this), this);
+        getServer().getPluginManager().registerEvents(new com.darkbladedev.listeners.WeeklyEventSystemListener(this), this);
 
         registerCommands();
     }
@@ -150,5 +159,53 @@ public class HeartlessMain extends JavaPlugin {
     
     public static EnchantmentListeners getEnchantmentListeners() {
         return enchantmentListeners;
+    }
+    
+    /**
+     * Muestra el banner de inicio del plugin
+     */
+    @SuppressWarnings("deprecation")
+    private void displayStartupBanner() {
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent(""));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>┌─────────────────────────────────────────────────────────────┐"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                                                             │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│         <gradient:#ffc329:#ffb029:#ff9c29:#ff8929:#ff7629:#ff6329:#ff5029:#ff3c29:#ff2929>Heartless</gradient> Plugin Enabled <gray>🖤                          │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                                                             │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│         <white>Version:</white> <yellow>" + getDescription().getVersion() + "</yellow>                                      │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│         <white>Author:</white> <yellow>" + "DarkBladeDev" + "</yellow>                                │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                                                             │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>└─────────────────────────────────────────────────────────────┘"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent(""));
+    }
+    
+    /**
+     * Muestra el resumen final de inicialización
+     */
+    private void displayStartupSummary() {
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent(""));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>┌─────────────────────────────────────────────────────────────┐"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                   <green>✓ Initialization Complete</green>                 │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                                                             "));
+        
+        // Mostrar estado de los sistemas
+        String eventStatus = weeklyEventManager.isEventActive() ? "<green>Active</green>" : "<yellow>Standby</yellow>";
+        String eventType = weeklyEventManager.getCurrentEventType() != null ? 
+            weeklyEventManager.getCurrentEventType().getEventName() : "None";
+        
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│    <white>Weekly Events:</white> " + eventStatus + "                              "));
+        if (weeklyEventManager.isEventActive()) {
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│    <white>Current Event:</white> <yellow>" + eventType + "</yellow>                        "));
+        }
+        
+        int activeEffects = customEffectsManager.getActiveEffects().size();
+        int totalEffects = customEffectsManager.getAllEffects().size();
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│    <white>Custom Effects:</white> <yellow>" + activeEffects + "/" + totalEffects + " Active</yellow>                      "));
+        
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│    <white>PlaceholderAPI:</white> <green>Connected</green>                         │"));
+        
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                                                             │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                     <green>Enjoy your game! :)</green>                     │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>└─────────────────────────────────────────────────────────────┘"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent(""));
     }
 }

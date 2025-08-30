@@ -2,7 +2,7 @@ name: Heartless
 version: 1.0.0
 main: com.darkbladedev.HeartlessMain
 description: "Adds a customizable and funny events system to your Minecraft server."
-author: DarkBladeDev
+authors: [DarkBladeDev]
 prefix: Heartless
 api-version: 1.21
 load: STARTUP

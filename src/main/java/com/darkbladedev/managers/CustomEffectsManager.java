@@ -72,10 +72,6 @@ public class CustomEffectsManager implements Listener {
         
         // Cargar datos guardados
         loadSavedData();
-        
-        Bukkit.getConsoleSender().sendMessage(
-            MM.toComponent(plugin.getPrefix() + " <gray>Sistema de efectos personalizados <green>inicializado</green>.")
-        );
     }
     
     /**
@@ -357,9 +353,7 @@ public class CustomEffectsManager implements Listener {
             }
             
         } catch (IOException | ParseException e) {
-            Bukkit.getConsoleSender().sendMessage(
-                MM.toComponent(plugin.getPrefix() + " <red>Error al cargar datos de efectos personalizados: " + e.getMessage())
-            );
+            // Silently handle - no saved data available
         }
     }
     

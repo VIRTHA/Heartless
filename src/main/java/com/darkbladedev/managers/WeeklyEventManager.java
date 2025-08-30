@@ -23,6 +23,7 @@ import com.darkbladedev.utils.EmptyEvent;
 import com.darkbladedev.utils.EventType;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.events.WeeklyEventDispatcher;
 import com.darkbladedev.mechanics.AcidWeek;
 import com.darkbladedev.mechanics.BloodAndIronWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
@@ -40,6 +41,7 @@ public class WeeklyEventManager {
     private final Random random = new Random();
     private final File dataFile;
     private final Gson gson;
+    private final WeeklyEventDispatcher eventDispatcher;
     
     private BukkitTask weeklyTask;
     private long eventStartTime;
@@ -58,14 +60,12 @@ public class WeeklyEventManager {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), DATA_FILENAME);
         this.gson = new GsonBuilder().setPrettyPrinting().create();
+        this.eventDispatcher = new WeeklyEventDispatcher(plugin, this);
     }
     
     public void initialize() {
         // Check if an event is already starting
         if (isEventStarting) {
-            Bukkit.getConsoleSender().sendMessage(
-                MM.toComponent("<red>Ya hay un evento inicializándose. Operación cancelada.")
-            );
             return;
         }
         
@@ -73,12 +73,7 @@ public class WeeklyEventManager {
         isEventStarting = true;
         
         try {
-            // Cargar datos guardados o iniciar un nuevo evento
             if (loadSavedEventData()) {
-                Bukkit.getConsoleSender().sendMessage(
-                    MM.toComponent(plugin.getPrefix() + " <gray>Reanudando evento semanal: <green><u>" + currentEventType.getEventName())
-                );
-                
                 // Calcular tiempo restante
                 long currentTime = System.currentTimeMillis();
                 long remainingTime = eventEndTime - currentTime;
@@ -91,9 +86,6 @@ public class WeeklyEventManager {
                     } else {
                         // Si no estaba pausado, solo necesitamos registrar los event handlers y reanudar las tareas
                         currentEvent.resume();
-                        Bukkit.getConsoleSender().sendMessage(
-                            MM.toComponent(plugin.getPrefix() + " <green>Evento reactivado después del reinicio: " + currentEventType.getEventName())
-                        );
                     }
                     
                     // Recalcular el tiempo restante después de reanudar (puede cambiar si estaba en pausa)
@@ -206,6 +198,10 @@ public class WeeklyEventManager {
             return;
         }
         
+        // Disparar evento del sistema antes de detener forzadamente
+        long totalDuration = System.currentTimeMillis() - eventStartTime;
+        eventDispatcher.fireEventStop(currentEventType, System.currentTimeMillis(), true, totalDuration);
+        
         // Stop the current event (this calls announceEventEnd() which shows individual statistics)
         currentEvent.stop();
         
@@ -269,13 +265,14 @@ public class WeeklyEventManager {
             return;
         }
         
+        // Disparar evento del sistema antes de iniciar
+        eventDispatcher.fireEventStart(eventType, duration * 20L, System.currentTimeMillis());
+        
         // Guardar información del evento actual
         currentEventType = eventType;
         eventStartTime = System.currentTimeMillis();
         eventEndTime = eventStartTime + duration;
         isEventActive = true;
-        
-
         
         // Convertir duración de milisegundos a segundos para los constructores
         // Crear TimeExpression desde la duración en milisegundos
@@ -369,6 +366,10 @@ public class WeeklyEventManager {
             return;
         }
         
+        // Disparar evento del sistema antes de pausar
+        long timeRemaining = eventEndTime - System.currentTimeMillis();
+        eventDispatcher.fireEventPause(currentEventType, System.currentTimeMillis(), timeRemaining);
+        
         isPaused = true;
         pauseStartTime = System.currentTimeMillis();
         
@@ -392,6 +393,10 @@ public class WeeklyEventManager {
         long currentTime = System.currentTimeMillis();
         long pauseDuration = currentTime - pauseStartTime;
         totalPausedTime += pauseDuration;
+        
+        // Disparar evento del sistema antes de reanudar
+        long timeRemaining = eventEndTime - System.currentTimeMillis();
+        eventDispatcher.fireEventResume(currentEventType, System.currentTimeMillis(), pauseDuration, timeRemaining);
         
         // Adjust the end time to account for the pause
         eventEndTime += pauseDuration;
@@ -442,7 +447,6 @@ public class WeeklyEventManager {
     
     private boolean loadSavedEventData() {
         if (!dataFile.exists()) {
-            plugin.getLogger().warning("No se encontraron datos guardados del evento semanal.");
             return false;
         }
         
@@ -452,15 +456,15 @@ public class WeeklyEventManager {
             
             // Check if the event is active
             Boolean eventActive = (Boolean) data.get("eventActive");
+            
             if (eventActive == null || !eventActive) {
-                // No active event or explicitly marked as inactive
                 return false;
             }
             
             // Get event type
             String eventTypeName = (String) data.get("eventType");
+            
             if (eventTypeName == null) {
-                plugin.getLogger().warning("Event data file exists but has no event type");
                 return false;
             }
             
@@ -469,7 +473,6 @@ public class WeeklyEventManager {
             Long endTime = (Long) data.get("endTime");
             
             if (startTime == null || endTime == null) {
-                plugin.getLogger().warning("Event data file has missing time values");
                 return false;
             }
             
@@ -497,7 +500,6 @@ public class WeeklyEventManager {
             
             // Si el evento guardado es 'empty', no lo consideramos como activo
             if (currentEventType != null && "empty".equals(currentEventType.getEventName())) {
-                plugin.getLogger().info("Evento 'empty' encontrado en datos guardados, ignorando...");
                 currentEventType = null;
                 isEventActive = false;
                 // Limpiar el archivo de datos para evitar futuros problemas
@@ -511,6 +513,7 @@ public class WeeklyEventManager {
                 long remainingTime = eventEndTime - currentTime;
                 
                 if (remainingTime > 0) {
+                    
                     // Crear TimeExpression desde el tiempo restante en milisegundos
                     TimeExpression durationExpression = TimeExpression.fromMilliseconds(remainingTime);
                     
@@ -537,7 +540,6 @@ public class WeeklyEventManager {
                             break;
                             
                         default:
-                            plugin.getLogger().warning("Evento no implementado para carga: " + currentEventType.getEventName());
                             currentEventType = null;
                             isEventActive = false;
                             return false;
@@ -550,10 +552,9 @@ public class WeeklyEventManager {
                         plugin.getStorageManager().loadEventSpecificData(currentEvent);
                     }
                     
-                    Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + " <gray>Evento cargado correctamente: <green>" + currentEventType.getEventName()));
+                    Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + " <green>Evento cargado: " + currentEventType.getEventName()));
                 } else {
                     // El evento ya debería haber terminado
-                    Bukkit.getConsoleSender().sendMessage(MM.toComponent(plugin.getPrefix() + " <yellow>Evento expirado encontrado en datos guardados, ignorando..."));
                     currentEventType = null;
                     isEventActive = false;
                     clearEventData();
@@ -561,15 +562,11 @@ public class WeeklyEventManager {
                 }
             }
             
+
+            
             return currentEventType != null;
-        } catch (IOException | ParseException e) {
-            plugin.getLogger().severe("Error al cargar datos del evento semanal: " + e.getMessage());
+        } catch (IOException | ParseException | ClassCastException e) {
             // If there's an error, try to delete the corrupted file
-            dataFile.delete();
-            return false;
-        } catch (ClassCastException e) {
-            plugin.getLogger().severe("Error de formato en el archivo de datos del evento: " + e.getMessage());
-            // If there's a format error, delete the corrupted file
             dataFile.delete();
             return false;
         }
@@ -599,6 +596,10 @@ public class WeeklyEventManager {
         if (!isEventActive) {
             return;
         }
+        
+        // Disparar evento del sistema antes de detener
+        long totalDuration = System.currentTimeMillis() - eventStartTime;
+        eventDispatcher.fireEventStop(currentEventType, System.currentTimeMillis(), false, totalDuration);
         
         // Si hay un evento actual, detenerlo
         if (currentEvent != null) {
