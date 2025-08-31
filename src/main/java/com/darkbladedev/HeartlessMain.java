@@ -201,9 +201,9 @@ public class HeartlessMain extends JavaPlugin {
         int totalEffects = customEffectsManager.getAllEffects().size();
         Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│    <white>Custom Effects:</white> <yellow>" + activeEffects + "/" + totalEffects + " Active</yellow>                      "));
         
-        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│    <white>PlaceholderAPI:</white> <green>Connected</green>                         │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│    <white>PlaceholderAPI:</white> <green>Connected</green>                         "));
         
-        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                                                             │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                                                             "));
         Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                     <green>Enjoy your game! :)</green>                     │"));
         Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>└─────────────────────────────────────────────────────────────┘"));
         Bukkit.getConsoleSender().sendMessage(MM.toComponent(""));

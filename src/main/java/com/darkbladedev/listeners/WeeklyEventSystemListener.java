@@ -46,10 +46,10 @@ public class WeeklyEventSystemListener implements Listener {
         String durationText = formatDuration(duration);
         
         // Anuncio especial del sistema de eventos
-        Bukkit.broadcast(MM.toComponent("<gradient:#ff6b6b:#4ecdc4><bold>⚡ SISTEMA DE EVENTOS ⚡</bold></gradient>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>▶ Iniciando: <white>" + eventName));
-        Bukkit.broadcast(MM.toComponent("<yellow>⏱ Duración: <white>" + durationText));
-        Bukkit.broadcast(MM.toComponent("<gray>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        Bukkit.broadcast(MM.toComponent("<gradient:#ff6b6b:#4ecdc4><bold>⚡ SISTEMA DE EVENTOS ⚡</bold></gradient>"), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<yellow>▶ Iniciando: <white>" + eventName), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<yellow>⏱ Duración: <white>" + durationText), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<gray>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"), "heartless.access");
         
         // Log del sistema
         plugin.getLogger().info("[SISTEMA DE EVENTOS] Evento iniciado: " + eventType + " por " + durationText);
@@ -73,11 +73,11 @@ public class WeeklyEventSystemListener implements Listener {
         String durationText = formatDuration(totalDuration);
         
         // Anuncio de finalización
-        Bukkit.broadcast(MM.toComponent("<gradient:#ff6b6b:#4ecdc4><bold>⚡ SISTEMA DE EVENTOS ⚡</bold></gradient>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>⏹ Finalizando: <white>" + eventName));
-        Bukkit.broadcast(MM.toComponent("<yellow>📊 Tipo de fin: " + stopReason));
-        Bukkit.broadcast(MM.toComponent("<yellow>⏱ Duración total: <white>" + durationText));
-        Bukkit.broadcast(MM.toComponent("<gray>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+        Bukkit.broadcast(MM.toComponent("<gradient:#ff6b6b:#4ecdc4><bold>⚡ SISTEMA DE EVENTOS ⚡</bold></gradient>"), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<yellow>⏹ Finalizando: <white>" + eventName), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<yellow>📊 Tipo de fin: " + stopReason), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<yellow>⏱ Duración total: <white>" + durationText), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<gray>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"), "heartless.access");
         
         // Log del sistema
         String logReason = wasForced ? "forzadamente" : "naturalmente";
@@ -104,10 +104,10 @@ public class WeeklyEventSystemListener implements Listener {
         String remainingText = formatDuration(timeRemaining);
         
         // Anuncio de pausa
-        Bukkit.broadcast(MM.toComponent("<gradient:#ffa726:#ff7043><bold>⏸ EVENTO PAUSADO ⏸</bold></gradient>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>📛 Evento: <white>" + eventName));
-        Bukkit.broadcast(MM.toComponent("<yellow>⏱ Tiempo restante: <white>" + remainingText));
-        Bukkit.broadcast(MM.toComponent("<gray>El evento se reanudará pronto..."));
+        Bukkit.broadcast(MM.toComponent("<gradient:#ffa726:#ff7043><bold>⏸ EVENTO PAUSADO ⏸</bold></gradient>"), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<yellow>📛 Evento: <white>" + eventName), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<yellow>⏱ Tiempo restante: <white>" + remainingText), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<gray>El evento se reanudará pronto..."), "heartless.access");
         
         // Log del sistema
         plugin.getLogger().info("[SISTEMA DE EVENTOS] Evento pausado: " + eventType + " con " + remainingText + " restantes");
@@ -135,10 +135,10 @@ public class WeeklyEventSystemListener implements Listener {
         String remainingText = formatDuration(timeRemaining);
         
         // Anuncio de reanudación
-        Bukkit.broadcast(MM.toComponent("<gradient:#4caf50:#8bc34a><bold>▶ EVENTO REANUDADO ▶</bold></gradient>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>🔄 Evento: <white>" + eventName));
-        Bukkit.broadcast(MM.toComponent("<yellow>⏸ Estuvo pausado: <white>" + pausedText));
-        Bukkit.broadcast(MM.toComponent("<yellow>⏱ Tiempo restante: <white>" + remainingText));
+        Bukkit.broadcast(MM.toComponent("<gradient:#4caf50:#8bc34a><bold>▶ EVENTO REANUDADO ▶</bold></gradient>"), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<yellow>🔄 Evento: <white>" + eventName), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<yellow>⏸ Estuvo pausado: <white>" + pausedText), "heartless.access");
+        Bukkit.broadcast(MM.toComponent("<yellow>⏱ Tiempo restante: <white>" + remainingText), "heartless.access");
         
         // Log del sistema
         plugin.getLogger().info("[SISTEMA DE EVENTOS] Evento reanudado: " + eventType + " después de " + pausedText + " pausado");
@@ -179,8 +179,16 @@ public class WeeklyEventSystemListener implements Listener {
         long minutes = seconds / 60;
         long hours = minutes / 60;
         long days = hours / 24;
+        long weeks = days / 7;
         
-        if (days > 0) {
+        if (weeks > 0) {
+            long remainingDays = days % 7;
+            if (remainingDays > 0) {
+                return weeks + "w " + remainingDays + "d " + (hours % 24) + "h";
+            } else {
+                return weeks + "w " + (hours % 24) + "h " + (minutes % 60) + "m";
+            }
+        } else if (days > 0) {
             return days + "d " + (hours % 24) + "h " + (minutes % 60) + "m";
         } else if (hours > 0) {
             return hours + "h " + (minutes % 60) + "m " + (seconds % 60) + "s";

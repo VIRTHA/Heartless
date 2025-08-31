@@ -266,7 +266,7 @@ public class WeeklyEventManager {
         }
         
         // Disparar evento del sistema antes de iniciar
-        eventDispatcher.fireEventStart(eventType, duration * 20L, System.currentTimeMillis());
+        eventDispatcher.fireEventStart(eventType, duration, System.currentTimeMillis());
         
         // Guardar información del evento actual
         currentEventType = eventType;

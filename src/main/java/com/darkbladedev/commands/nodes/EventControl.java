@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.darkbladedev.commands.functions.events.*;
-import com.darkbladedev.commands.functions.events.Reset;
 
 import com.darkbladedev.commands.CommandFunction;
 import com.darkbladedev.commands.SubcommandExecutor;
@@ -23,7 +22,6 @@ public class EventControl implements CommandFunction {
         subcommands.put("status", new Status());
         subcommands.put("reset", new Reset());
         subcommands.put("challenges", new Challenges());
-        subcommands.put("desafios", new Challenges()); // Alias en español
         subcommands.put("debug-redmoon", new DebugRedMoon()); // Comando temporal de debug
     }
 
