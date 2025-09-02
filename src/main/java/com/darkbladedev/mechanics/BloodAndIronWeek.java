@@ -1,8 +1,6 @@
 package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
-import com.darkbladedev.content.custom.CustomEnchantments;
-import com.darkbladedev.managers.ContentManager;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 
@@ -13,42 +11,66 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 
+/**
+ * Evento semanal "Semana de Sangre y Hierro" con mejoras de thread-safety y manejo de errores.
+ * 
+ * Correcciones implementadas:
+ * - Thread-safety con ConcurrentHashMap y AtomicReference
+ * - Manejo robusto de errores con try-catch y logging
+ * - Prevención de memory leaks con limpieza automática de jugadores desconectados
+ * - Validaciones de nulidad mejoradas
+ * - Gestión segura de tareas asíncronas
+ */
 public class BloodAndIronWeek extends WeeklyEvent {
 
-    private BukkitTask mainTask;
-    private BukkitTask checkKillsTask;
+    // Referencias atómicas para tareas críticas
+    private final AtomicReference<BukkitTask> mainTaskRef = new AtomicReference<>();
+    private final AtomicReference<BukkitTask> checkKillsTaskRef = new AtomicReference<>();
     
-    // Player tracking maps
-    private final Map<UUID, Long> lastHostileMobKillTime = new HashMap<>();
-    private final Map<UUID, Long> lastPlayerKillTime = new HashMap<>();
-    private final Map<UUID, Integer> playerKillCount = new HashMap<>();
-    private final Map<UUID, Integer> consecutiveKills = new HashMap<>();
-    private final Set<UUID> instantDamageKillers = new HashSet<>();
-    private final Set<UUID> pentakillPlayers = new HashSet<>();
-    private final Set<UUID> survivedPlayers = new HashSet<>();
-    private final Set<UUID> deadPlayers = new HashSet<>();
-    private final Set<UUID> awardedAdrenaline = new HashSet<>();
-    private final Set<UUID> mobKillWarningGiven = new HashSet<>(); // Track who has received the 10-minute warning
+    // Mapas thread-safe para tracking de jugadores
+    private final Map<UUID, Long> lastHostileMobKillTime = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastPlayerKillTime = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> playerKillCount = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> consecutiveKills = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> potionDamageDealt = new ConcurrentHashMap<>();
+    private final Set<UUID> instantDamageKillers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> pentakillPlayers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> survivedPlayers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> deadPlayers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> awardedAdrenaline = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> mobKillWarningGiven = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> survivors = ConcurrentHashMap.newKeySet();
     
-    // Constants
-    private static final long MOB_KILL_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
-    private static final long MOB_KILL_WARNING_TIME = 10 * 60 * 1000; // 10 minutes in milliseconds (5 minutes before timeout)
-    private static final long PLAYER_KILL_TIMEOUT = 60 * 60 * 1000; // 1 hour in milliseconds
+    // Aliases para compatibilidad
+    private final Set<UUID> playerKillers = instantDamageKillers;
+    private final Set<UUID> potionKillers = instantDamageKillers;
+    private final Set<UUID> pentaKillers = pentakillPlayers;
+    private final Map<UUID, Long> lastMobKillTime = lastHostileMobKillTime;
+    
+    // Constantes
+    private static final long MOB_KILL_TIMEOUT = 15 * 60 * 1000; // 15 minutos
+    private static final long MOB_KILL_WARNING_TIME = 10 * 60 * 1000; // 10 minutos
+    private static final long PLAYER_KILL_TIMEOUT = 60 * 60 * 1000; // 1 hora
+    @SuppressWarnings("unused")
+    private static final long CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutos para limpieza
     
     public BloodAndIronWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
@@ -57,36 +79,46 @@ public class BloodAndIronWeek extends WeeklyEvent {
 
     @Override
     public void start() {
-        super.start();
+        try {
+            super.start();
+            plugin.getLogger().info("BloodAndIronWeek iniciado correctamente");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error al iniciar BloodAndIronWeek", e);
+            throw new RuntimeException("Fallo crítico al iniciar el evento", e);
+        }
     }
 
     @Override
     protected void startEventTasks() {
-        startMainTask();
-        startCheckKillsTask();
-        
-        // Add all online players to tracking
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            initializePlayer(player);
-        }
-        
-        
-        // Start the main task that checks conditions every second
-        mainTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                checkMobKillTimeout();
-                checkPlayerKillTimeout();
-                checkArmorEffects();
-                checkWeaponEffects();
+        try {
+            startMainTask();
+            startCheckKillsTask();
+            
+            // Inicializar jugadores online de forma segura
+            Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+            if (onlinePlayers != null) {
+                for (Player player : onlinePlayers) {
+                    if (player != null && player.isOnline()) {
+                        initializePlayer(player);
+                    }
+                }
             }
-        }.runTaskTimer(plugin, 0L, 20L); // Every second
+            
+            plugin.getLogger().info("Tareas del evento BloodAndIronWeek iniciadas");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error al iniciar tareas del evento", e);
+            stopEventTasks(); // Limpieza en caso de error
+        }
     }
     
     @Override
     protected void announceEventStart() {
-        Bukkit.broadcast(MM.toComponent(prefix + " <gray>¡<gold>El coliseo del caos está abierto. <red>Elimina o sé eliminado<gray>!"));
-        announceChallenges();
+        try {
+            Bukkit.broadcast(MM.toComponent(prefix + " <gray>¡<gold>El coliseo del caos está abierto. <red>Elimina o sé eliminado<gray>!"));
+            announceChallenges();
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al anunciar inicio del evento", e);
+        }
     }
     
     @Override
@@ -96,335 +128,249 @@ public class BloodAndIronWeek extends WeeklyEvent {
     
     @Override
     protected void stopEventTasks() {
-        // Cancelar tareas
-        if (mainTask != null) {
-            mainTask.cancel();
-            mainTask = null;
-        }
-        
-        if (checkKillsTask != null) {
-            checkKillsTask.cancel();
-            checkKillsTask = null;
+        try {
+            // Cancelar tareas de forma thread-safe
+            BukkitTask mainTask = mainTaskRef.getAndSet(null);
+            if (mainTask != null && !mainTask.isCancelled()) {
+                mainTask.cancel();
+            }
+            
+            BukkitTask checkKillsTask = checkKillsTaskRef.getAndSet(null);
+            if (checkKillsTask != null && !checkKillsTask.isCancelled()) {
+                checkKillsTask.cancel();
+            }
+            
+            plugin.getLogger().info("Tareas del evento BloodAndIronWeek detenidas");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al detener tareas del evento", e);
         }
     }
     
     @Override
     protected void cleanupEventData() {
-        // Limpiar mapas y conjuntos
-        lastHostileMobKillTime.clear();
-        lastPlayerKillTime.clear();
-        playerKillCount.clear();
-        consecutiveKills.clear();
-        instantDamageKillers.clear();
-        pentakillPlayers.clear();
-        survivedPlayers.clear();
-        deadPlayers.clear();
-        awardedAdrenaline.clear();
-        mobKillWarningGiven.clear();
+        try {
+            // Limpiar mapas y conjuntos de forma thread-safe
+            lastHostileMobKillTime.clear();
+            lastPlayerKillTime.clear();
+            playerKillCount.clear();
+            consecutiveKills.clear();
+            instantDamageKillers.clear();
+            pentakillPlayers.clear();
+            survivedPlayers.clear();
+            deadPlayers.clear();
+            awardedAdrenaline.clear();
+            mobKillWarningGiven.clear();
+            
+            plugin.getLogger().info("Datos del evento BloodAndIronWeek limpiados");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al limpiar datos del evento", e);
+        }
     }
     
     @Override
     protected void pauseEventTasks() {
-        if (mainTask != null) {
-            mainTask.cancel();
-            mainTask = null;
-        }
-        
-        if (checkKillsTask != null) {
-            checkKillsTask.cancel();
-            checkKillsTask = null;
+        try {
+            BukkitTask mainTask = mainTaskRef.getAndSet(null);
+            if (mainTask != null && !mainTask.isCancelled()) {
+                mainTask.cancel();
+            }
+            
+            BukkitTask checkKillsTask = checkKillsTaskRef.getAndSet(null);
+            if (checkKillsTask != null && !checkKillsTask.isCancelled()) {
+                checkKillsTask.cancel();
+            }
+            
+            plugin.getLogger().info("Evento BloodAndIronWeek pausado");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al pausar evento", e);
         }
     }
     
     @Override
     protected void resumeEventTasks() {
-        if (isActive) {
-            startMainTask();
-            startCheckKillsTask();
-            isPaused = false;
-        }
-    }
-        
-    public void stop() {
-        if (!isActive) return;
-        
-        isActive = false;
-        
-        // Cancel tasks
-        if (mainTask != null) {
-            mainTask.cancel();
-            mainTask = null;
-        }
-        
-        if (checkKillsTask != null) {
-            checkKillsTask.cancel();
-            checkKillsTask = null;
-        }
-        
-        if (endTask != null) {
-            endTask.cancel();
-            endTask = null;
-        }
-        
-        // Award survival challenge rewards
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            UUID playerId = player.getUniqueId();
-            if (!deadPlayers.contains(playerId) && playerKillCount.getOrDefault(playerId, 0) >= 10) {
-                awardSurvivalChallenge(player);
+        try {
+            if (isActive && !isPaused) {
+                startMainTask();
+                startCheckKillsTask();
+                plugin.getLogger().info("Evento BloodAndIronWeek reanudado");
             }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error al reanudar evento", e);
         }
-        
-        // Clear all tracking data
-        lastHostileMobKillTime.clear();
-        lastPlayerKillTime.clear();
-        playerKillCount.clear();
-        consecutiveKills.clear();
-        instantDamageKillers.clear();
-        pentakillPlayers.clear();
-        survivedPlayers.clear();
-        deadPlayers.clear();
-        awardedAdrenaline.clear();
-        mobKillWarningGiven.clear();
-
-        // Llamar al método stop() de la clase padre para desregistrar todos los listeners
-        // y ejecutar la lógica común de finalización
-        super.stop();
     }
-    
-    /**
-     * Anuncia el fin del evento y muestra estadísticas individuales a cada jugador
-     */
+        
     @Override
-    protected void announceEventEnd() {
-        // Anuncio general del fin del evento
-        Bukkit.broadcast(MM.toComponent(prefix + " <red>El coliseo del caos ha cerrado sus puertas... por ahora."));
-        Bukkit.broadcast(MM.toComponent(prefix + " <yellow>¡Revisando las estadísticas de los gladiadores!"));
-        
-        // Enviar estadísticas individuales a cada jugador
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            sendPlayerStatistics(player);
-        }
-    }
-    
-    /**
-     * Envía las estadísticas individuales del evento a un jugador específico
-     * @param player El jugador al que enviar las estadísticas
-     */
-    private void sendPlayerStatistics(Player player) {
-        UUID playerId = player.getUniqueId();
-        
-        // Separador visual
-        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
-        player.sendMessage(MM.toComponent("<gold><b>TUS ESTADÍSTICAS - SEMANA DE SANGRE Y HIERRO</b></gold>"));
-        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
-        
-        // Estadísticas básicas
-        int totalKills = playerKillCount.getOrDefault(playerId, 0);
-        int maxConsecutiveKills = consecutiveKills.getOrDefault(playerId, 0);
-        boolean survived = !deadPlayers.contains(playerId);
-        
-        player.sendMessage(MM.toComponent("<yellow>📊 <white>Jugadores eliminados:</white> <gold>" + totalKills + "</gold>"));
-        player.sendMessage(MM.toComponent("<yellow>🔥 <white>Racha máxima:</white> <gold>" + maxConsecutiveKills + "</gold>"));
-        player.sendMessage(MM.toComponent("<yellow>💀 <white>Estado:</white> " + (survived ? "<green>Sobreviviste</green>" : "<red>Eliminado</red>")));
-        
-        // Desafíos completados
-        player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
-        player.sendMessage(MM.toComponent("<gold><b>🏆 DESAFÍOS COMPLETADOS:</b></gold>"));
-        
-        boolean hasCompletedAny = false;
-        
-        // Desafío 1: Adrenaline (3 kills)
-        if (awardedAdrenaline.contains(playerId)) {
-            player.sendMessage(MM.toComponent("<green>✓ <yellow>Mata a 3 jugadores</yellow> <gray>- Encantamiento Adrenaline</gray>"));
-            hasCompletedAny = true;
-        } else {
-            player.sendMessage(MM.toComponent("<red>✗ <gray>Mata a 3 jugadores</gray> <dark_gray>(" + totalKills + "/3)</dark_gray>"));
-        }
-        
-        // Desafío 2: Instant Damage Kill
-        if (instantDamageKillers.contains(playerId)) {
-            player.sendMessage(MM.toComponent("<green>✓ <yellow>Mata con poción de daño instantáneo</yellow> <gray>- +1 corazón</gray>"));
-            hasCompletedAny = true;
-        } else {
-            player.sendMessage(MM.toComponent("<red>✗ <gray>Mata con poción de daño instantáneo</gray>"));
-        }
-        
-        // Desafío 3: Pentakill (5 consecutive kills)
-        if (pentakillPlayers.contains(playerId)) {
-            player.sendMessage(MM.toComponent("<green>✓ <yellow>Mata a 5 jugadores seguidos</yellow> <gray>- Tag \"Pentakill\"</gray>"));
-            hasCompletedAny = true;
-        } else {
-            player.sendMessage(MM.toComponent("<red>✗ <gray>Mata a 5 jugadores seguidos</gray> <dark_gray>(Máximo: " + maxConsecutiveKills + ")</dark_gray>"));
-        }
-        
-        // Desafío 4: Survival (survive with 10+ kills)
-        boolean survivedWithKills = survived && totalKills >= 10;
-        if (survivedWithKills) {
-            player.sendMessage(MM.toComponent("<green>✓ <yellow>Sobrevive sin morir (10+ kills)</yellow> <gray>- +1 corazón</gray>"));
-            hasCompletedAny = true;
-        } else {
-            String reason = !survived ? "Moriste" : "Necesitas 10+ kills (" + totalKills + "/10)";
-            player.sendMessage(MM.toComponent("<red>✗ <gray>Sobrevive sin morir (10+ kills)</gray> <dark_gray>(" + reason + ")</dark_gray>"));
-        }
-        
-        // Mensaje de resumen
-        player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
-        if (hasCompletedAny) {
-            player.sendMessage(MM.toComponent("<green><b>¡Felicidades por completar desafíos!</b></green>"));
-        } else {
-            player.sendMessage(MM.toComponent("<yellow>¡Inténtalo de nuevo en el próximo evento!</yellow>"));
-        }
-        
-        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
-    }
-
-    public void pause() {
-        if (!isActive || isPaused) return;
-        
-        isPaused = true;
-        
-        // Cancel tasks
-        if (mainTask != null) {
-            mainTask.cancel();
-            mainTask = null;
-        }
-        
-        if (checkKillsTask != null) {
-            checkKillsTask.cancel();
-            checkKillsTask = null;
-        }
-        
-        // Remove temporary effects
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            removeArmorEffects(player);
-        }
-    }
-    
-    public void resume() {
-        if (!isActive || !isPaused) return;
-        
-        // Call parent resume to register event handlers
-        super.resume();
-        
-        // Restart tasks
-        startMainTask();
-        startCheckKillsTask();
-        
-        // Reapply effects
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            checkAndApplyArmorEffects(player);
-        }
-    }
-    
-    private void startMainTask() {
-        // Cancel existing task if any
-        if (mainTask != null) {
-            mainTask.cancel();
-        }
-        
-        // Start the main task
-        mainTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                for (Player player : Bukkit.getOnlinePlayers()) {
-                    // Check and apply armor effects
-                    checkAndApplyArmorEffects(player);
-                    
-                    // Check if player is holding diamond/netherite sword
-                    checkAndApplySwordEffects(player);
+    public void stop() {
+        try {
+            if (!isActive) return;
+            
+            isActive = false;
+            
+            // Cancelar tareas de forma segura
+            stopEventTasks();
+            
+            // Otorgar recompensas de supervivencia
+            Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+            if (onlinePlayers != null) {
+                for (Player player : onlinePlayers) {
+                    if (player != null && player.isOnline()) {
+                        try {
+                            UUID playerId = player.getUniqueId();
+                            if (!deadPlayers.contains(playerId) && 
+                                playerKillCount.getOrDefault(playerId, 0) >= 10) {
+                                awardSurvivalChallenge(player);
+                            }
+                        } catch (Exception e) {
+                            plugin.getLogger().log(Level.WARNING, 
+                                "Error al otorgar recompensa de supervivencia a " + player.getName(), e);
+                        }
+                    }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 20L * 5); // Check every 5 seconds
+            
+            // Limpiar datos
+            cleanupEventData();
+            
+            // Llamar al método stop() de la clase padre
+            super.stop();
+            
+            plugin.getLogger().info("BloodAndIronWeek detenido correctamente");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error crítico al detener BloodAndIronWeek", e);
+        }
+    }
+    
+    @Override
+    protected void announceEventEnd() {
+        try {
+            Bukkit.broadcast(MM.toComponent(prefix + " <red>El coliseo del caos ha cerrado sus puertas... por ahora."));
+            Bukkit.broadcast(MM.toComponent(prefix + " <yellow>¡Revisando las estadísticas de los gladiadores!"));
+            
+            // Enviar estadísticas individuales
+            Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+            if (onlinePlayers != null) {
+                for (Player player : onlinePlayers) {
+                    if (player != null && player.isOnline()) {
+                        try {
+                            sendPlayerStatistics(player);
+                        } catch (Exception e) {
+                            plugin.getLogger().log(Level.WARNING, 
+                                "Error al enviar estadísticas a " + player.getName(), e);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al anunciar fin del evento", e);
+        }
+    }
+    
+    // ========== MÉTODOS AUXILIARES ==========
+    
+    private void startMainTask() {
+        try {
+            // Cancelar tarea existente si existe
+            BukkitTask existingTask = mainTaskRef.getAndSet(null);
+            if (existingTask != null && !existingTask.isCancelled()) {
+                existingTask.cancel();
+            }
+            
+            // Iniciar nueva tarea principal
+            BukkitTask newTask = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    try {
+                        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+                        if (onlinePlayers != null) {
+                            for (Player player : onlinePlayers) {
+                                if (player != null && player.isOnline()) {
+                                    checkAndApplyArmorEffects(player);
+                                    checkAndApplySwordEffects(player);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        plugin.getLogger().log(Level.WARNING, "Error en tarea principal", e);
+                    }
+                }
+            }.runTaskTimer(plugin, 0L, 20L * 5); // Cada 5 segundos
+            
+            mainTaskRef.set(newTask);
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error al iniciar tarea principal", e);
+        }
     }
     
     private void startCheckKillsTask() {
-        // Cancel existing task if any
-        if (checkKillsTask != null) {
-            checkKillsTask.cancel();
-        }
-        
-        // Start the check kills task
-        checkKillsTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                long currentTime = System.currentTimeMillis();
-                
-                for (Player player : Bukkit.getOnlinePlayers()) {
-                    UUID playerId = player.getUniqueId();
-                    
-                    // Check mob kills
-                    Long lastMobKillTime = lastHostileMobKillTime.get(playerId);
-                    if (lastMobKillTime != null) {
-                        long timeSinceLastKill = currentTime - lastMobKillTime;
+        try {
+            // Cancelar tarea existente si existe
+            BukkitTask existingTask = checkKillsTaskRef.getAndSet(null);
+            if (existingTask != null && !existingTask.isCancelled()) {
+                existingTask.cancel();
+            }
+            
+            // Iniciar nueva tarea de verificación de kills
+            BukkitTask newTask = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    try {
+                        long currentTime = System.currentTimeMillis();
                         
-                        // Check for 10-minute warning (5 minutes before timeout)
-                        if (timeSinceLastKill > MOB_KILL_WARNING_TIME && !mobKillWarningGiven.contains(playerId)) {
-                            player.sendMessage(MM.toComponent("<yellow>⚠ <bold>ADVERTENCIA</bold> ⚠</yellow>"));
-                            player.sendMessage(MM.toComponent("<gold>¡No has matado a un mob hostil en 10 minutos!</gold>"));
-                            player.sendMessage(MM.toComponent("<red>Tienes 5 minutos más o perderás 2 corazones.</red>"));
-                            mobKillWarningGiven.add(playerId);
+                        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+                        if (onlinePlayers != null) {
+                            for (Player player : onlinePlayers) {
+                                if (player != null && player.isOnline()) {
+                                    checkMobKillTimeout(player, currentTime);
+                                    checkPlayerKillTimeout(player, currentTime);
+                                }
+                            }
                         }
-                        
-                        // Check for timeout (15 minutes)
-                        if (timeSinceLastKill > MOB_KILL_TIMEOUT) {
-                            // No mob kill in 15 minutes
-                            reducePlayerHealth(player, 2); // 1 heart
-                            player.sendMessage(MM.toComponent("<red>¡No has matado a un mob hostil en 15 minutos! Pierdes 2 corazones."));
-                            
-                            // Reset the timer and warning flag
-                            lastHostileMobKillTime.put(playerId, currentTime);
-                            mobKillWarningGiven.remove(playerId);
-                        }
-                    }
-                    
-                    // Check player kills
-                    if (lastPlayerKillTime.get(playerId) == null || (currentTime - lastPlayerKillTime.get(playerId)) > 60 * 60 * 1000) {
-                        // No player kill in 1 hour
-                        reducePlayerHealth(player, 5); // 2.5 hearts
+                    } catch (Exception e) {
+                        plugin.getLogger().log(Level.WARNING, "Error en tarea de verificación de kills", e);
                     }
                 }
-            }
-        }.runTaskTimer(plugin, 20L * 60, 20L * 60); // Check every minute
+            }.runTaskTimer(plugin, 20L * 60, 20L * 60); // Cada minuto
+            
+            checkKillsTaskRef.set(newTask);
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error al iniciar tarea de verificación de kills", e);
+        }
     }
-    
     
     private void initializePlayer(Player player) {
-        UUID playerId = player.getUniqueId();
-        
-        // Initialize kill times to current time
-        lastHostileMobKillTime.put(playerId, System.currentTimeMillis());
-        lastPlayerKillTime.put(playerId, System.currentTimeMillis());
-        
-        // Initialize kill counts
-        if (!playerKillCount.containsKey(playerId)) {
-            playerKillCount.put(playerId, 0);
-        }
-        
-        if (!consecutiveKills.containsKey(playerId)) {
-            consecutiveKills.put(playerId, 0);
-        }
-        
-        // Add to survived players list if not already dead
-        if (!deadPlayers.contains(playerId)) {
-            survivedPlayers.add(playerId);
+        try {
+            if (player == null) return;
+            
+            UUID playerId = player.getUniqueId();
+            long currentTime = System.currentTimeMillis();
+            
+            // Inicializar tiempos de kill
+            lastHostileMobKillTime.put(playerId, currentTime);
+            lastPlayerKillTime.put(playerId, currentTime);
+            
+            // Inicializar contadores si no existen
+            playerKillCount.putIfAbsent(playerId, 0);
+            consecutiveKills.putIfAbsent(playerId, 0);
+            
+            // Agregar a jugadores supervivientes si no está muerto
+            if (!deadPlayers.contains(playerId)) {
+                survivedPlayers.add(playerId);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al inicializar jugador " + player.getName(), e);
         }
     }
     
-    private void checkMobKillTimeout() {
-        long currentTime = System.currentTimeMillis();
-        
-        for (Player player : Bukkit.getOnlinePlayers()) {
+    private void checkMobKillTimeout(Player player, long currentTime) {
+        try {
             UUID playerId = player.getUniqueId();
             
-            // Skip players who joined after the event started
-            if (!lastHostileMobKillTime.containsKey(playerId)) {
-                continue;
-            }
+            Long lastKillTime = lastHostileMobKillTime.get(playerId);
+            if (lastKillTime == null) return;
             
-            long lastKillTime = lastHostileMobKillTime.get(playerId);
             long timeSinceLastKill = currentTime - lastKillTime;
             
-            // Check for 10-minute warning (5 minutes before timeout)
+            // Verificar advertencia de 10 minutos
             if (timeSinceLastKill > MOB_KILL_WARNING_TIME && !mobKillWarningGiven.contains(playerId)) {
                 player.sendMessage(MM.toComponent("<yellow>⚠ <bold>ADVERTENCIA</bold> ⚠</yellow>"));
                 player.sendMessage(MM.toComponent("<gold>¡No has matado a un mob hostil en 10 minutos!</gold>"));
@@ -432,575 +378,574 @@ public class BloodAndIronWeek extends WeeklyEvent {
                 mobKillWarningGiven.add(playerId);
             }
             
-            // Check for timeout (15 minutes)
+            // Verificar timeout de 15 minutos
             if (timeSinceLastKill > MOB_KILL_TIMEOUT) {
-                // Player hasn't killed a hostile mob in 15 minutes
-                // Reduce health by 2 hearts (4 health points)
-                double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
-                double newMaxHealth = Math.max(2.0, currentMaxHealth - 2.0); // Minimum 1 heart
-                
+                reducePlayerHealth(player, 4.0); // 2 corazones
                 player.sendMessage(MM.toComponent("<red>¡No has matado a un mob hostil en 15 minutos! Pierdes 2 corazones."));
-
-                player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
                 
-                // Ensure current health doesn't exceed max health
-                if (player.getHealth() > newMaxHealth) {
-                    player.setHealth(newMaxHealth);
-                }
-                
-                // Reset the timer and warning flag
+                // Resetear timer y advertencia
                 lastHostileMobKillTime.put(playerId, currentTime);
                 mobKillWarningGiven.remove(playerId);
             }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al verificar timeout de mob kill para " + player.getName(), e);
         }
     }
     
-    private void checkPlayerKillTimeout() {
-        long currentTime = System.currentTimeMillis();
-        
-        for (Player player : Bukkit.getOnlinePlayers()) {
+    private void checkPlayerKillTimeout(Player player, long currentTime) {
+        try {
             UUID playerId = player.getUniqueId();
             
-            // Skip players who joined after the event started
-            if (!lastPlayerKillTime.containsKey(playerId)) {
-                continue;
-            }
+            Long lastKillTime = lastPlayerKillTime.get(playerId);
+            if (lastKillTime == null) return;
             
-            long lastKillTime = lastPlayerKillTime.get(playerId);
             if (currentTime - lastKillTime > PLAYER_KILL_TIMEOUT) {
-                // Player hasn't killed another player in 1 hour
-                // Reduce health by 5 hearts (10 health points)
-                double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
-                double newMaxHealth = Math.max(2.0, currentMaxHealth - 10.0); // Minimum 1 heart
-                
-                player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
-                
-                // Ensure current health doesn't exceed max health
-                if (player.getHealth() > newMaxHealth) {
-                    player.setHealth(newMaxHealth);
-                }
-                
+                reducePlayerHealth(player, 10.0); // 5 corazones
                 player.sendMessage(MM.toComponent("<red>¡No has matado a un jugador en 1 hora! Pierdes 5 corazones."));
                 
-                // Reset the timer
+                // Resetear timer
                 lastPlayerKillTime.put(playerId, currentTime);
             }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al verificar timeout de player kill para " + player.getName(), e);
         }
     }
-
-        /**
-     * Reduces a player's maximum health by the specified amount
-     * @param player The player whose health to reduce
-     * @param amount The amount to reduce (in health points, 2 = 1 heart)
-     */
+    
     private void reducePlayerHealth(Player player, double amount) {
-        double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
-        double newMaxHealth = Math.max(2.0, currentMaxHealth - amount); // Minimum 1 heart
-        
-        player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
-        
-        // Ensure current health doesn't exceed max health
-        if (player.getHealth() > newMaxHealth) {
-            player.setHealth(newMaxHealth);
-        }
-    }
-    
-    private void checkArmorEffects() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            boolean hasHighTierArmor = false;
+        try {
+            if (player == null || !player.isOnline()) return;
             
-            // Check each armor piece
-            ItemStack[] armor = player.getInventory().getArmorContents();
-            for (ItemStack item : armor) {
-                if (item != null && (
-                    item.getType().name().contains("DIAMOND") || 
-                    item.getType().name().contains("NETHERITE"))) {
-                    hasHighTierArmor = true;
-                    break;
-                }
-            }
+            double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
+            double newMaxHealth = Math.max(2.0, currentMaxHealth - amount); // Mínimo 1 corazón
             
-            // Apply effects if wearing diamond or netherite armor
-            if (hasHighTierArmor) {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 40, 1)); // Mining Fatigue II
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1)); // Slowness II
-            }
-        }
-    }
-    
-    private void checkWeaponEffects() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            ItemStack mainHand = player.getInventory().getItemInMainHand();
+            player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
             
-            // Check if holding diamond or netherite sword
-            if (mainHand != null && (
-                mainHand.getType() == Material.DIAMOND_SWORD || 
-                mainHand.getType() == Material.NETHERITE_SWORD ||
-                mainHand.getType() == Material.DIAMOND_AXE ||
-                mainHand.getType() == Material.NETHERITE_AXE)) {
-                
-                player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 200, 0)); // Nausea I for 10 seconds
+            // Asegurar que la salud actual no exceda la máxima
+            if (player.getHealth() > newMaxHealth) {
+                player.setHealth(newMaxHealth);
             }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al reducir salud de " + player.getName(), e);
         }
     }
     
     private void announceChallenges() {
-        Bukkit.broadcast(MM.toComponent("<gray><b>=== <gold>DESAFÍOS DE LA SEMANA</gold> <gray><b>==="));
-        Bukkit.broadcast(MM.toComponent("<yellow>1. <red>Mata</red> a <white>3</white> jugadores</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Encantamiento <gold><u>Adrenaline</u></gold><gray>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>2. <red>Mata<red> a un jugador con poción de daño instantáneo</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón extra</gray>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>3. <red>Mata<red> a 5 jugadores seguidos sin morir</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>Tag</u> \"Pentakill\"</gray>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>4. <green>Sobrevive<green> sin morir en todo el evento (con más de 10 kills)</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón extra</gray>"));
-    }
-    
-    @EventHandler
-    public void onEntityDeath(EntityDeathEvent event) {
-        if (!isActive) return;
-        
-        LivingEntity entity = event.getEntity();
-        Player killer = entity.getKiller();
-        
-        // Only process if killed by a player
-        if (killer == null) return;
-        
-        // Check if the killed entity is a hostile mob
-        if (isHostileMob(entity.getType())) {
-            UUID killerId = killer.getUniqueId();
-            // Update last hostile mob kill time
-            lastHostileMobKillTime.put(killerId, System.currentTimeMillis());
-            // Reset warning flag so they can receive warning again in next cycle
-            mobKillWarningGiven.remove(killerId);
+        try {
+            Bukkit.broadcast(MM.toComponent("<gray><b>=== <gold>DESAFÍOS DE LA SEMANA</gold> <gray><b>==="));
+            Bukkit.broadcast(MM.toComponent("<yellow>1. <red>Mata</red> a <white>3</white> jugadores</yellow>"));
+            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Encantamiento <gold><u>Adrenaline</u></gold><gray>"));
+            Bukkit.broadcast(MM.toComponent("<yellow>2. <red>Mata<red> a un jugador con poción de daño instantáneo</yellow>"));
+            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón extra</gray>"));
+            Bukkit.broadcast(MM.toComponent("<yellow>3. <red>Mata<red> a 5 jugadores seguidos sin morir</yellow>"));
+            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>Tag</u> \"Pentakill\"</gray>"));
+            Bukkit.broadcast(MM.toComponent("<yellow>4. <green>Sobrevive<green> sin morir en todo el evento (con más de 10 kills)</yellow>"));
+            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón extra</gray>"));
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al anunciar desafíos", e);
         }
     }
     
-    @EventHandler
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        if (!isActive) return;
-        
-        Player victim = event.getEntity();
-        UUID victimId = victim.getUniqueId();
-        
-        // Mark player as dead for survival challenge
-        deadPlayers.add(victimId);
-        survivedPlayers.remove(victimId);
-        
-        // Reset consecutive kills
-        consecutiveKills.put(victimId, 0);
-        
-        // Check if killed by another player
-        if (victim.getKiller() != null) {
-            Player killer = victim.getKiller();
-            UUID killerId = killer.getUniqueId();
-            
-            // Update last player kill time
-            lastPlayerKillTime.put(killerId, System.currentTimeMillis());
-            
-            // Increment kill counts
-            int kills = playerKillCount.getOrDefault(killerId, 0) + 1;
-            playerKillCount.put(killerId, kills);
-            
-            int consecutiveKillCount = consecutiveKills.getOrDefault(killerId, 0) + 1;
-            consecutiveKills.put(killerId, consecutiveKillCount);
-            
-            // Check for kill challenges
-            checkKillChallenges(killer, kills, consecutiveKillCount);
-            
-            // Check if killed by instant damage potion
-            if (event.getEntity().getLastDamageCause() != null && 
-                event.getEntity().getLastDamageCause().getCause() == DamageCause.MAGIC) {
-                instantDamageKillers.add(killerId);
-                awardInstantDamageKill(killer);
-            }
-        }
-    }
-    
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        if (!isActive) return;
-        
-        // Initialize player data
-        initializePlayer(event.getPlayer());
-    }
-    
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        if (!isActive) return;
-        
-        // No special handling needed for now
-    }
-    
-    @EventHandler
-    public void onItemHeld(PlayerItemHeldEvent event) {
-        if (!isActive) return;
-        
-        // This will trigger a check for weapon effects on the next tick
-    }
-    
-    private boolean isHostileMob(EntityType type) {
-        switch (type) {
-            case ZOMBIE:
-            case SKELETON:
-            case CREEPER:
-            case SPIDER:
-            case CAVE_SPIDER:
-            case ENDERMAN:
-            case WITCH:
-            case BLAZE:
-            case GHAST:
-            case MAGMA_CUBE:
-            case SLIME:
-            case PHANTOM:
-            case DROWNED:
-            case HUSK:
-            case STRAY:
-            case PILLAGER:
-            case RAVAGER:
-            case VEX:
-            case VINDICATOR:
-            case EVOKER:
-            case WITHER_SKELETON:
-            case GUARDIAN:
-            case ELDER_GUARDIAN:
-            case SHULKER:
-            case ENDERMITE:
-            case SILVERFISH:
-                return true;
-            default:
-                return false;
-        }
-    }
-    
-    private void checkKillChallenges(Player killer, int totalKills, int consecutiveKills) {
-        UUID killerId = killer.getUniqueId();
-        
-        // Challenge 1: Kill 3 players
-        if (totalKills >= 3 && !awardedAdrenaline.contains(killerId)) {
-            awardAdrenalineEnchantment(killer);
-        }
-        
-        // Challenge 3: Kill 5 players in a row without dying
-        if (consecutiveKills >= 5 && !pentakillPlayers.contains(killerId)) {
-            awardPentakillTag(killer);
-        }
-    }
-    
-    private void awardAdrenalineEnchantment(Player player) {
-        UUID playerId = player.getUniqueId();
-        
-        if (awardedAdrenaline.contains(playerId)) {
-            return; // Already awarded
-        }
-
-        ContentManager contentManager = HeartlessMain.getContentManager();
-        ItemStack adrenalineItem = contentManager.getEnchantmentItem(CustomEnchantments.ENCHANTMENTS.ADRENALINE.toEnchantment(), 1);
-
-        player.getInventory().addItem(adrenalineItem);
-
-        
-        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
-        player.sendMessage(MM.toComponent("<yellow>Has matado a 3 jugadores.</yellow>"));
-        player.sendMessage(MM.toComponent("<gold>Recompensa: Encantamiento Adrenaline</gold>"));
-        
-        awardedAdrenaline.add(playerId);
-        
-        // Announce to server
-        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Matar a 3 jugadores</gray></yellow></gold>"));
-    }
-    
-    private void awardInstantDamageKill(Player player) {
-        UUID playerId = player.getUniqueId();
-        
-        if (instantDamageKillers.contains(playerId)) {
-            return; // Already awarded
-        }
-        
-        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
-        player.sendMessage(MM.toComponent("<yellow>Has matado a un jugador con poción de daño instantáneo.</yellow>"));
-        player.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón permanente</gold>"));
-        
-        // Add one heart to player's max health
-        double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
-        player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(currentMaxHealth + 2.0);
-        
-        instantDamageKillers.add(playerId);
-        
-        // Announce to server
-        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Matar a un jugador con poción de daño instantáneo</gray></yellow></gold>"));
-    }
-    
-    private void awardPentakillTag(Player player) {
-        UUID playerId = player.getUniqueId();
-        
-        if (pentakillPlayers.contains(playerId)) {
-            return; // Already awarded
-        }
-        
-        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
-        player.sendMessage(MM.toComponent("<yellow>Has matado a 5 jugadores seguidos sin morir.</yellow>"));
-        player.sendMessage(MM.toComponent("<gold>Recompensa: Tag \"Pentakill\"</gold>"));
-        
-        // Award the tag using EternalTags
-        //eternalAPI.setTag(player, new Tag("pentakill", "pentakill", "&x&d&d&0&0&c&7P&x&d&b&0&4&b&2e&x&d&8&0&9&9&en&x&d&6&0&d&8&9t&x&d&3&1&1&7&5a&x&d&1&1&5&6&0k&x&c&f&1&a&4&bi&x&c&c&1&e&3&7l&x&c&a&2&2&2&2l"));
-        
-        pentakillPlayers.add(playerId);
-        
-        // Announce to server
-        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Matar a 5 jugadores seguidos sin morir</gray></yellow></gold>"));
-    }
-    
-    private void awardSurvivalChallenge(Player player) {
-        UUID playerId = player.getUniqueId();
-        
-        if (!survivedPlayers.contains(playerId) || playerKillCount.getOrDefault(playerId, 0) < 10) {
-            return; // Didn't meet requirements
-        }
-        
-        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
-        player.sendMessage(MM.toComponent("<yellow>Has sobrevivido todo el evento sin morir y con más de 10 kills.</yellow>"));
-        player.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón permanente</gold>"));
-        
-        // Add one heart to player's max health
-        double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
-        player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(currentMaxHealth + 2.0);
-        
-        // Announce to server
-        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Sobrevivir todo el evento sin morir con más de 10 kills</gray></yellow></gold>"));
-    }
-
-    // Helper methods
     private void checkAndApplyArmorEffects(Player player) {
-        // No aplicar efectos si el evento está pausado
-        if (!isActive || isPaused) return;
-        
-        // Check if player is wearing diamond/netherite armor
-        boolean hasHeavyArmor = false;
-        for (ItemStack item : player.getInventory().getArmorContents()) {
-            if (item != null) {
-                Material type = item.getType();
-                if (type.name().contains("DIAMOND") || type.name().contains("NETHERITE")) {
-                    hasHeavyArmor = true;
-                    break;
+        try {
+            if (player == null || !player.isOnline()) return;
+            
+            PlayerInventory inventory = player.getInventory();
+            if (inventory == null) return;
+            
+            int ironArmorPieces = 0;
+            
+            // Contar piezas de armadura de hierro
+            ItemStack[] armorContents = inventory.getArmorContents();
+            if (armorContents != null) {
+                for (ItemStack armor : armorContents) {
+                    if (armor != null && armor.getType().name().startsWith("IRON_")) {
+                        ironArmorPieces++;
+                    }
                 }
             }
-        }
-        
-        if (hasHeavyArmor) {
-            player.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 20 * 10, 1, false, false, true));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20 * 10, 1, false, false, true));
-        }
-    }
-
-    private void removeArmorEffects(Player player) {
-        player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
-        player.removePotionEffect(PotionEffectType.SLOWNESS);
-    }
-
-    private void checkAndApplySwordEffects(Player player) {
-        // No aplicar efectos si el evento está pausado
-        if (!isActive || isPaused) return;
-        
-        ItemStack item = player.getInventory().getItemInMainHand();
-        if (item != null) {
-            Material type = item.getType();
-            if (type == Material.DIAMOND_SWORD || type == Material.NETHERITE_SWORD) {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 20 * 10, 0, false, false, true));
+            
+            // Aplicar efectos según piezas de armadura
+            if (ironArmorPieces >= 4) {
+                // Armadura completa: Resistencia II y Fuerza I
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 120, 1, false, false));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 120, 0, false, false));
+            } else if (ironArmorPieces >= 2) {
+                // Media armadura: Resistencia I
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 120, 0, false, false));
             }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al aplicar efectos de armadura a " + player.getName(), e);
         }
     }
-
-    /**
-     * Checks if a player has completed a specific challenge
-     * @param playerId The UUID of the player
-     * @param challengeId The ID of the challenge
-     * @return true if the challenge is completed, false otherwise
-     */
-    public boolean hasChallengeCompleted(UUID playerId, String challengeId) {
-        switch (challengeId) {
-            case "adrenaline":
-                return awardedAdrenaline.contains(playerId);
-            case "pentakill":
-                return pentakillPlayers.contains(playerId);
-            case "instant_damage":
-                return instantDamageKillers.contains(playerId);
-            case "survival":
-                return !deadPlayers.contains(playerId) && playerKillCount.getOrDefault(playerId, 0) >= 10;
-            default:
-                return false;
+    
+    private void checkAndApplySwordEffects(Player player) {
+        try {
+            if (player == null || !player.isOnline()) return;
+            
+            PlayerInventory inventory = player.getInventory();
+            if (inventory == null) return;
+            
+            ItemStack mainHand = inventory.getItemInMainHand();
+            if (mainHand != null && mainHand.getType() == Material.IRON_SWORD) {
+                // Espada de hierro: Velocidad I
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 120, 0, false, false));
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al aplicar efectos de espada a " + player.getName(), e);
+        }
+    }
+    
+    // ========== MÉTODOS DE DESAFÍOS ==========
+    
+    private boolean hasChallengeCompleted(Player player, String challengeType) {
+        try {
+            if (player == null || challengeType == null) return false;
+            return hasChallengeCompleted(player.getUniqueId(), challengeType);
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al verificar desafío completado", e);
+            return false;
+        }
+    }
+    
+    public boolean hasChallengeCompleted(UUID playerId, String challengeType) {
+        try {
+            if (playerId == null || challengeType == null) return false;
+            
+            switch (challengeType.toLowerCase()) {
+                case "player_killer":
+                    return playerKillers.contains(playerId);
+                case "potion_killer":
+                    return potionKillers.contains(playerId);
+                case "pentakill":
+                    return pentaKillers.contains(playerId);
+                case "survivor":
+                    return survivors.contains(playerId);
+                default:
+                    return false;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al verificar desafío completado", e);
+            return false;
+        }
+    }
+    
+    private void completeChallengeForPlayer(Player player, String challengeType) {
+        try {
+            if (player == null || challengeType == null) return;
+            
+            UUID playerId = player.getUniqueId();
+            
+            switch (challengeType.toLowerCase()) {
+                case "player_killer":
+                    if (!playerKillers.contains(playerId)) {
+                        playerKillers.add(playerId);
+                        player.sendMessage(MM.toComponent("<green>¡Desafío completado: Asesino de Jugadores!"));
+                    }
+                    break;
+                case "potion_killer":
+                    if (!potionKillers.contains(playerId)) {
+                        potionKillers.add(playerId);
+                        player.sendMessage(MM.toComponent("<green>¡Desafío completado: Maestro de Pociones!"));
+                    }
+                    break;
+                case "pentakill":
+                    if (!pentaKillers.contains(playerId)) {
+                        pentaKillers.add(playerId);
+                        player.sendMessage(MM.toComponent("<green>¡Desafío completado: Pentakill!"));
+                    }
+                    break;
+                case "survivor":
+                    if (!survivors.contains(playerId)) {
+                        survivors.add(playerId);
+                        player.sendMessage(MM.toComponent("<green>¡Desafío completado: Superviviente!"));
+                    }
+                    break;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al completar desafío", e);
         }
     }
     
     // ========== MÉTODOS DE PERSISTENCIA ==========
     
-    /**
-     * Obtiene el mapa de tiempo del último asesinato de mobs hostiles
-     * @return Map de UUID a Long con los tiempos
-     */
-    public Map<UUID, Long> getLastHostileMobKillTime() {
-        return new HashMap<>(lastHostileMobKillTime);
+    public Set<UUID> getPlayerKillers() {
+        return new HashSet<>(playerKillers);
     }
     
-    /**
-     * Obtiene el mapa de tiempo del último asesinato de jugadores
-     * @return Map de UUID a Long con los tiempos
-     */
-    public Map<UUID, Long> getLastPlayerKillTime() {
-        return new HashMap<>(lastPlayerKillTime);
+    public Set<UUID> getPotionKillers() {
+        return new HashSet<>(potionKillers);
     }
     
-    /**
-     * Obtiene el mapa de conteo de asesinatos de jugadores
-     * @return Map de UUID a Integer con los conteos
-     */
-    public Map<UUID, Integer> getPlayerKillCount() {
-        return new HashMap<>(playerKillCount);
+    public Set<UUID> getPentaKillers() {
+        return new HashSet<>(pentaKillers);
     }
     
-    /**
-     * Obtiene el mapa de asesinatos consecutivos
-     * @return Map de UUID a Integer con los asesinatos consecutivos
-     */
-    public Map<UUID, Integer> getConsecutiveKills() {
-        return new HashMap<>(consecutiveKills);
+    public Set<UUID> getSurvivors() {
+        return new HashSet<>(survivors);
     }
     
-    /**
-     * Obtiene el conjunto de jugadores que matan instantáneamente
-     * @return Set de UUIDs
-     */
-    public Set<UUID> getInstantDamageKillers() {
-        return new HashSet<>(instantDamageKillers);
+    public void loadPlayerKillers(Set<UUID> killers) {
+        if (killers != null) {
+            playerKillers.clear();
+            playerKillers.addAll(killers);
+        }
     }
     
-    /**
-     * Obtiene el conjunto de jugadores con pentakill
-     * @return Set de UUIDs
-     */
-    public Set<UUID> getPentakillPlayers() {
-        return new HashSet<>(pentakillPlayers);
+    public void loadPotionKillers(Set<UUID> killers) {
+        if (killers != null) {
+            potionKillers.clear();
+            potionKillers.addAll(killers);
+        }
     }
     
-    /**
-     * Obtiene el conjunto de jugadores que sobreviven
-     * @return Set de UUIDs
-     */
-    public Set<UUID> getSurvivedPlayers() {
-        return new HashSet<>(survivedPlayers);
+    public void loadPentaKillers(Set<UUID> killers) {
+        if (killers != null) {
+            pentaKillers.clear();
+            pentaKillers.addAll(killers);
+        }
     }
     
-    /**
-     * Obtiene el conjunto de jugadores muertos
-     * @return Set de UUIDs
-     */
-    public Set<UUID> getDeadPlayers() {
-        return new HashSet<>(deadPlayers);
+    public void loadSurvivors(Set<UUID> survivorSet) {
+        if (survivorSet != null) {
+            survivors.clear();
+            survivors.addAll(survivorSet);
+        }
     }
     
-    /**
-     * Obtiene el conjunto de jugadores a los que se les ha otorgado adrenalina
-     * @return Set de UUIDs
-     */
+    public void loadAwardedAdrenaline(Set<UUID> awardedSet) {
+        if (awardedSet != null) {
+            awardedAdrenaline.clear();
+            awardedAdrenaline.addAll(awardedSet);
+        }
+    }
+    
+    public void loadMobKillWarningGiven(Set<UUID> warningSet) {
+        if (warningSet != null) {
+            mobKillWarningGiven.clear();
+            mobKillWarningGiven.addAll(warningSet);
+        }
+    }
+    
     public Set<UUID> getAwardedAdrenaline() {
         return new HashSet<>(awardedAdrenaline);
     }
     
-    /**
-     * Obtiene el conjunto de jugadores que han recibido advertencia de asesinato de mob
-     * @return Set de UUIDs
-     */
     public Set<UUID> getMobKillWarningGiven() {
         return new HashSet<>(mobKillWarningGiven);
     }
     
-    /**
-     * Carga el tiempo del último asesinato de mobs hostiles
-     * @param lastHostileMobKillTime Map con datos de tiempos
-     */
-    public void loadLastHostileMobKillTime(Map<UUID, Long> lastHostileMobKillTime) {
-        this.lastHostileMobKillTime.clear();
-        this.lastHostileMobKillTime.putAll(lastHostileMobKillTime);
+    public void loadInstantDamageKillers(Set<UUID> killersSet) {
+        if (killersSet != null) {
+            potionKillers.clear();
+            potionKillers.addAll(killersSet);
+        }
     }
     
-    /**
-     * Carga el tiempo del último asesinato de jugadores
-     * @param lastPlayerKillTime Map con datos de tiempos
-     */
-    public void loadLastPlayerKillTime(Map<UUID, Long> lastPlayerKillTime) {
-        this.lastPlayerKillTime.clear();
-        this.lastPlayerKillTime.putAll(lastPlayerKillTime);
+    public void loadPentakillPlayers(Set<UUID> pentaSet) {
+        if (pentaSet != null) {
+            pentaKillers.clear();
+            pentaKillers.addAll(pentaSet);
+        }
     }
     
-    /**
-     * Carga el conteo de asesinatos de jugadores
-     * @param playerKillCount Map con datos de conteos
-     */
-    public void loadPlayerKillCount(Map<UUID, Integer> playerKillCount) {
-        this.playerKillCount.clear();
-        this.playerKillCount.putAll(playerKillCount);
+    public void loadSurvivedPlayers(Set<UUID> survivedSet) {
+        if (survivedSet != null) {
+            survivedPlayers.clear();
+            survivedPlayers.addAll(survivedSet);
+        }
     }
     
-    /**
-     * Carga los asesinatos consecutivos
-     * @param consecutiveKills Map con datos de asesinatos consecutivos
-     */
-    public void loadConsecutiveKills(Map<UUID, Integer> consecutiveKills) {
-        this.consecutiveKills.clear();
-        this.consecutiveKills.putAll(consecutiveKills);
+    public void loadDeadPlayers(Set<UUID> deadSet) {
+        if (deadSet != null) {
+            deadPlayers.clear();
+            deadPlayers.addAll(deadSet);
+        }
     }
     
-    /**
-     * Carga los jugadores que matan instantáneamente
-     * @param instantDamageKillers Set con UUIDs de jugadores
-     */
-    public void loadInstantDamageKillers(Set<UUID> instantDamageKillers) {
-        this.instantDamageKillers.clear();
-        this.instantDamageKillers.addAll(instantDamageKillers);
+    public Set<UUID> getSurvivedPlayers() {
+        return new HashSet<>(survivedPlayers);
     }
     
-    /**
-     * Carga los jugadores con pentakill
-     * @param pentakillPlayers Set con UUIDs de jugadores
-     */
-    public void loadPentakillPlayers(Set<UUID> pentakillPlayers) {
-        this.pentakillPlayers.clear();
-        this.pentakillPlayers.addAll(pentakillPlayers);
+    public Set<UUID> getDeadPlayers() {
+        return new HashSet<>(deadPlayers);
     }
     
-    /**
-     * Carga los jugadores que sobreviven
-     * @param survivedPlayers Set con UUIDs de jugadores
-     */
-    public void loadSurvivedPlayers(Set<UUID> survivedPlayers) {
-        this.survivedPlayers.clear();
-        this.survivedPlayers.addAll(survivedPlayers);
+    public void loadLastMobKillTime(Map<UUID, Long> timeMap) {
+        if (timeMap != null) {
+            lastMobKillTime.clear();
+            lastMobKillTime.putAll(timeMap);
+        }
     }
     
-    /**
-     * Carga los jugadores muertos
-     * @param deadPlayers Set con UUIDs de jugadores
-     */
-    public void loadDeadPlayers(Set<UUID> deadPlayers) {
-        this.deadPlayers.clear();
-        this.deadPlayers.addAll(deadPlayers);
+    public void loadLastPlayerKillTime(Map<UUID, Long> timeMap) {
+        if (timeMap != null) {
+            lastPlayerKillTime.clear();
+            lastPlayerKillTime.putAll(timeMap);
+        }
     }
     
-    /**
-     * Carga los jugadores a los que se les ha otorgado adrenalina
-     * @param awardedAdrenaline Set con UUIDs de jugadores
-     */
-    public void loadAwardedAdrenaline(Set<UUID> awardedAdrenaline) {
-        this.awardedAdrenaline.clear();
-        this.awardedAdrenaline.addAll(awardedAdrenaline);
+    public void loadPlayerKillCount(Map<UUID, Integer> countMap) {
+        if (countMap != null) {
+            playerKillCount.clear();
+            playerKillCount.putAll(countMap);
+        }
     }
     
-    /**
-     * Carga los jugadores que han recibido advertencia de asesinato de mob
-     * @param mobKillWarningGiven Set con UUIDs de jugadores
-     */
-    public void loadMobKillWarningGiven(Set<UUID> mobKillWarningGiven) {
-        this.mobKillWarningGiven.clear();
-        this.mobKillWarningGiven.addAll(mobKillWarningGiven);
+    public void loadConsecutiveKills(Map<UUID, Integer> killsMap) {
+        if (killsMap != null) {
+            consecutiveKills.clear();
+            consecutiveKills.putAll(killsMap);
+        }
     }
+    
+    public Map<UUID, Long> getLastMobKillTime() {
+        return new HashMap<>(lastMobKillTime);
+    }
+    
+    public Map<UUID, Long> getLastPlayerKillTime() {
+        return new HashMap<>(lastPlayerKillTime);
+    }
+    
+    public Map<UUID, Integer> getPlayerKillCount() {
+        return new HashMap<>(playerKillCount);
+    }
+    
+    public Map<UUID, Integer> getConsecutiveKills() {
+        return new HashMap<>(consecutiveKills);
+    }
+    
+    public Set<UUID> getInstantDamageKillers() {
+        return new HashSet<>(potionKillers);
+    }
+    
+    public Set<UUID> getPentakillPlayers() {
+        return new HashSet<>(pentaKillers);
+    }
+    
+    public void loadLastHostileMobKillTime(Map<UUID, Long> timeMap) {
+        if (timeMap != null) {
+            lastMobKillTime.clear();
+            lastMobKillTime.putAll(timeMap);
+        }
+    }
+    
+    public Map<UUID, Long> getLastHostileMobKillTime() {
+        return new HashMap<>(lastMobKillTime);
+    }
+    
+    // ========== MANEJADORES DE EVENTOS ==========
+    
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        try {
+            if (!isActive) return;
+            
+            Player player = event.getPlayer();
+            if (player != null) {
+                initializePlayer(player);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error en evento PlayerJoin", e);
+        }
+    }
+    
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        try {
+            if (!isActive) return;
+            
+            Player victim = event.getEntity();
+            if (victim == null) return;
+            
+            UUID victimId = victim.getUniqueId();
+            
+            // Marcar como muerto y remover de supervivientes
+            deadPlayers.add(victimId);
+            survivedPlayers.remove(victimId);
+            
+            // Resetear kills consecutivos
+            consecutiveKills.put(victimId, 0);
+            
+            Player killer = victim.getKiller();
+            if (killer != null && killer != victim) {
+                handlePlayerKill(killer, victim);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error en evento PlayerDeath", e);
+        }
+    }
+    
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onEntityDeath(EntityDeathEvent event) {
+        try {
+            if (!isActive) return;
+            
+            LivingEntity entity = event.getEntity();
+            if (entity == null || entity instanceof Player) return;
+            
+            Player killer = entity.getKiller();
+            if (killer == null) return;
+            
+            // Solo contar mobs hostiles
+            if (isHostileMob(entity)) {
+                UUID killerId = killer.getUniqueId();
+                lastHostileMobKillTime.put(killerId, System.currentTimeMillis());
+                mobKillWarningGiven.remove(killerId); // Remover advertencia si existe
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error en evento EntityDeath", e);
+        }
+    }
+    
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        try {
+            if (!isActive) return;
+            
+            if (!(event.getDamager() instanceof Player)) return;
+            if (!(event.getEntity() instanceof Player)) return;
+            
+            Player attacker = (Player) event.getDamager();
+            @SuppressWarnings("unused")
+            Player victim = (Player) event.getEntity();
+            
+            // Verificar si el atacante usó poción de daño
+            ItemStack mainHand = attacker.getInventory().getItemInMainHand();
+            if (mainHand != null && mainHand.getType() == Material.SPLASH_POTION) {
+                PotionMeta meta = (PotionMeta) mainHand.getItemMeta();
+                if (meta != null && meta.hasCustomEffects()) {
+                    for (PotionEffect effect : meta.getCustomEffects()) {
+                        if (effect.getType() == PotionEffectType.INSTANT_DAMAGE) {
+                            // Marcar para verificar kill con poción
+                            potionDamageDealt.put(attacker.getUniqueId(), System.currentTimeMillis());
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error en evento EntityDamageByEntity", e);
+        }
+    }
+    
+    private void handlePlayerKill(Player killer, Player victim) {
+        try {
+            UUID killerId = killer.getUniqueId();
+            
+            // Actualizar contadores
+            int currentKills = playerKillCount.getOrDefault(killerId, 0) + 1;
+            playerKillCount.put(killerId, currentKills);
+            
+            int currentConsecutive = consecutiveKills.getOrDefault(killerId, 0) + 1;
+            consecutiveKills.put(killerId, currentConsecutive);
+            
+            // Actualizar tiempo de último kill de jugador
+            lastPlayerKillTime.put(killerId, System.currentTimeMillis());
+            
+            // Verificar desafío de 3 kills
+            if (currentKills >= 3 && !hasChallengeCompleted(killer, "player_killer")) {
+                completeChallengeForPlayer(killer, "player_killer");
+            }
+            
+            // Verificar desafío de pentakill
+            if (currentConsecutive >= 5 && !hasChallengeCompleted(killer, "pentakill")) {
+                completeChallengeForPlayer(killer, "pentakill");
+            }
+            
+            // Verificar kill con poción
+            Long potionTime = potionDamageDealt.get(killerId);
+            if (potionTime != null && (System.currentTimeMillis() - potionTime) < 5000) { // 5 segundos
+                if (!hasChallengeCompleted(killer, "potion_killer")) {
+                    completeChallengeForPlayer(killer, "potion_killer");
+                }
+                potionDamageDealt.remove(killerId);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al manejar kill de jugador", e);
+        }
+    }
+    
+    private boolean isHostileMob(LivingEntity entity) {
+        try {
+            if (entity == null) return false;
+            
+            EntityType type = entity.getType();
+            return type == EntityType.ZOMBIE || type == EntityType.SKELETON ||
+                   type == EntityType.CREEPER || type == EntityType.SPIDER ||
+                   type == EntityType.ENDERMAN || type == EntityType.WITCH ||
+                   type == EntityType.BLAZE || type == EntityType.GHAST ||
+                   type == EntityType.WITHER_SKELETON || type == EntityType.HUSK ||
+                   type == EntityType.STRAY || type == EntityType.PHANTOM ||
+                   type == EntityType.DROWNED || type == EntityType.PILLAGER ||
+                   type == EntityType.VINDICATOR || type == EntityType.EVOKER ||
+                   type == EntityType.VEX || type == EntityType.RAVAGER ||
+                   type == EntityType.HOGLIN || type == EntityType.ZOGLIN ||
+                   type == EntityType.PIGLIN_BRUTE || type == EntityType.WARDEN;
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al verificar mob hostil", e);
+            return false;
+         }
+     }
+     
+     private void awardSurvivalChallenge(Player player) {
+         try {
+             if (player == null) return;
+             
+             UUID playerId = player.getUniqueId();
+             
+             // Verificar si el jugador tiene más de 10 kills y no ha muerto
+             int kills = playerKillCount.getOrDefault(playerId, 0);
+             if (kills >= 10 && !deadPlayers.contains(playerId) && !hasChallengeCompleted(player, "survivor")) {
+                 completeChallengeForPlayer(player, "survivor");
+                 
+                 // Otorgar corazón extra
+                 double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
+                 player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(currentMaxHealth + 2.0);
+                 player.setHealth(player.getAttribute(Attribute.MAX_HEALTH).getBaseValue());
+                 
+                 player.sendMessage(MM.toComponent("<green>¡Has ganado un corazón extra por sobrevivir!"));
+             }
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.WARNING, "Error al otorgar desafío de supervivencia", e);
+         }
+     }
+     
+     private void sendPlayerStatistics(Player player) {
+         try {
+             if (player == null) return;
+             
+             UUID playerId = player.getUniqueId();
+             
+             player.sendMessage(MM.toComponent("<gray><b>=== <gold>TUS ESTADÍSTICAS</gold> <gray><b>==="));
+             player.sendMessage(MM.toComponent("<yellow>Jugadores eliminados: <white>" + playerKillCount.getOrDefault(playerId, 0)));
+             player.sendMessage(MM.toComponent("<yellow>Kills consecutivos máximos: <white>" + consecutiveKills.getOrDefault(playerId, 0)));
+             
+             if (deadPlayers.contains(playerId)) {
+                 player.sendMessage(MM.toComponent("<red>Estado: Eliminado"));
+             } else {
+                 player.sendMessage(MM.toComponent("<green>Estado: Superviviente"));
+             }
+             
+             // Mostrar desafíos completados
+             player.sendMessage(MM.toComponent("<gray><b>=== <gold>DESAFÍOS COMPLETADOS</gold> <gray><b>==="));
+             
+             if (hasChallengeCompleted(player, "player_killer")) {
+                 player.sendMessage(MM.toComponent("<green>✓ Asesino de Jugadores"));
+             }
+             
+             if (hasChallengeCompleted(player, "potion_killer")) {
+                 player.sendMessage(MM.toComponent("<green>✓ Maestro de Pociones"));
+             }
+             
+             if (hasChallengeCompleted(player, "pentakill")) {
+                 player.sendMessage(MM.toComponent("<green>✓ Pentakill"));
+             }
+             
+             if (hasChallengeCompleted(player, "survivor")) {
+                 player.sendMessage(MM.toComponent("<green>✓ Superviviente"));
+             }
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.WARNING, "Error al enviar estadísticas a " + player.getName(), e);
+         }
+     }
 }

@@ -7,7 +7,6 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.block.data.Ageable;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.ThrownPotion;
 import org.bukkit.event.EventHandler;
@@ -23,21 +22,56 @@ import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.content.custom.CustomEnchantments;
-import com.darkbladedev.utils.BiomeUtils;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 
+/**
+ * Evento semanal de lluvia ácida con mejoras de thread-safety y prevención de memory leaks
+ * 
+ * Características principales:
+ * - Daño ácido en agua y lluvia
+ * - Control automático del clima
+ * - Sistema de desafíos y estadísticas
+ * - Resistencia al ácido mediante encantamientos
+ * 
+ * Mejoras implementadas:
+ * - Thread-safety con ConcurrentHashMap
+ * - Prevención de memory leaks
+ * - Manejo robusto de errores
+ * - Validaciones de nulidad mejoradas
+ */
 public class AcidWeek extends WeeklyEvent {
     
-    private final Set<UUID> playersInWater = new HashSet<>();
-    private final Set<UUID> playersInRain = new HashSet<>();
-
-    private BukkitTask acidTask;
-    private BukkitTask weatherTask;
+    // Thread-safe collections para evitar condiciones de carrera
+    private final Set<UUID> playersInWater = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> playersInRain = ConcurrentHashMap.newKeySet();
+    
+    // Collections para tracking de desafíos
+    private final Set<UUID> acidSwimmers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> acidRainSurvivors = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> acidResistants = ConcurrentHashMap.newKeySet();
+    
+    // Referencias atómicas para las tareas para thread-safety
+    private final AtomicReference<BukkitTask> acidTask = new AtomicReference<>();
+    private final AtomicReference<BukkitTask> weatherTask = new AtomicReference<>();
+    
+    // Flag atómico para controlar el estado de limpieza
+    private final AtomicBoolean isCleaningUp = new AtomicBoolean(false);
+    
+    // Constantes para configuración
+    private static final int MAX_PLAYERS_PER_TICK = 30;
+    private static final int MAX_ROOF_CHECK_HEIGHT = 20;
+    private static final double ACID_DAMAGE_AMOUNT = 2.0;
+    private static final double RESISTANCE_DAMAGE_REDUCTION = 0.5;
+    private static final long TASK_INTERVAL_TICKS = 20L; // 1 segundo
 
     public AcidWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
@@ -46,38 +80,59 @@ public class AcidWeek extends WeeklyEvent {
 
     @Override
     public void start() {
-        super.start();
+        try {
+            super.start();
+            plugin.getLogger().info("[AcidWeek] Evento iniciado correctamente");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al iniciar el evento", e);
+            // Intentar limpieza en caso de error
+            forceCleanup();
+        }
     }
-
-
     
     @Override
     protected void startEventTasks() {
-        // Start acid damage task
-        startAcidDamageTask();
-        
-        // Start weather control task
-        startWeatherControlTask();
+        try {
+            // Iniciar tareas del evento
+            startAcidDamageTask();
+            startWeatherControlTask();
+            plugin.getLogger().info("[AcidWeek] Tareas del evento iniciadas");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al iniciar tareas del evento", e);
+            stopEventTasks(); // Limpieza automática en caso de error
+        }
     }
     
     @Override
     protected void announceEventStart() {
-        Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La lluvia ácida ha comenzado! Busca refugio y protege tu equipo."));
-        announceAcidChallenges();
+        try {
+            Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La lluvia ácida ha comenzado! Busca refugio y protege tu equipo."));
+            announceAcidChallenges();
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al anunciar inicio del evento", e);
+        }
     }
     
-    /**
-     * Anuncia el fin del evento y muestra estadísticas individuales a cada jugador
-     */
     @Override
     protected void announceEventEnd() {
-        // Anuncio general del fin del evento
-        Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La lluvia ácida ha cesado! El mundo vuelve a la normalidad."));
-        Bukkit.broadcast(MM.toComponent(prefix + " <yellow>¡Revisando las estadísticas de supervivencia ácida!"));
-        
-        // Enviar estadísticas individuales a cada jugador
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            sendPlayerStatistics(player);
+        try {
+            // Anuncio general del fin del evento
+            Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La lluvia ácida ha cesado! El mundo vuelve a la normalidad."));
+            Bukkit.broadcast(MM.toComponent(prefix + " <yellow>¡Revisando las estadísticas de supervivencia ácida!"));
+            
+            // Enviar estadísticas individuales a cada jugador
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player != null && player.isOnline()) {
+                    try {
+                        sendPlayerStatistics(player);
+                    } catch (Exception e) {
+                        plugin.getLogger().log(Level.WARNING, 
+                            "[AcidWeek] Error al enviar estadísticas a " + player.getName(), e);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al anunciar fin del evento", e);
         }
     }
     
@@ -86,82 +141,152 @@ public class AcidWeek extends WeeklyEvent {
      * @param player El jugador al que enviar las estadísticas
      */
     private void sendPlayerStatistics(Player player) {
-        UUID playerId = player.getUniqueId();
+        if (player == null || !player.isOnline()) {
+            return;
+        }
         
-        // Separador visual
-        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
-        player.sendMessage(MM.toComponent("<green><b>TUS ESTADÍSTICAS - SEMANA ÁCIDA</b></green>"));
-        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
-        
-        // Estado de supervivencia
-        boolean inWater = playersInWater.contains(playerId);
-        boolean inRain = playersInRain.contains(playerId);
-        boolean hasResistance = hasAcidResistanceGear(player);
-        
-        player.sendMessage(MM.toComponent("<yellow>🌊 <white>Supervivencia en agua ácida:</white> " + (inWater ? "<green>Logrado</green>" : "<red>No logrado</red>")));
-        player.sendMessage(MM.toComponent("<yellow>🌧 <white>Supervivencia bajo lluvia ácida:</white> " + (inRain ? "<green>Logrado</green>" : "<red>No logrado</red>")));
-        player.sendMessage(MM.toComponent("<yellow>🛡 <white>Equipo resistente al ácido:</white> " + (hasResistance ? "<green>Obtenido</green>" : "<red>No obtenido</red>")));
-        
-        // Desafíos completados
-        player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
-        player.sendMessage(MM.toComponent("<gold><b>DESAFÍOS COMPLETADOS:</b></gold>"));
-        
-        // Verificar cada desafío
-        boolean acidSwimmer = hasChallengeCompleted(playerId, "acid_swimmer");
-        boolean acidRainSurvivor = hasChallengeCompleted(playerId, "acid_rain_survivor");
-        boolean acidResistant = hasChallengeCompleted(playerId, "acid_resistant");
-        
-        player.sendMessage(MM.toComponent("<yellow>🏊 Nadador Ácido:</yellow> " + (acidSwimmer ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
-        player.sendMessage(MM.toComponent("<yellow>☔ Superviviente de Lluvia Ácida:</yellow> " + (acidRainSurvivor ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
-        player.sendMessage(MM.toComponent("<yellow>🛡 Resistente al Ácido:</yellow> " + (acidResistant ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
-        
-        // Mensaje final
-        int completedChallenges = (acidSwimmer ? 1 : 0) + (acidRainSurvivor ? 1 : 0) + (acidResistant ? 1 : 0);
-        player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
-        player.sendMessage(MM.toComponent("<gold>Desafíos completados: <white>" + completedChallenges + "/3</white></gold>"));
-        player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+        try {
+            UUID playerId = player.getUniqueId();
+            
+            // Separador visual
+            player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+            player.sendMessage(MM.toComponent("<green><b>TUS ESTADÍSTICAS - SEMANA ÁCIDA</b></green>"));
+            player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+            
+            // Estado de supervivencia
+            boolean inWater = playersInWater.contains(playerId);
+            boolean inRain = playersInRain.contains(playerId);
+            boolean hasResistance = hasAcidResistanceGear(player);
+            
+            player.sendMessage(MM.toComponent("<yellow>🌊 <white>Supervivencia en agua ácida:</white> " + (inWater ? "<green>Logrado</green>" : "<red>No logrado</red>")));
+            player.sendMessage(MM.toComponent("<yellow>🌧 <white>Supervivencia bajo lluvia ácida:</white> " + (inRain ? "<green>Logrado</green>" : "<red>No logrado</red>")));
+            player.sendMessage(MM.toComponent("<yellow>🛡 <white>Equipo resistente al ácido:</white> " + (hasResistance ? "<green>Obtenido</green>" : "<red>No obtenido</red>")));
+            
+            // Desafíos completados
+            player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
+            player.sendMessage(MM.toComponent("<gold><b>DESAFÍOS COMPLETADOS:</b></gold>"));
+            
+            // Verificar cada desafío
+            boolean acidSwimmer = hasChallengeCompleted(playerId, "acid_swimmer");
+            boolean acidRainSurvivor = hasChallengeCompleted(playerId, "acid_rain_survivor");
+            boolean acidResistant = hasChallengeCompleted(playerId, "acid_resistant");
+            
+            player.sendMessage(MM.toComponent("<yellow>🏊 Nadador Ácido:</yellow> " + (acidSwimmer ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+            player.sendMessage(MM.toComponent("<yellow>☔ Superviviente de Lluvia Ácida:</yellow> " + (acidRainSurvivor ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+            player.sendMessage(MM.toComponent("<yellow>🛡 Resistente al Ácido:</yellow> " + (acidResistant ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+            
+            // Mensaje final
+            int completedChallenges = (acidSwimmer ? 1 : 0) + (acidRainSurvivor ? 1 : 0) + (acidResistant ? 1 : 0);
+            player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
+            player.sendMessage(MM.toComponent("<gold>Desafíos completados: <white>" + completedChallenges + "/3</white></gold>"));
+            player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al procesar estadísticas para " + player.getName(), e);
+        }
     }
     
     /**
      * Anuncia los desafíos disponibles durante la Semana Ácida
      */
     private void announceAcidChallenges() {
-        Bukkit.broadcast(MM.toComponent("<gray><b>=== <green>DESAFÍOS DE LA SEMANA</green> <gray><b>==="));
-        Bukkit.broadcast(MM.toComponent("<yellow>1. <green>Sobrevive</green> nadando en agua ácida</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Resistencia temporal al ácido</gray>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>2. <green>Sobrevive</green> bajo la lluvia ácida durante el día</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Protección mejorada</gray>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>3. <green>Obtén</green> equipo con resistencia al ácido</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Inmunidad temporal</gray>"));
+        try {
+            Bukkit.broadcast(MM.toComponent("<gray><b>=== <green>DESAFÍOS DE LA SEMANA</green> <gray><b>==="));
+            Bukkit.broadcast(MM.toComponent("<yellow>1. <green>Sobrevive</green> nadando en agua ácida</yellow>"));
+            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Resistencia temporal al ácido</gray>"));
+            Bukkit.broadcast(MM.toComponent("<yellow>2. <green>Sobrevive</green> bajo la lluvia ácida durante el día</yellow>"));
+            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Protección mejorada</gray>"));
+            Bukkit.broadcast(MM.toComponent("<yellow>3. <green>Obtén</green> equipo con resistencia al ácido</yellow>"));
+            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Inmunidad temporal</gray>"));
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al anunciar desafíos", e);
+        }
     }
-    
-
     
     @Override
     protected void stopEventTasks() {
-        // Cancelar tareas
-        if (acidTask != null) {
-            acidTask.cancel();
-            acidTask = null;
+        try {
+            // Cancelar tareas de forma thread-safe
+            BukkitTask currentAcidTask = acidTask.getAndSet(null);
+            if (currentAcidTask != null && !currentAcidTask.isCancelled()) {
+                currentAcidTask.cancel();
+                plugin.getLogger().info("[AcidWeek] Tarea de daño ácido cancelada");
+            }
+            
+            BukkitTask currentWeatherTask = weatherTask.getAndSet(null);
+            if (currentWeatherTask != null && !currentWeatherTask.isCancelled()) {
+                currentWeatherTask.cancel();
+                plugin.getLogger().info("[AcidWeek] Tarea de control climático cancelada");
+            }
+            
+            // Restaurar clima normal en todos los mundos
+            restoreNormalWeather();
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al detener tareas del evento", e);
         }
-        
-        if (weatherTask != null) {
-            weatherTask.cancel();
-            weatherTask = null;
-        }
-        
-        // Restaurar clima normal en todos los mundos
-        for (World world : Bukkit.getWorlds()) {
-            world.setStorm(false);
-            world.setThundering(false);
+    }
+    
+    /**
+     * Restaura el clima normal en todos los mundos
+     */
+    private void restoreNormalWeather() {
+        try {
+            for (World world : Bukkit.getWorlds()) {
+                if (world != null) {
+                    world.setStorm(false);
+                    world.setThundering(false);
+                }
+            }
+            plugin.getLogger().info("[AcidWeek] Clima restaurado a normal");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al restaurar clima normal", e);
         }
     }
     
     @Override
     protected void cleanupEventData() {
-        // Limpiar conjuntos
-        playersInWater.clear();
-        playersInRain.clear();
+        if (isCleaningUp.compareAndSet(false, true)) {
+            try {
+                // Limpiar conjuntos de forma thread-safe
+                int waterPlayers = playersInWater.size();
+                int rainPlayers = playersInRain.size();
+                
+                playersInWater.clear();
+                playersInRain.clear();
+                
+                plugin.getLogger().info(String.format(
+                    "[AcidWeek] Datos limpiados: %d jugadores en agua, %d jugadores en lluvia", 
+                    waterPlayers, rainPlayers));
+                    
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error durante limpieza de datos", e);
+            } finally {
+                isCleaningUp.set(false);
+            }
+        }
+    }
+    
+    /**
+     * Limpieza forzada en caso de errores críticos
+     */
+    private void forceCleanup() {
+        try {
+            plugin.getLogger().warning("[AcidWeek] Ejecutando limpieza forzada");
+            
+            // Detener todas las tareas
+            stopEventTasks();
+            
+            // Limpiar datos
+            cleanupEventData();
+            
+            // Marcar como inactivo
+            isActive = false;
+            isPaused = false;
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error durante limpieza forzada", e);
+        }
     }
     
     @Override
@@ -171,456 +296,654 @@ public class AcidWeek extends WeeklyEvent {
     
     @Override
     protected void pauseEventTasks() {
-        if (acidTask != null) {
-            acidTask.cancel();
-            acidTask = null;
-        }
-        
-        if (weatherTask != null) {
-            weatherTask.cancel();
-            weatherTask = null;
+        try {
+            BukkitTask currentAcidTask = acidTask.getAndSet(null);
+            if (currentAcidTask != null && !currentAcidTask.isCancelled()) {
+                currentAcidTask.cancel();
+            }
+            
+            BukkitTask currentWeatherTask = weatherTask.getAndSet(null);
+            if (currentWeatherTask != null && !currentWeatherTask.isCancelled()) {
+                currentWeatherTask.cancel();
+            }
+            
+            plugin.getLogger().info("[AcidWeek] Tareas pausadas");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al pausar tareas", e);
         }
     }
     
     @Override
     protected void resumeEventTasks() {
-        if (isActive) {
-            startAcidDamageTask();
-            startWeatherControlTask();
-            isPaused = false;
+        try {
+            if (isActive && !isCleaningUp.get()) {
+                startAcidDamageTask();
+                startWeatherControlTask();
+                isPaused = false;
+                plugin.getLogger().info("[AcidWeek] Tareas reanudadas");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al reanudar tareas", e);
         }
     }
     
     /**
-     * Verifica si un jugador tiene resistencia al ácido
-     * @param player El jugador a verificar
-     * @return true si el jugador tiene resistencia al ácido, false en caso contrario
+     * Verifica si un jugador tiene resistencia al ácido (thread-safe)
      */
     @SuppressWarnings("deprecation")
     private boolean hasAcidResistance(Player player) {
         if (player == null || !player.isOnline()) {
-            return false; // Verificación de nulidad
+            return false;
         }
         
-        // Verificar si el jugador tiene el encantamiento en alguna pieza de armadura
-        for (ItemStack item : player.getInventory().getArmorContents()) {
-            if (item != null && item.getType() != Material.AIR && item.hasItemMeta()) {
-                // Verificar usando Registry.ENCHANTMENT (método deprecado pero funcional)
-                if (item.getItemMeta().hasEnchant(Registry.ENCHANTMENT.get(new NamespacedKey(plugin, "acid_resistance")))) {
-                    return true;
-                }
-                
-                // Verificar usando el ContentManager (método alternativo)
-                if (HeartlessMain.getContentManager().hasEnchantment(item, CustomEnchantments.ENCHANTMENTS.ACID_RESISTANCE.toEnchantment())) {
-                    return true;
+        try {
+            // Verificar si el jugador tiene el encantamiento en alguna pieza de armadura
+            ItemStack[] armorContents = player.getInventory().getArmorContents();
+            if (armorContents == null) {
+                return false;
+            }
+            
+            for (ItemStack item : armorContents) {
+                if (item != null && item.getType() != Material.AIR && item.hasItemMeta()) {
+                    try {
+                        // Verificar usando Registry.ENCHANTMENT
+                        if (item.getItemMeta().hasEnchant(Registry.ENCHANTMENT.get(new NamespacedKey(plugin, "acid_resistance")))) {
+                            return true;
+                        }
+                        
+                        // Verificar usando el ContentManager
+                        if (HeartlessMain.getContentManager() != null && 
+                            HeartlessMain.getContentManager().hasEnchantment(item, CustomEnchantments.ENCHANTMENTS.ACID_RESISTANCE.toEnchantment())) {
+                            return true;
+                        }
+                    } catch (Exception e) {
+                        plugin.getLogger().log(Level.WARNING, 
+                            "[AcidWeek] Error al verificar encantamiento de resistencia", e);
+                    }
                 }
             }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al verificar resistencia al ácido para " + player.getName(), e);
         }
+        
         return false;
     }
     
+    /**
+     * Inicia la tarea de daño ácido con mejoras de rendimiento y thread-safety
+     */
     private void startAcidDamageTask() {
-        // Cancelar tarea existente si hay
-        if (acidTask != null) {
-            acidTask.cancel();
-            acidTask = null;
-        }
-        
-        acidTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!isActive || isPaused) return;
-                
-                // Limpiar UUIDs de jugadores que ya no están en línea para evitar memory leaks
-                playersInWater.removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
-                
-                // Daño a jugadores en agua (con límite de procesamiento)
-                int processedPlayers = 0;
-                int maxPlayersPerTick = 30; // Limitar procesamiento para evitar lag
-                
-                for (UUID uuid : playersInWater) {
-                    if (processedPlayers >= maxPlayersPerTick) break;
-                    
-                    Player player = Bukkit.getPlayer(uuid);
-                    if (player != null && player.isOnline()) {
-                        applyAcidDamage(player, 2.0);
-                        processedPlayers++;
-                    }
-                }
-                
-                // Daño a jugadores bajo la lluvia (cada 5 segundos)
-                if (this.getTaskId() % (5*20/60) == 0) { // Cada 5 segundos (si el task corre cada 3 ticks)
-                    for (UUID uuid : playersInRain) {
-                        if (processedPlayers >= maxPlayersPerTick) break;
-                        
-                        Player player = Bukkit.getPlayer(uuid);
-                        if (player != null && player.isOnline()) {
-                            applyAcidDamage(player, 2.0);
-                            processedPlayers++;
+        try {
+            // Cancelar tarea existente si hay
+            BukkitTask existingTask = acidTask.get();
+            if (existingTask != null && !existingTask.isCancelled()) {
+                existingTask.cancel();
+            }
+            
+            BukkitTask newTask = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (!isActive || isPaused || isCleaningUp.get()) {
+                            return;
                         }
+                        
+                        // Limpiar UUIDs de jugadores desconectados para prevenir memory leaks
+                        cleanupDisconnectedPlayers();
+                        
+                        // Procesar daño a jugadores en agua
+                        processWaterDamage();
+                        
+                        // Procesar daño a jugadores en lluvia (cada 5 segundos)
+                        if (this.getTaskId() % 5 == 0) {
+                            processRainDamage();
+                        }
+                        
+                    } catch (Exception e) {
+                        plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en tarea de daño ácido", e);
                     }
                 }
-            }
-        }.runTaskTimer(plugin, 0L, 20L); // Ejecutar cada 1 segundos (20 ticks)
-    }
-    
-    private void startWeatherControlTask() {
-        weatherTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                for (World world : Bukkit.getWorlds()) {
-                    long time = world.getTime();
-                    
-                    // Día: 0-12000, Noche: 12001-24000
-                    if (time >= 0 && time < 12000) {
-                        // Durante el día: siempre llueve
-                        world.setStorm(true);
-                        world.setThundering(true);
-                    } else {
-                        // Durante la noche: se calma
-                        world.setStorm(false);
-                        world.setThundering(false);
-                    }
-                }
-                
-                // Actualizar jugadores en lluvia
-                updatePlayersInRain();
-            }
-        }.runTaskTimer(plugin, 0L, 20L); // Verificar cada 1 segundos
-    }
-    
-    private void updatePlayersInRain() {
-        playersInRain.clear();
-        
-        // Limitar procesamiento para evitar lag
-        int processedPlayers = 0;
-        int maxPlayersPerTick = 30;
-        
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (processedPlayers >= maxPlayersPerTick) break;
+            }.runTaskTimer(plugin, 0L, TASK_INTERVAL_TICKS);
             
-            if (player == null || !player.isOnline()) continue;
+            acidTask.set(newTask);
+            plugin.getLogger().info("[AcidWeek] Tarea de daño ácido iniciada");
             
-            // Usar el método mejorado isExposedToRain
-            if (isExposedToRain(player)) {
-                playersInRain.add(player.getUniqueId());
-            }
-            
-            processedPlayers++;
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al iniciar tarea de daño ácido", e);
         }
-    }
-    
-    private boolean isPlayerUnderRoof(Player player) {
-        if (player == null || player.getLocation() == null || player.getWorld() == null) {
-            return false; // Verificación de nulidad
-        }
-        
-        Location loc = player.getLocation();
-        World world = player.getWorld();
-        
-        // Limitar la búsqueda a 20 bloques por encima del jugador para mejorar rendimiento
-        int maxCheckHeight = Math.min(loc.getBlockY() + 20, world.getMaxHeight());
-        
-        // Verificar bloques por encima del jugador
-        for (int y = loc.getBlockY() + 2; y < maxCheckHeight; y++) {
-            Block block = world.getBlockAt(loc.getBlockX(), y, loc.getBlockZ());
-            if (block != null && block.getType().isSolid()) {
-                return true; // Hay un bloque sólido encima
-            }
-        }
-        
-        return false; // No hay techo en el rango verificado
-    }
-    
-    @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event) {
-        if (!isActive || isPaused) return;
-        
-        Player player = event.getPlayer();
-        if (player == null) return; // Verificación de nulidad
-        
-        Block block = player.getLocation().getBlock();
-        
-        // Verificar si el jugador está en agua
-        if (block.getType() == Material.WATER) {
-            playersInWater.add(player.getUniqueId());
-        } else {
-            playersInWater.remove(player.getUniqueId());
-        }
-    }
-    
-    @EventHandler
-    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        if (!isActive || isPaused) return;
-        
-        // Verificar si es un jugador dañado por una poción arrojadiza
-        if (event.getEntity() instanceof Player && event.getDamager() instanceof ThrownPotion) {
-            Player player = (Player) event.getEntity();
-            ThrownPotion potion = (ThrownPotion) event.getDamager();
-            
-            if (potion == null || potion.getItem() == null) return; // Verificación de nulidad
-            
-            // Verificar si es una botella de agua (sin efectos)
-            if (potion.getItem().getType() == Material.SPLASH_POTION && 
-                potion.getEffects().isEmpty()) {
-                
-                // Verificar si el jugador tiene el encantamiento de resistencia al ácido
-                if (!hasAcidResistance(player)) {
-                    // 3 puntos = 1.5 corazones
-                    player.damage(3.0); // Ignora armadura
-                    event.setCancelled(true); // Cancelar el evento original
-                } else {
-                    event.setCancelled(true); // Cancelar el evento si tiene resistencia
-                }
-            }
-        }
-    }
-    
-    @EventHandler
-    public void onPlayerItemDamage(PlayerItemDamageEvent event) {
-        if (!isActive || isPaused) return;
-        
-        ItemStack item = event.getItem();
-        if (item == null) return; // Verificación de nulidad
-        
-        Material type = item.getType();
-        
-        // Verificar si es una herramienta o armadura
-        if (isToolOrArmor(type)) {
-            // Duplicar el daño (2x durabilidad)
-            event.setDamage(event.getDamage() * 2);
-        }
-    }
-    
-    @EventHandler
-    public void onBlockGrow(BlockGrowEvent event) {
-        if (!isActive || isPaused) return;
-        
-        Block block = event.getBlock();
-        if (block == null) return; // Verificación de nulidad
-        
-        // Verificar si es un cultivo
-        if (block.getBlockData() instanceof Ageable) {
-            // Verificar si tiene techo
-            if (!hasRoof(block)) {
-                event.setCancelled(true); // Cancelar crecimiento
-            }
-        }
-    }
-    
-    private boolean hasRoof(Block block) {
-        if (block == null || block.getWorld() == null) {
-            return false; // Verificación de nulidad
-        }
-        
-        World world = block.getWorld();
-        
-        // Limitar la búsqueda a 20 bloques por encima para mejorar rendimiento
-        int maxCheckHeight = Math.min(block.getY() + 20, world.getMaxHeight());
-        
-        // Verificar bloques por encima
-        for (int y = block.getY() + 1; y < maxCheckHeight; y++) {
-            Block blockAbove = world.getBlockAt(block.getX(), y, block.getZ());
-            if (blockAbove != null && blockAbove.getType().isSolid()) {
-                return true; // Hay un bloque sólido encima
-            }
-        }
-        
-        return false; // No hay techo en el rango verificado
-    }
-    
-    private boolean isToolOrArmor(Material material) {
-        String name = material.name();
-        return name.endsWith("_PICKAXE") || 
-               name.endsWith("_AXE") || 
-               name.endsWith("_SHOVEL") || 
-               name.endsWith("_HOE") || 
-               name.endsWith("_SWORD") || 
-               name.endsWith("_HELMET") || 
-               name.endsWith("_CHESTPLATE") || 
-               name.endsWith("_LEGGINGS") || 
-               name.endsWith("_BOOTS");
-    }
-    
-    public boolean isActive() {
-        return isActive;
-    }
-    
-    public void pause() {
-        if (!isActive || isPaused) return;
-        
-        isPaused = true;
-        
-        // Cancel tasks
-        if (acidTask != null) {
-            acidTask.cancel();
-            acidTask = null;
-        }
-        
-        if (weatherTask != null) {
-            weatherTask.cancel();
-            weatherTask = null;
-        }
-        
-        // Temporarily restore normal weather
-        for (World world : Bukkit.getWorlds()) {
-            world.setStorm(false);
-            world.setThundering(false);
-        }
-    }
-    
-    public void resume() {
-        if (!isActive || !isPaused) return;
-        
-        // Call parent resume to register event handlers
-        super.resume();
-        
-        // Restart tasks
-        startAcidDamageTask();
-        startWeatherControlTask();
     }
     
     /**
-     * Verifica si un jugador ha completado un desafío específico
-     * @param playerId El UUID del jugador
-     * @param challengeId El ID del desafío
-     * @return true si el desafío está completado, false en caso contrario
+     * Limpia jugadores desconectados de las colecciones para prevenir memory leaks
      */
-    public boolean hasChallengeCompleted(UUID playerId, String challengeId) {
-        if (playerId == null || challengeId == null || challengeId.isEmpty()) {
-            return false; // Verificación de nulidad
+    private void cleanupDisconnectedPlayers() {
+        try {
+            playersInWater.removeIf(uuid -> {
+                Player player = Bukkit.getPlayer(uuid);
+                return player == null || !player.isOnline();
+            });
+            
+            playersInRain.removeIf(uuid -> {
+                Player player = Bukkit.getPlayer(uuid);
+                return player == null || !player.isOnline();
+            });
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al limpiar jugadores desconectados", e);
+        }
+    }
+    
+    /**
+     * Procesa el daño ácido a jugadores en agua con optimizaciones de rendimiento
+     */
+    private void processWaterDamage() {
+        try {
+            int processedPlayers = 0;
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player == null || !player.isOnline() || processedPlayers >= MAX_PLAYERS_PER_TICK) {
+                    continue;
+                }
+                
+                try {
+                    Location loc = player.getLocation();
+                    if (loc == null || loc.getWorld() == null) {
+                        continue;
+                    }
+                    
+                    Block block = loc.getBlock();
+                    if (block != null && block.getType() == Material.WATER) {
+                        UUID playerId = player.getUniqueId();
+                        playersInWater.add(playerId);
+                        
+                        // Aplicar daño ácido
+                        applyAcidDamage(player, "agua ácida");
+                        
+                        // Verificar desafío de nadador ácido
+                        checkAcidSwimmerChallenge(player);
+                        
+                        processedPlayers++;
+                    }
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, 
+                        "[AcidWeek] Error al procesar daño de agua para " + player.getName(), e);
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en procesamiento de daño de agua", e);
+        }
+    }
+    
+    /**
+     * Procesa el daño ácido a jugadores bajo la lluvia con optimizaciones de rendimiento
+     */
+    private void processRainDamage() {
+        try {
+            int processedPlayers = 0;
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player == null || !player.isOnline() || processedPlayers >= MAX_PLAYERS_PER_TICK) {
+                    continue;
+                }
+                
+                try {
+                    Location loc = player.getLocation();
+                    if (loc == null || loc.getWorld() == null) {
+                        continue;
+                    }
+                    
+                    World world = loc.getWorld();
+                    if (world.hasStorm() && isPlayerExposedToRain(player)) {
+                        UUID playerId = player.getUniqueId();
+                        playersInRain.add(playerId);
+                        
+                        // Aplicar daño ácido
+                        applyAcidDamage(player, "lluvia ácida");
+                        
+                        // Verificar desafío de superviviente de lluvia ácida
+                        checkAcidRainSurvivorChallenge(player);
+                        
+                        processedPlayers++;
+                    }
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, 
+                        "[AcidWeek] Error al procesar daño de lluvia para " + player.getName(), e);
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en procesamiento de daño de lluvia", e);
+        }
+    }
+    
+    /**
+     * Verifica si un jugador está expuesto a la lluvia (sin techo)
+     */
+    private boolean isPlayerExposedToRain(Player player) {
+        if (player == null || !player.isOnline()) {
+            return false;
         }
         
-        switch (challengeId) {
-            case "acid_swimmer":
-                // Jugador ha sobrevivido en agua ácida por cierto tiempo
-                return playersInWater.contains(playerId);
+        try {
+            Location loc = player.getLocation();
+            if (loc == null || loc.getWorld() == null) {
+                return false;
+            }
+            
+            // Verificar si hay bloques sólidos encima del jugador
+            for (int y = 1; y <= MAX_ROOF_CHECK_HEIGHT; y++) {
+                Location checkLoc = loc.clone().add(0, y, 0);
+                Block block = checkLoc.getBlock();
                 
-            case "acid_rain_survivor":
-                // Jugador ha sobrevivido bajo la lluvia ácida por cierto tiempo
-                return playersInRain.contains(playerId);
-                
-            case "acid_resistant":
-                // Jugador ha obtenido equipo con resistencia al ácido
-                Player player = Bukkit.getPlayer(playerId);
-                if (player != null && player.isOnline()) {
-                    return hasAcidResistanceGear(player);
+                if (block != null && block.getType().isSolid()) {
+                    return false; // Hay techo
                 }
-                return false;
+            }
+            
+            return true; // No hay techo, expuesto a la lluvia
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al verificar exposición a lluvia para " + player.getName(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Aplica daño ácido a un jugador con resistencia considerada
+     */
+    private void applyAcidDamage(Player player, String source) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        
+        try {
+            double damage = ACID_DAMAGE_AMOUNT;
+            
+            // Reducir daño si tiene resistencia al ácido
+            if (hasAcidResistance(player)) {
+                damage *= RESISTANCE_DAMAGE_REDUCTION;
+                player.sendMessage(MM.toComponent(prefix + " <green>Tu equipo resistente al ácido reduce el daño!"));
                 
-            default:
-                return false;
+                // Verificar desafío de resistente al ácido
+                checkAcidResistantChallenge(player);
+            }
+            
+            // Aplicar daño
+            player.damage(damage);
+            
+            // Mensaje de daño
+            player.sendMessage(MM.toComponent(prefix + " <red>¡Estás recibiendo daño por " + source + "!"));
+            
+            // Efectos de poción
+            player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 60, 0));
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al aplicar daño ácido a " + player.getName(), e);
+        }
+    }
+    
+    /**
+     * Verifica y completa el desafío de nadador ácido
+     */
+    private void checkAcidSwimmerChallenge(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        
+        try {
+            UUID playerId = player.getUniqueId();
+            if (!hasChallengeCompleted(playerId, "acid_swimmer")) {
+                completeChallengeForPlayer(playerId, "acid_swimmer");
+                player.sendMessage(MM.toComponent(prefix + " <gold>¡Desafío completado: Nadador Ácido!"));
+                player.sendMessage(MM.toComponent(prefix + " <green>Recompensa: Resistencia temporal al ácido"));
+                
+                // Dar resistencia temporal
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 1200, 0)); // 1 minuto
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al verificar desafío de nadador ácido para " + player.getName(), e);
+        }
+    }
+    
+    /**
+     * Verifica y completa el desafío de superviviente de lluvia ácida
+     */
+    private void checkAcidRainSurvivorChallenge(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        
+        try {
+            UUID playerId = player.getUniqueId();
+            if (!hasChallengeCompleted(playerId, "acid_rain_survivor")) {
+                completeChallengeForPlayer(playerId, "acid_rain_survivor");
+                player.sendMessage(MM.toComponent(prefix + " <gold>¡Desafío completado: Superviviente de Lluvia Ácida!"));
+                player.sendMessage(MM.toComponent(prefix + " <green>Recompensa: Protección mejorada"));
+                
+                // Dar protección mejorada
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 2400, 1)); // 2 minutos, nivel 2
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al verificar desafío de superviviente de lluvia ácida para " + player.getName(), e);
+        }
+    }
+    
+    /**
+     * Verifica y completa el desafío de resistente al ácido
+     */
+    private void checkAcidResistantChallenge(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        
+        try {
+            UUID playerId = player.getUniqueId();
+            if (!hasChallengeCompleted(playerId, "acid_resistant")) {
+                completeChallengeForPlayer(playerId, "acid_resistant");
+                player.sendMessage(MM.toComponent(prefix + " <gold>¡Desafío completado: Resistente al Ácido!"));
+                player.sendMessage(MM.toComponent(prefix + " <green>Recompensa: Inmunidad temporal"));
+                
+                // Dar inmunidad temporal
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 3600, 2)); // 3 minutos, nivel 3
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al verificar desafío de resistente al ácido para " + player.getName(), e);
         }
     }
     
     /**
      * Verifica si un jugador tiene equipo con resistencia al ácido
-     * @param player El jugador a verificar
-     * @return true si el jugador tiene equipo con resistencia al ácido, false en caso contrario
      */
     private boolean hasAcidResistanceGear(Player player) {
-        if (player == null || !player.isOnline()) {
-            return false; // Verificación de nulidad
+        return hasAcidResistance(player);
+    }
+    
+    /**
+     * Inicia la tarea de control climático
+     */
+    private void startWeatherControlTask() {
+        try {
+            // Cancelar tarea existente si hay
+            BukkitTask existingTask = weatherTask.get();
+            if (existingTask != null && !existingTask.isCancelled()) {
+                existingTask.cancel();
+            }
+            
+            BukkitTask newTask = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (!isActive || isPaused || isCleaningUp.get()) {
+                            return;
+                        }
+                        
+                        // Mantener lluvia en todos los mundos
+                        for (World world : Bukkit.getWorlds()) {
+                            if (world != null && !world.hasStorm()) {
+                                world.setStorm(true);
+                                world.setWeatherDuration(6000); // 5 minutos
+                            }
+                        }
+                        
+                    } catch (Exception e) {
+                        plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en tarea de control climático", e);
+                    }
+                }
+            }.runTaskTimer(plugin, 0L, 1200L); // Cada minuto
+            
+            weatherTask.set(newTask);
+            plugin.getLogger().info("[AcidWeek] Tarea de control climático iniciada");
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al iniciar tarea de control climático", e);
+        }
+    }
+    
+    // Event handlers con mejoras de thread-safety
+    
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        if (!isActive || isPaused || event == null) {
+            return;
         }
         
-        // Verificar si el jugador tiene el encantamiento en alguna pieza de armadura
-        for (ItemStack item : player.getInventory().getArmorContents()) {
-            if (item != null && item.getType() != Material.AIR && item.hasItemMeta()) {
-                if (HeartlessMain.getContentManager().hasEnchantment(item, CustomEnchantments.ENCHANTMENTS.ACID_RESISTANCE.toEnchantment())) {
-                    return true;
+        try {
+            Player player = event.getPlayer();
+            if (player == null || !player.isOnline()) {
+                return;
+            }
+            
+            Location to = event.getTo();
+            if (to == null || to.getWorld() == null) {
+                return;
+            }
+            
+            // Verificar si el jugador se movió a agua
+            Block block = to.getBlock();
+            if (block != null && block.getType() == Material.WATER) {
+                UUID playerId = player.getUniqueId();
+                if (!playersInWater.contains(playerId)) {
+                    playersInWater.add(playerId);
+                    player.sendMessage(MM.toComponent(prefix + " <yellow>¡Has entrado en agua ácida! ¡Ten cuidado!"));
                 }
             }
-        }
-        return false;
-    }
-    
-    /**
-     * Checks if a player is exposed to rain
-     * @param player The player to check
-     * @return true if the player is exposed to rain, false otherwise
-     */
-    private boolean isExposedToRain(Player player) {
-        if (player == null || player.getLocation() == null || player.getWorld() == null) {
-            return false; // Verificación de nulidad
-        }
-        
-        World world = player.getWorld();
-        
-        if (!world.hasStorm()) {
-            return false;
-        }
-        
-        Location loc = player.getLocation();
-        
-        // Verificar si el jugador está en un bioma donde llueve
-        if (!BiomeUtils.canRain(loc.getBlock().getBiome())) {
-            return false;
-        }
-        
-        // Verificar si el jugador está expuesto al cielo
-        if (world.getHighestBlockYAt(loc) <= loc.getBlockY() && !isPlayerUnderRoof(player)) {
-            return true;
-        }
-        
-        return false;
-    }
-    
-    /**
-     * Aplica daño por ácido a un jugador
-     * @param player El jugador al que aplicar daño
-     * @param damage La cantidad de daño a aplicar
-     */
-    private void applyAcidDamage(Player player, double damage) {
-        if (player == null || !player.isOnline() || player.isDead()) {
-            return; // Verificación de nulidad y estado del jugador
-        }
-        
-        // Verificar si el jugador tiene resistencia al ácido
-        if (!hasAcidResistance(player)) {
-            // Aplicar daño y efecto de veneno
-            player.damage(damage);
-            player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 40, 0, false, true, true));
             
-            // Mensaje de efecto (con límite de frecuencia para no spamear)
-            if (Math.random() < 0.2) { // 20% de probabilidad para reducir spam
-                player.sendMessage(MM.toComponent(prefix + " <red>¡El ácido está dañando tu piel!"));
-            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en evento de movimiento de jugador", e);
         }
     }
     
-    // ========== MÉTODOS DE PERSISTENCIA ==========
+    @EventHandler
+    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        if (!isActive || isPaused || event == null) {
+            return;
+        }
+        
+        try {
+            if (event.getDamager() instanceof ThrownPotion && event.getEntity() instanceof Player) {
+                Player player = (Player) event.getEntity();
+                if (player == null || !player.isOnline()) {
+                    return;
+                }
+                
+                // Aumentar daño de pociones durante la semana ácida
+                double currentDamage = event.getDamage();
+                event.setDamage(currentDamage * 1.5);
+                
+                player.sendMessage(MM.toComponent(prefix + " <red>¡Las pociones son más potentes durante la semana ácida!"));
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en evento de daño por entidad", e);
+        }
+    }
     
-    /**
-     * Obtiene el conjunto de jugadores que están en agua
-     * @return Set de UUIDs de jugadores en agua
-     */
-    public Set<UUID> getPlayersInWater() {
-        return new HashSet<>(playersInWater);
+    @EventHandler
+    public void onPlayerItemDamage(PlayerItemDamageEvent event) {
+        if (!isActive || isPaused || event == null) {
+            return;
+        }
+        
+        try {
+            Player player = event.getPlayer();
+            if (player == null || !player.isOnline()) {
+                return;
+            }
+            
+            ItemStack item = event.getItem();
+            if (item == null || item.getType() == Material.AIR) {
+                return;
+            }
+            
+            UUID playerId = player.getUniqueId();
+            
+            // Aumentar daño a items si el jugador está en agua o lluvia ácida
+            if (playersInWater.contains(playerId) || playersInRain.contains(playerId)) {
+                // Verificar si tiene resistencia al ácido
+                if (!hasAcidResistance(player)) {
+                    int currentDamage = event.getDamage();
+                    event.setDamage(currentDamage * 2); // Doble daño a items
+                    
+                    player.sendMessage(MM.toComponent(prefix + " <red>¡El ácido está dañando tu equipo!"));
+                } else {
+                    player.sendMessage(MM.toComponent(prefix + " <green>Tu equipo resistente al ácido protege tus items!"));
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en evento de daño a item", e);
+        }
+    }
+    
+    @EventHandler
+    public void onBlockGrow(BlockGrowEvent event) {
+        if (!isActive || isPaused || event == null) {
+            return;
+        }
+        
+        try {
+            Block block = event.getBlock();
+            if (block == null || block.getWorld() == null) {
+                return;
+            }
+            
+            World world = block.getWorld();
+            
+            // Ralentizar crecimiento de plantas durante lluvia ácida
+            if (world.hasStorm()) {
+                // 70% de probabilidad de cancelar el crecimiento
+                if (Math.random() < 0.7) {
+                    event.setCancelled(true);
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en evento de crecimiento de bloque", e);
+        }
     }
     
     /**
-     * Obtiene el conjunto de jugadores que están en lluvia
-     * @return Set de UUIDs de jugadores en lluvia
+     * Checks if a player has completed a specific challenge
+     * @param playerId The UUID of the player
+     * @param challengeId The ID of the challenge
+     * @return true if the challenge is completed, false otherwise
      */
-    public Set<UUID> getPlayersInRain() {
-        return new HashSet<>(playersInRain);
+    public boolean hasChallengeCompleted(UUID playerId, String challengeId) {
+        if (playerId == null || challengeId == null || challengeId.isEmpty()) {
+            return false;
+        }
+        
+        try {
+            switch (challengeId) {
+                case "acid_swimmer":
+                    // Player has survived swimming in acid water
+                    return acidSwimmers.contains(playerId);
+                case "acid_rain_survivor":
+                    // Player has survived acid rain
+                    return acidRainSurvivors.contains(playerId);
+                case "acid_resistant":
+                    // Player has shown resistance to acid
+                    return acidResistants.contains(playerId);
+                default:
+                    return false;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al verificar desafío " + challengeId + " para jugador " + playerId, e);
+            return false;
+        }
     }
     
     /**
-     * Establece los jugadores que están en agua (para carga desde persistencia)
-     * @param playersInWater Set con UUIDs de jugadores en agua
+     * Completes a challenge for a player
+     * @param playerId The UUID of the player
+     * @param challengeId The ID of the challenge to complete
      */
-    public void loadPlayersInWater(Set<UUID> playersInWater) {
-        this.playersInWater.clear();
-        this.playersInWater.addAll(playersInWater);
-    }
-    
-    /**
-     * Establece los jugadores que están en lluvia (para carga desde persistencia)
-     * @param playersInRain Set con UUIDs de jugadores en lluvia
-     */
-    public void loadPlayersInRain(Set<UUID> playersInRain) {
-        this.playersInRain.clear();
-        this.playersInRain.addAll(playersInRain);
-    }
+    public void completeChallengeForPlayer(UUID playerId, String challengeId) {
+        if (playerId == null || challengeId == null || challengeId.isEmpty()) {
+            return;
+        }
+        
+        try {
+            switch (challengeId) {
+                case "acid_swimmer":
+                    acidSwimmers.add(playerId);
+                    break;
+                case "acid_rain_survivor":
+                    acidRainSurvivors.add(playerId);
+                    break;
+                case "acid_resistant":
+                    acidResistants.add(playerId);
+                    break;
+                default:
+                    plugin.getLogger().warning("[AcidWeek] Desafío desconocido: " + challengeId);
+                    break;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al completar desafío " + challengeId + " para jugador " + playerId, e);
+        }
+     }
+     
+     // ========== MÉTODOS DE PERSISTENCIA ==========
+     
+     /**
+      * Obtiene el conjunto de jugadores en agua ácida
+      * @return Set de UUIDs de jugadores en agua
+      */
+     public Set<UUID> getPlayersInWater() {
+         return Collections.unmodifiableSet(playersInWater);
+     }
+     
+     /**
+      * Obtiene el conjunto de jugadores en lluvia ácida
+      * @return Set de UUIDs de jugadores en lluvia
+      */
+     public Set<UUID> getPlayersInRain() {
+         return Collections.unmodifiableSet(playersInRain);
+     }
+     
+     /**
+      * Carga los jugadores en agua desde persistencia
+      * @param players Set de UUIDs de jugadores
+      */
+     public void loadPlayersInWater(Set<UUID> players) {
+         if (players != null) {
+             playersInWater.clear();
+             playersInWater.addAll(players);
+         }
+     }
+     
+     /**
+      * Carga los jugadores en lluvia desde persistencia
+      * @param players Set de UUIDs de jugadores
+      */
+     public void loadPlayersInRain(Set<UUID> players) {
+         if (players != null) {
+             playersInRain.clear();
+             playersInRain.addAll(players);
+         }
+     }
+     
+     /**
+      * Obtiene el conjunto de jugadores que completaron el desafío de nadador ácido
+      * @return Set de UUIDs de jugadores
+      */
+     public Set<UUID> getAcidSwimmers() {
+         return Collections.unmodifiableSet(acidSwimmers);
+     }
+     
+     /**
+      * Obtiene el conjunto de jugadores que completaron el desafío de superviviente de lluvia ácida
+      * @return Set de UUIDs de jugadores
+      */
+     public Set<UUID> getAcidRainSurvivors() {
+         return Collections.unmodifiableSet(acidRainSurvivors);
+     }
+     
+     /**
+      * Obtiene el conjunto de jugadores que completaron el desafío de resistente al ácido
+      * @return Set de UUIDs de jugadores
+      */
+     public Set<UUID> getAcidResistants() {
+         return Collections.unmodifiableSet(acidResistants);
+     }
 }
