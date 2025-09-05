@@ -52,6 +52,7 @@ public class UndeadWeek extends WeeklyEvent {
     private Map<UUID, Integer> curedInfectionsCount = new HashMap<>();
     private Map<UUID, Integer> redMoonKillsCount = new HashMap<>();
     private Set<UUID> curedVillagers = new HashSet<>();
+    private Map<UUID, Integer> curedVillagersCount = new HashMap<>(); // Contador de aldeanos curados por jugador
     private Set<UUID> witherKilledInRedMoon = new HashSet<>();
     
     // Lista de entidades no-muertas
@@ -79,12 +80,46 @@ public class UndeadWeek extends WeeklyEvent {
         return redMoonKillsCount != null ? new HashMap<>(redMoonKillsCount) : new HashMap<>();
     }
     
+    // Métodos alias para compatibilidad con las pruebas
+    public Map<UUID, Integer> getCuredInfections() {
+        return getCuredInfectionsCount();
+    }
+    
+    public Map<UUID, Integer> getRedMoonKills() {
+        return getRedMoonKillsCount();
+    }
+    
     public Set<UUID> getCuredVillagers() {
         return curedVillagers != null ? new HashSet<>(curedVillagers) : new HashSet<>();
     }
     
+    public Map<UUID, Integer> getCuredVillagersCount() {
+        return curedVillagersCount != null ? new HashMap<>(curedVillagersCount) : new HashMap<>();
+    }
+    
     public Set<UUID> getWitherKilledInRedMoon() {
         return witherKilledInRedMoon != null ? new HashSet<>(witherKilledInRedMoon) : new HashSet<>();
+    }
+    
+    // Métodos setter para testing
+    public void setRedMoonKills(Map<UUID, Integer> kills) {
+        this.redMoonKillsCount = kills != null ? new HashMap<>(kills) : new HashMap<>();
+    }
+    
+    public void setCuredVillagers(Set<UUID> villagers) {
+        this.curedVillagers = villagers != null ? new HashSet<>(villagers) : new HashSet<>();
+    }
+    
+    public void setCuredVillagersCount(Map<UUID, Integer> count) {
+        this.curedVillagersCount = count != null ? new HashMap<>(count) : new HashMap<>();
+    }
+    
+    public void setInfectedPlayersTime(Map<UUID, Long> infectedTime) {
+        this.infectedPlayersTime = infectedTime != null ? new HashMap<>(infectedTime) : new HashMap<>();
+    }
+    
+    public void setCuredInfections(Map<UUID, Integer> cured) {
+        this.curedInfectionsCount = cured != null ? new HashMap<>(cured) : new HashMap<>();
     }
     
     public long getLastRedMoonNight() {
@@ -210,6 +245,21 @@ public class UndeadWeek extends WeeklyEvent {
         if (data != null) {
             curedVillagers.addAll(data);
             plugin.getLogger().info("Cargados " + data.size() + " aldeanos curados");
+        }
+    }
+    
+    public void loadCuredVillagersCount(Map<String, Object> data) {
+        if (curedVillagersCount == null) curedVillagersCount = new HashMap<>();
+        curedVillagersCount.clear();
+        
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            try {
+                UUID playerId = UUID.fromString(entry.getKey());
+                Integer count = ((Number) entry.getValue()).intValue();
+                curedVillagersCount.put(playerId, count);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error cargando contador de aldeanos curados: " + entry.getKey());
+            }
         }
     }
     
@@ -425,7 +475,14 @@ public class UndeadWeek extends WeeklyEvent {
             int infectedCount = (infectedPlayers != null) ? infectedPlayers.size() : 0;
             int totalCuredInfections = 0;
             int totalRedMoonKills = 0;
-            int totalCuredVillagers = (curedVillagers != null) ? curedVillagers.size() : 0;
+            int totalCuredVillagers = 0;
+            if (curedVillagersCount != null) {
+                for (Integer count : curedVillagersCount.values()) {
+                    if (count != null) {
+                        totalCuredVillagers += count;
+                    }
+                }
+            }
             int totalWitherKilled = (witherKilledInRedMoon != null) ? witherKilledInRedMoon.size() : 0;
             
             // Calcular estadísticas totales si las colecciones existen
@@ -498,7 +555,17 @@ public class UndeadWeek extends WeeklyEvent {
                 Bukkit.getLogger().info("Lista de aldeanos curados limpiada (" + size + " registros)");
             } else {
                 curedVillagers = new HashSet<>();
+                curedVillagersCount = new HashMap<>();
                 Bukkit.getLogger().info("Creada nueva lista de aldeanos curados");
+            }
+            
+            if (curedVillagersCount != null) {
+                int size = curedVillagersCount.size();
+                curedVillagersCount.clear();
+                Bukkit.getLogger().info("Contador de aldeanos curados limpiado (" + size + " registros)");
+            } else {
+                curedVillagersCount = new HashMap<>();
+                Bukkit.getLogger().info("Creado nuevo contador de aldeanos curados");
             }
             
             if (witherKilledInRedMoon != null) {
@@ -1726,22 +1793,30 @@ public class UndeadWeek extends WeeklyEvent {
                 if (closestPlayer != null) {
                     UUID playerId = closestPlayer.getUniqueId();
                     
-                    // Verificar si el jugador ya ha recibido la recompensa
-                    if (!curedVillagers.contains(playerId)) {
-                        try {
+                    try {
+                        // Incrementar el contador de aldeanos curados
+                        curedVillagersCount.put(playerId, curedVillagersCount.getOrDefault(playerId, 0) + 1);
+                        
+                        // Verificar si el jugador ya ha recibido la recompensa del desafío
+                        if (!curedVillagers.contains(playerId)) {
                             curedVillagers.add(playerId);
                             closestPlayer.sendMessage(MM.toComponent("<green>¡Desafío completado! Has curado a un aldeano zombificado.</green>"));
-                            closestPlayer.sendMessage(MM.toComponent("<gold>Recompensa: Encantamiento First Strike</gold>"));
+                            closestPlayer.sendMessage(MM.toComponent("<gold>Recompensa: <gray><u>Tag</u> \"Dr. Zomboss\"</gold>"));
                             
-                            // Efectos para la recompensa
+                            // Efectos para la recompensa del desafío
                             closestPlayer.playSound(closestPlayer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
                             closestPlayer.spawnParticle(Particle.ENCHANT, closestPlayer.getLocation().add(0, 1, 0), 50, 0.5, 0.5, 0.5, 0.1);
+                        } else {
+                            // Mensaje para aldeanos adicionales curados
+                            int totalCured = curedVillagersCount.get(playerId);
+                            closestPlayer.sendMessage(MM.toComponent("<green>¡Has curado otro aldeano zombificado! Total: " + totalCured + "</green>"));
                             
-                            // Aquí se aplicaría el encantamiento (comentado para mantener compatibilidad)
-                            // Implementación pendiente
-                        } catch (Exception e) {
-                            Bukkit.getLogger().warning("Error al otorgar recompensa por curar aldeano: " + e.getMessage());
+                            // Efectos menores para aldeanos adicionales
+                            closestPlayer.playSound(closestPlayer.getLocation(), Sound.ENTITY_VILLAGER_YES, 1.0f, 1.2f);
+                            closestPlayer.spawnParticle(Particle.HAPPY_VILLAGER, closestPlayer.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
                         }
+                    } catch (Exception e) {
+                        Bukkit.getLogger().warning("Error al procesar curación de aldeano: " + e.getMessage());
                     }
                 }
             }
@@ -2972,7 +3047,8 @@ public class UndeadWeek extends WeeklyEvent {
                     return cures >= 10;
                 case "cure_villager":
                     // Jugador ha curado a un aldeano zombificado
-                    return curedVillagers != null && curedVillagers.contains(playerId);
+                    int villagersCured = curedVillagersCount.getOrDefault(playerId, 0);
+                    return villagersCured >= 1;
                 case "red_moon_kills":
                     // Jugador ha matado 50 no-muertos durante la Luna Roja
                     int kills = redMoonKillsCount.getOrDefault(playerId, 0);
@@ -3041,6 +3117,11 @@ public class UndeadWeek extends WeeklyEvent {
             if (curedVillagers == null) {
                 curedVillagers = new HashSet<>();
                 Bukkit.getLogger().info(prefix + " Inicializada lista de aldeanos curados");
+            }
+            
+            if (curedVillagersCount == null) {
+                curedVillagersCount = new HashMap<>();
+                Bukkit.getLogger().info(prefix + " Inicializado contador de aldeanos curados");
             }
             
             if (witherKilledInRedMoon == null) {
@@ -3271,12 +3352,12 @@ public class UndeadWeek extends WeeklyEvent {
         // Contadores personales
         int curedCount = curedInfectionsCount != null ? curedInfectionsCount.getOrDefault(playerId, 0) : 0;
         int redMoonKills = redMoonKillsCount != null ? redMoonKillsCount.getOrDefault(playerId, 0) : 0;
-        boolean villagerCured = curedVillagers != null && curedVillagers.contains(playerId);
+        int villagersCuredCount = curedVillagersCount != null ? curedVillagersCount.getOrDefault(playerId, 0) : 0;
         boolean witherKilledRM = witherKilledInRedMoon != null && witherKilledInRedMoon.contains(playerId);
         
         player.sendMessage(MM.toComponent("<yellow>🧪 Infecciones curadas:</yellow> <gold>" + curedCount + "</gold>"));
         player.sendMessage(MM.toComponent("<yellow><red>🌑</red> Eliminaciones en Luna Roja:</yellow> <red>" + redMoonKills + "</red>"));
-        player.sendMessage(MM.toComponent("<yellow>🧟 Aldeanos curados:</yellow> " + (villagerCured ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+        player.sendMessage(MM.toComponent("<yellow>🧟 Aldeanos curados:</yellow> <gold>" + villagersCuredCount + "</gold>"));
         player.sendMessage(MM.toComponent("<yellow>☠ Wither eliminado en Luna Roja:</yellow> " + (witherKilledRM ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
         
         // Desafíos completados
@@ -3312,5 +3393,273 @@ public class UndeadWeek extends WeeklyEvent {
         player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
         player.sendMessage(MM.toComponent("<gold>Desafíos completados: <white>" + completedChallenges + "/4</white></gold>"));
         player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+    }
+    
+    // Métodos públicos para testing
+    /**
+     * Infecta a un jugador manualmente (para testing)
+     */
+    public void infectPlayer(Player player) {
+        if (player != null && infectedPlayers != null) {
+            infectedPlayers.put(player.getUniqueId(), true);
+            if (infectedPlayersTime != null) {
+                infectedPlayersTime.put(player.getUniqueId(), System.currentTimeMillis());
+            }
+        }
+    }
+    
+    /**
+     * Verifica si un jugador está infectado (para testing)
+     */
+    public boolean isPlayerInfected(Player player) {
+        if (player == null || infectedPlayers == null) {
+            return false;
+        }
+        return infectedPlayers.getOrDefault(player.getUniqueId(), false);
+    }
+    
+    /**
+     * Cura la infección de un jugador manualmente (para testing)
+     */
+    public void curePlayerInfection(Player player) {
+        if (player != null && infectedPlayers != null) {
+            infectedPlayers.put(player.getUniqueId(), false);
+            if (infectedPlayersTime != null) {
+                infectedPlayersTime.remove(player.getUniqueId());
+            }
+            if (curedInfectionsCount != null) {
+                int curedCount = curedInfectionsCount.getOrDefault(player.getUniqueId(), 0) + 1;
+                curedInfectionsCount.put(player.getUniqueId(), curedCount);
+            }
+        }
+    }
+    
+    /**
+     * Establece los jugadores infectados directamente (para testing)
+     */
+    public void setInfectedPlayers(Map<UUID, Boolean> players) {
+        if (infectedPlayers == null) {
+            infectedPlayers = new HashMap<>();
+        }
+        infectedPlayers.clear();
+        if (players != null) {
+            infectedPlayers.putAll(players);
+        }
+    }
+    
+    /**
+     * Registra una muerte durante la luna roja (para testing)
+     */
+    public void recordRedMoonKill(Player player) {
+        if (player != null && isRedMoonActive && redMoonKillsCount != null) {
+            int currentKills = redMoonKillsCount.getOrDefault(player.getUniqueId(), 0);
+            redMoonKillsCount.put(player.getUniqueId(), currentKills + 1);
+        }
+    }
+    
+    /**
+     * Inicia la luna roja con una duración específica (para testing)
+     */
+    public void startRedMoon(long duration) {
+        if (!isRedMoonActive) {
+            activateRedMoon();
+            redMoonEndTime = System.currentTimeMillis() + duration;
+        }
+    }
+    
+    /**
+     * Termina la luna roja (para testing)
+     */
+    public void endRedMoon() {
+        if (isRedMoonActive) {
+            deactivateRedMoon();
+        }
+    }
+    
+    /**
+     * Obtiene la lista de jugadores que completaron el desafío (para testing)
+     */
+    public List<UUID> getPlayersWhoCompletedChallenge() {
+        List<UUID> completedPlayers = new ArrayList<>();
+        
+        if (redMoonKillsCount != null) {
+            for (UUID playerId : redMoonKillsCount.keySet()) {
+                if (hasChallengeCompleted(playerId)) {
+                    completedPlayers.add(playerId);
+                }
+            }
+        }
+        
+        return completedPlayers;
+    }
+    
+    /**
+     * Verifica si un jugador completó el desafío (para testing)
+     */
+    public boolean hasChallengeCompleted(Player player) {
+        if (player == null) return false;
+        return hasChallengeCompleted(player.getUniqueId());
+    }
+    
+    /**
+     * Verifica si un jugador completó el desafío por UUID (método auxiliar)
+     */
+    private boolean hasChallengeCompleted(UUID playerId) {
+        int redMoonKills = redMoonKillsCount != null ? redMoonKillsCount.getOrDefault(playerId, 0) : 0;
+        int curedVillagers = curedVillagersCount != null ? curedVillagersCount.getOrDefault(playerId, 0) : 0;
+        int curedInfections = curedInfectionsCount != null ? curedInfectionsCount.getOrDefault(playerId, 0) : 0;
+        
+        return redMoonKills >= 3 && curedVillagers >= 5 && curedInfections >= 1;
+    }
+    
+    /**
+     * Obtiene las estadísticas de un jugador (para testing)
+     */
+    public Map<String, Object> getPlayerStatistics(Player player) {
+        Map<String, Object> stats = new HashMap<>();
+        
+        if (player != null) {
+            UUID playerId = player.getUniqueId();
+            
+            stats.put("infected", infectedPlayers != null ? infectedPlayers.getOrDefault(playerId, false) : false);
+            stats.put("infectionTime", infectedPlayersTime != null ? infectedPlayersTime.getOrDefault(playerId, 0L) : 0L);
+            stats.put("curedInfections", curedInfectionsCount != null ? curedInfectionsCount.getOrDefault(playerId, 0) : 0);
+            stats.put("redMoonKills", redMoonKillsCount != null ? redMoonKillsCount.getOrDefault(playerId, 0) : 0);
+            stats.put("curedVillagers", curedVillagersCount != null ? curedVillagersCount.getOrDefault(playerId, 0) : 0);
+            stats.put("challengeCompleted", hasChallengeCompleted(playerId));
+        }
+        
+        return stats;
+    }
+    
+    /**
+     * Guarda el estado actual del evento (para testing)
+     */
+    public Map<String, Object> saveState() {
+        Map<String, Object> state = new HashMap<>();
+        
+        state.put("isRedMoonActive", isRedMoonActive);
+        state.put("lastRedMoonNight", lastRedMoonNight);
+        state.put("redMoonStartTime", redMoonStartTime);
+        state.put("redMoonEndTime", redMoonEndTime);
+        state.put("infectedPlayersCount", getInfectedPlayersCount());
+        state.put("totalCuredInfections", getTotalCuredInfectionsCount());
+        
+        // Convertir mapas UUID a String para serialización
+        Map<String, Boolean> infectedPlayersStr = new HashMap<>();
+        if (infectedPlayers != null) {
+            for (Map.Entry<UUID, Boolean> entry : infectedPlayers.entrySet()) {
+                infectedPlayersStr.put(entry.getKey().toString(), entry.getValue());
+            }
+        }
+        state.put("infectedPlayers", infectedPlayersStr);
+        
+        Map<String, Long> infectedPlayersTimeStr = new HashMap<>();
+        if (infectedPlayersTime != null) {
+            for (Map.Entry<UUID, Long> entry : infectedPlayersTime.entrySet()) {
+                infectedPlayersTimeStr.put(entry.getKey().toString(), entry.getValue());
+            }
+        }
+        state.put("infectedPlayersTime", infectedPlayersTimeStr);
+        
+        Map<String, Integer> curedInfectionsStr = new HashMap<>();
+        if (curedInfectionsCount != null) {
+            for (Map.Entry<UUID, Integer> entry : curedInfectionsCount.entrySet()) {
+                curedInfectionsStr.put(entry.getKey().toString(), entry.getValue());
+            }
+        }
+        state.put("curedInfectionsCount", curedInfectionsStr);
+        
+        Map<String, Integer> redMoonKillsStr = new HashMap<>();
+        if (redMoonKillsCount != null) {
+            for (Map.Entry<UUID, Integer> entry : redMoonKillsCount.entrySet()) {
+                redMoonKillsStr.put(entry.getKey().toString(), entry.getValue());
+            }
+        }
+        state.put("redMoonKillsCount", redMoonKillsStr);
+        
+        return state;
+    }
+    
+    /**
+     * Carga el estado del evento desde un mapa (para testing)
+     */
+    public void loadState(Map<String, Object> state) {
+        if (state == null) return;
+        
+        // Cargar valores primitivos
+        if (state.containsKey("isRedMoonActive")) {
+            isRedMoonActive = (Boolean) state.get("isRedMoonActive");
+        }
+        if (state.containsKey("lastRedMoonNight")) {
+            lastRedMoonNight = ((Number) state.get("lastRedMoonNight")).longValue();
+        }
+        if (state.containsKey("redMoonStartTime")) {
+            redMoonStartTime = ((Number) state.get("redMoonStartTime")).longValue();
+        }
+        if (state.containsKey("redMoonEndTime")) {
+            redMoonEndTime = ((Number) state.get("redMoonEndTime")).longValue();
+        }
+        
+        // Cargar mapas convertidos de String a UUID
+        if (state.containsKey("infectedPlayers")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Boolean> infectedPlayersStr = (Map<String, Boolean>) state.get("infectedPlayers");
+            if (infectedPlayers == null) infectedPlayers = new HashMap<>();
+            infectedPlayers.clear();
+            for (Map.Entry<String, Boolean> entry : infectedPlayersStr.entrySet()) {
+                try {
+                    UUID playerId = UUID.fromString(entry.getKey());
+                    infectedPlayers.put(playerId, entry.getValue());
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("Error cargando UUID de jugador infectado: " + entry.getKey());
+                }
+            }
+        }
+        
+        if (state.containsKey("infectedPlayersTime")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Long> infectedPlayersTimeStr = (Map<String, Long>) state.get("infectedPlayersTime");
+            if (infectedPlayersTime == null) infectedPlayersTime = new HashMap<>();
+            infectedPlayersTime.clear();
+            for (Map.Entry<String, Long> entry : infectedPlayersTimeStr.entrySet()) {
+                try {
+                    UUID playerId = UUID.fromString(entry.getKey());
+                    infectedPlayersTime.put(playerId, entry.getValue());
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("Error cargando UUID de tiempo de infección: " + entry.getKey());
+                }
+            }
+        }
+        
+        if (state.containsKey("curedInfectionsCount")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Integer> curedInfectionsStr = (Map<String, Integer>) state.get("curedInfectionsCount");
+            if (curedInfectionsCount == null) curedInfectionsCount = new HashMap<>();
+            curedInfectionsCount.clear();
+            for (Map.Entry<String, Integer> entry : curedInfectionsStr.entrySet()) {
+                try {
+                    UUID playerId = UUID.fromString(entry.getKey());
+                    curedInfectionsCount.put(playerId, entry.getValue());
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("Error cargando UUID de curaciones: " + entry.getKey());
+                }
+            }
+        }
+        
+        if (state.containsKey("redMoonKillsCount")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Integer> redMoonKillsStr = (Map<String, Integer>) state.get("redMoonKillsCount");
+            if (redMoonKillsCount == null) redMoonKillsCount = new HashMap<>();
+            redMoonKillsCount.clear();
+            for (Map.Entry<String, Integer> entry : redMoonKillsStr.entrySet()) {
+                try {
+                    UUID playerId = UUID.fromString(entry.getKey());
+                    redMoonKillsCount.put(playerId, entry.getValue());
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("Error cargando UUID de muertes en luna roja: " + entry.getKey());
+                }
+            }
+        }
     }
 }

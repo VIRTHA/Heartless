@@ -141,7 +141,7 @@ public class ExplosiveWeek extends WeeklyEvent {
         
         player.sendMessage(MM.toComponent("<yellow>👻 Cazador de Ghasts:</yellow> " + (ghastKiller ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
         if (ghastKiller) {
-            player.sendMessage(MM.toComponent("<gray>   Recompensa: Encantamiento Carve</gray>"));
+            player.sendMessage(MM.toComponent("<gray>   Recompensa: Encantamiento TicTac</gray>"));
         }
         
         player.sendMessage(MM.toComponent("<yellow>💀 Coleccionista de Cabezas:</yellow> " + (mobHeadCollector ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));

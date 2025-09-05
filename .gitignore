@@ -7,3 +7,5 @@ build
 package-lock.json
 package.json
 node_modules
+run-tests.sh
+run-tests.bat

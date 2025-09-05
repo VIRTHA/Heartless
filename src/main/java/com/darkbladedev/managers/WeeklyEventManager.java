@@ -5,7 +5,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -67,6 +69,7 @@ public class WeeklyEventManager {
     private final File dataFile;
     private final Gson gson;
     private final WeeklyEventDispatcher eventDispatcher;
+    private final Map<String, WeeklyEvent> registeredEvents = new HashMap<>();
     
     // Volatile references for thread visibility
     private volatile BukkitTask weeklyTask;
@@ -125,11 +128,22 @@ public class WeeklyEventManager {
         
         if (remainingTime > 0) {
             try {
-                if (isPaused.get()) {
-                    resumeCurrentEvent();
-                } else {
-                    if (currentEvent != null) {
-                        currentEvent.resume();
+                if (currentEvent != null) {
+                    // Ensure the event is properly initialized after restart
+                    plugin.getLogger().info("Initializing restored event: " + currentEvent.getClass().getSimpleName());
+                    
+                    // Set the correct timing information
+                    currentEvent.setStartTime(eventStartTime.get());
+                    currentEvent.setEndTime(eventEndTime.get());
+                    currentEvent.setTotalPausedTime(totalPausedTime.get());
+                    
+                    if (isPaused.get()) {
+                        currentEvent.setPauseStartTime(pauseStartTime.get());
+                        resumeCurrentEvent();
+                    } else {
+                        // Start the event properly (this registers listeners and starts tasks)
+                        currentEvent.start();
+                        plugin.getLogger().info("Event " + currentEvent.getClass().getSimpleName() + " restarted successfully");
                     }
                 }
                 
@@ -141,9 +155,11 @@ public class WeeklyEventManager {
                 }
             } catch (Exception e) {
                 plugin.getLogger().severe("Error resuming existing event: " + e.getMessage());
+                e.printStackTrace();
                 startRandomEvent();
             }
         } else {
+            plugin.getLogger().info("Saved event has expired, starting new random event");
             startRandomEvent();
         }
     }
@@ -248,6 +264,14 @@ public class WeeklyEventManager {
                 return;
             }
             
+            // Save final event data before stopping
+            try {
+                plugin.getStorageManager().saveEventSpecificData(currentEvent);
+                plugin.getLogger().info("Final event data saved for: " + currentEvent.getClass().getSimpleName());
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to save final event data: " + e.getMessage());
+            }
+            
             // Fire system event before stopping
             long totalDuration = System.currentTimeMillis() - eventStartTime.get();
             eventDispatcher.fireEventStop(currentEventType, System.currentTimeMillis(), false, totalDuration);
@@ -281,6 +305,14 @@ public class WeeklyEventManager {
         try {
             if (!isEventActive.get() || currentEvent == null) {
                 return;
+            }
+            
+            // Save final event data before force stopping (if possible)
+            try {
+                plugin.getStorageManager().saveEventSpecificData(currentEvent);
+                plugin.getLogger().info("Final event data saved before force stop for: " + currentEvent.getClass().getSimpleName());
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to save final event data during force stop: " + e.getMessage());
             }
             
             // Fire system event before stopping
@@ -484,11 +516,11 @@ public class WeeklyEventManager {
     /**
      * Thread-safe event pausing
      */
-    public void pauseCurrentEvent() {
+    public boolean pauseCurrentEvent() {
         eventLock.writeLock().lock();
         try {
             if (!isEventActive.get() || isPaused.get() || currentEvent == null) {
-                return;
+                return false;
             }
             
             // Fire system event before pausing
@@ -503,6 +535,7 @@ public class WeeklyEventManager {
                 currentEvent.pause();
             } catch (Exception e) {
                 plugin.getLogger().severe("Error pausing event: " + e.getMessage());
+                return false;
             }
             
             saveEventData();
@@ -510,6 +543,9 @@ public class WeeklyEventManager {
             // Announcements
             Bukkit.broadcast(MM.toComponent("<gold><b>¡EVENTO SEMANAL PAUSADO!"));
             Bukkit.broadcast(MM.toComponent("<gray><u>El evento se reanudará cuando un administrador lo indique."));
+            
+            plugin.getLogger().info("Event paused: " + currentEventType.getEventName());
+            return true;
         } finally {
             eventLock.writeLock().unlock();
         }
@@ -518,11 +554,11 @@ public class WeeklyEventManager {
     /**
      * Thread-safe event resuming
      */
-    public void resumeCurrentEvent() {
+    public boolean resumeCurrentEvent() {
         eventLock.writeLock().lock();
         try {
             if (!isEventActive.get() || !isPaused.get() || currentEvent == null) {
-                return;
+                return false;
             }
             
             // Calculate pause duration atomically
@@ -537,21 +573,30 @@ public class WeeklyEventManager {
             // Adjust end time atomically
             eventEndTime.addAndGet(pauseDuration);
             isPaused.set(false);
+            pauseStartTime.set(0);
             
             // Resume the event safely
             try {
                 currentEvent.resume();
             } catch (Exception e) {
                 plugin.getLogger().severe("Error resuming event: " + e.getMessage());
+                return false;
             }
             
             saveEventData();
+            
+            // Reprogramar el fin del evento con el tiempo ajustado
+            long adjustedRemaining = Math.max(0L, eventEndTime.get() - System.currentTimeMillis());
+            if (adjustedRemaining > 0L) {
+                scheduleNextEvent(adjustedRemaining);
+            }
             
             // Announcements
             Bukkit.broadcast(MM.toComponent("<gold><b>EVENTO SEMANAL REANUDADO!"));
             Bukkit.broadcast(MM.toComponent("<gray><u>El evento continua su ejecución normal nuevamente."));
             
             plugin.getLogger().info("Evento semanal reanudado correctamente.");
+            return true;
         } finally {
             eventLock.writeLock().unlock();
         }
@@ -641,6 +686,15 @@ public class WeeklyEventManager {
                     currentEvent = createEventInstance(eventType, duration);
                     
                     if (currentEvent != null) {
+                        // Load event-specific data after creating the instance
+                        try {
+                            plugin.getStorageManager().loadEventSpecificData(currentEvent);
+                            plugin.getLogger().info("Event-specific data loaded for: " + eventTypeName);
+                        } catch (Exception e) {
+                            plugin.getLogger().warning("Failed to load event-specific data for " + eventTypeName + ": " + e.getMessage());
+                            // Continue anyway, as basic event functionality should still work
+                        }
+                        
                         isEventActive.set(true);
                         plugin.getLogger().info("Loaded saved event data: " + eventTypeName);
                         return true;
@@ -867,5 +921,232 @@ public class WeeklyEventManager {
         }
         
         return Math.min(1.0, Math.max(0.0, (double) elapsed / totalDuration));
+    }
+    
+    /**
+     * Registra un nuevo evento semanal
+     * @param event El evento a registrar
+     */
+    public void registerEvent(WeeklyEvent event) {
+        if (event != null && event.getName() != null) {
+            registeredEvents.put(event.getName(), event);
+        }
+    }
+
+    /**
+     * Registra un nuevo evento semanal con nombre específico (para testing)
+     * @param eventName El nombre del evento
+     * @param event El evento a registrar
+     */
+    public void registerEvent(String eventName, WeeklyEvent event) {
+        if (event != null && eventName != null) {
+            registeredEvents.put(eventName, event);
+        }
+    }
+
+    /**
+     * Verifica si un evento está registrado
+     * @param eventName El nombre del evento
+     * @return true si el evento está registrado
+     */
+    public boolean isEventRegistered(String eventName) {
+        return registeredEvents.containsKey(eventName);
+    }
+
+    /**
+     * Desregistra un evento
+     * @param eventName El nombre del evento a desregistrar
+     */
+    public void unregisterEvent(String eventName) {
+        registeredEvents.remove(eventName);
+    }
+
+    /**
+     * Inicia un evento por nombre (para testing)
+     * @param eventName El nombre del evento a iniciar
+     * @return true si el evento se inició correctamente
+     */
+    public boolean startEvent(String eventName) {
+        WeeklyEvent event = registeredEvents.get(eventName);
+        if (event == null) {
+            return false;
+        }
+        
+        if (isEventActive.get()) {
+            return false;
+        }
+        
+        try {
+            currentEvent = event;
+            currentEventType = EventType.getByName(eventName);
+            isEventActive.set(true);
+            event.start();
+            return true;
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error starting event " + eventName + ": " + e.getMessage());
+            resetEventState();
+            return false;
+        }
+    }
+
+
+
+    /**
+     * Verifica si un evento específico está activo (para testing)
+     * @param eventName El nombre del evento
+     * @return true si el evento está activo
+     */
+    public boolean isEventActive(String eventName) {
+        return isEventActive.get() && currentEvent != null && currentEvent.getName().equals(eventName);
+    }
+
+    /**
+     * Obtiene el número de eventos registrados
+     * @return El número de eventos registrados
+     */
+    public int getRegisteredEventsCount() {
+        return registeredEvents.size();
+    }
+
+    /**
+     * Detiene todos los eventos en ejecución
+     */
+    public void stopAllEvents() {
+        eventLock.writeLock().lock();
+        try {
+            stopCurrentEvent();
+            // Detener cualquier otro evento que pueda estar ejecutándose
+            for (WeeklyEvent event : registeredEvents.values()) {
+                if (event != null) {
+                    try {
+                        event.stop();
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Error al detener evento " + event.getName() + ": " + e.getMessage());
+                    }
+                }
+            }
+        } finally {
+            eventLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Establece el evento actual (usado principalmente para testing)
+     * @param event El evento a establecer como actual
+     */
+    public void setCurrentEvent(WeeklyEvent event) {
+        eventLock.writeLock().lock();
+        try {
+            this.currentEvent = event;
+            if (event != null) {
+                this.currentEventType = EventType.getByName(event.getName());
+            } else {
+                this.currentEventType = null;
+            }
+        } finally {
+            eventLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Detiene un evento específico por nombre (usado para testing)
+     * @param eventName El nombre del evento a detener
+     * @return true si el evento fue detenido, false si no se encontró
+     */
+    public boolean stopEvent(String eventName) {
+        eventLock.writeLock().lock();
+        try {
+            WeeklyEvent event = registeredEvents.get(eventName);
+            if (event != null) {
+                try {
+                    event.stop();
+                    return true;
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Error al detener evento " + eventName + ": " + e.getMessage());
+                    return false;
+                }
+            }
+            return false;
+        } finally {
+            eventLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Transiciona de un evento a otro (usado para testing)
+     * @param fromEventName El nombre del evento actual
+     * @param toEventName El nombre del evento destino
+     * @return true si la transición fue exitosa, false en caso contrario
+     */
+    public boolean transitionToEvent(String fromEventName, String toEventName) {
+        eventLock.writeLock().lock();
+        try {
+            WeeklyEvent fromEvent = registeredEvents.get(fromEventName);
+            WeeklyEvent toEvent = registeredEvents.get(toEventName);
+            
+            if (fromEvent == null || toEvent == null) {
+                return false;
+            }
+            
+            try {
+                // Detener el evento actual
+                fromEvent.stop();
+                
+                // Establecer el nuevo evento como actual
+                this.currentEvent = toEvent;
+                this.currentEventType = EventType.getByName(toEvent.getName());
+                
+                // Iniciar el nuevo evento
+                toEvent.start();
+                
+                return true;
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error en transición de " + fromEventName + " a " + toEventName + ": " + e.getMessage());
+                return false;
+            }
+        } finally {
+            eventLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Programa un evento para ejecutarse en un tiempo específico (usado para testing)
+     * @param eventName El nombre del evento a programar
+     * @param startTime El tiempo de inicio en milisegundos
+     * @param durationMs La duración en milisegundos
+     * @return true si el evento fue programado exitosamente, false en caso contrario
+     */
+    public boolean scheduleEvent(String eventName, long startTime, int durationMs) {
+        eventLock.writeLock().lock();
+        try {
+            WeeklyEvent event = registeredEvents.get(eventName);
+            if (event == null) {
+                return false;
+            }
+            
+            // Para testing, simplemente programamos el evento para iniciar inmediatamente
+            // En una implementación real, esto usaría un scheduler
+            try {
+                this.currentEvent = event;
+                this.currentEventType = EventType.getByName(event.getName());
+                event.start();
+                
+                // Programar detención después de la duración especificada
+                plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                    try {
+                        event.stop();
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Error deteniendo evento programado " + eventName + ": " + e.getMessage());
+                    }
+                }, durationMs / 50); // Convertir ms a ticks (20 ticks = 1 segundo)
+                
+                return true;
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error programando evento " + eventName + ": " + e.getMessage());
+                return false;
+            }
+        } finally {
+            eventLock.writeLock().unlock();
+        }
     }
 }

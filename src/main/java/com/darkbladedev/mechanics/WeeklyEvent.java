@@ -13,7 +13,9 @@ import com.darkbladedev.utils.TimeExpression;
 import com.darkbladedev.utils.WeeklyEventData;
 
 import java.util.Collections;
-import java.util.List;/**
+import java.util.List;
+
+/**
  * Clase base para todos los eventos semanales del servidor.
  * Proporciona la estructura común y funcionalidades básicas que todos los eventos semanales comparten.
  */
@@ -284,5 +286,37 @@ public abstract class WeeklyEvent implements Listener {
 
     public long getEndTime() {
         return endTime;
+    }
+    
+    /**
+     * Establece el tiempo de inicio del evento (usado para restauración tras reinicio)
+     * @param startTime Tiempo de inicio en milisegundos
+     */
+    public void setStartTime(long startTime) {
+        this.startTime = startTime;
+    }
+    
+    /**
+     * Establece el tiempo de fin del evento (usado para restauración tras reinicio)
+     * @param endTime Tiempo de fin en milisegundos
+     */
+    public void setEndTime(long endTime) {
+        this.endTime = endTime;
+    }
+    
+    /**
+     * Establece el tiempo total pausado (usado para restauración tras reinicio)
+     * @param totalPausedTime Tiempo total pausado en milisegundos
+     */
+    public void setTotalPausedTime(long totalPausedTime) {
+        this.totalPausedTime = totalPausedTime;
+    }
+    
+    /**
+     * Establece el momento de inicio de pausa (usado para restauración tras reinicio)
+     * @param pauseStartTime Momento de inicio de pausa en milisegundos
+     */
+    public void setPauseStartTime(long pauseStartTime) {
+        this.pauseMoment = pauseStartTime;
     }
 }

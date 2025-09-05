@@ -218,6 +218,13 @@ public class StorageManager {
                 }
                 eventData.add("curedVillagers", curedVillagersJson);
                 
+                // Guardar contador de aldeanos curados
+                JsonObject curedVillagersCountJson = new JsonObject();
+                for (Map.Entry<UUID, Integer> entry : undeadWeek.getCuredVillagersCount().entrySet()) {
+                    curedVillagersCountJson.addProperty(entry.getKey().toString(), entry.getValue());
+                }
+                eventData.add("curedVillagersCount", curedVillagersCountJson);
+                
                 // Guardar conjunto de Withers eliminados en Luna Roja
                 JsonObject witherKilledJson = new JsonObject();
                 for (UUID playerId : undeadWeek.getWitherKilledInRedMoon()) {
@@ -462,6 +469,16 @@ public class StorageManager {
                             }
                         }
                         undeadWeek.loadCuredVillagers(curedVillagers);
+                    }
+                    
+                    // Cargar contador de aldeanos curados
+                    if (eventData.has("curedVillagersCount")) {
+                        JsonObject curedVillagersCountJson = eventData.getAsJsonObject("curedVillagersCount");
+                        Map<String, Object> curedVillagersCount = new HashMap<>();
+                        for (Map.Entry<String, com.google.gson.JsonElement> entry : curedVillagersCountJson.entrySet()) {
+                            curedVillagersCount.put(entry.getKey(), entry.getValue().getAsInt());
+                        }
+                        undeadWeek.loadCuredVillagersCount(curedVillagersCount);
                     }
                     
                     // Cargar conjunto de Withers eliminados en Luna Roja
@@ -729,6 +746,70 @@ public class StorageManager {
         plugin.getLogger().info("Diagnóstico del sistema de persistencia ejecutado por comando");
         
         return result.toString();
+    }
+
+    /**
+     * Guarda los datos del evento desde WeeklyEventManager (método para testing)
+     * @param eventManager El manager del evento
+     */
+    public void saveEventData(WeeklyEventManager eventManager) {
+        if (eventManager == null) {
+            plugin.getLogger().warning("Intento de guardar datos de eventManager nulo");
+            return;
+        }
+        
+        WeeklyEvent currentEvent = eventManager.getCurrentEvent();
+        if (currentEvent != null) {
+            saveEvent(currentEvent);
+        }
+    }
+
+    /**
+     * Carga los datos del evento en WeeklyEventManager (método para testing)
+     * @param eventManager El manager del evento
+     */
+    public void loadEventData(WeeklyEventManager eventManager) {
+        if (eventManager == null) {
+            plugin.getLogger().warning("Intento de cargar datos en eventManager nulo");
+            return;
+        }
+        
+        WeeklyEventData eventData = loadEvent();
+        if (eventData != null && eventManager.getCurrentEvent() != null) {
+            loadEventSpecificData(eventManager.getCurrentEvent());
+        }
+    }
+
+    /**
+     * Guarda configuración en formato JSON (método para testing)
+     * @param data Los datos JSON a guardar
+     * @param filePath La ruta del archivo
+     */
+    public void saveConfig(JsonObject data, String filePath) {
+        try (Writer writer = new FileWriter(new File(filePath))) {
+            gson.toJson(data, writer);
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.SEVERE, "Error guardando configuración en " + filePath, e);
+        }
+    }
+
+    /**
+     * Carga configuración desde archivo JSON (método para testing)
+     * @param filePath La ruta del archivo
+     * @return Los datos JSON cargados o null si hay error
+     */
+    public JsonObject loadConfig(String filePath) {
+        File file = new File(filePath);
+        if (!file.exists()) {
+            return null;
+        }
+        
+        try (Reader reader = Files.newBufferedReader(file.toPath())) {
+            return gson.fromJson(reader, JsonObject.class);
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.SEVERE, "Error cargando configuración desde " + filePath, e);
+            return null;
+        }
     }
 
     public static class WeeklyEventData {
