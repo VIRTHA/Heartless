@@ -1,6 +1,8 @@
 package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.events.WeeklyEventResumeEvent;
+import com.darkbladedev.utils.EventType;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 
@@ -60,10 +62,11 @@ public class BloodAndIronWeek extends WeeklyEvent {
     private final Set<UUID> survivors = ConcurrentHashMap.newKeySet();
     
     // Aliases para compatibilidad
-    private final Set<UUID> playerKillers = instantDamageKillers;
-    private final Set<UUID> potionKillers = instantDamageKillers;
-    private final Set<UUID> pentaKillers = pentakillPlayers;
-    private final Map<UUID, Long> lastMobKillTime = lastHostileMobKillTime;
+    // Referencias corregidas para evitar duplicación
+    private final Set<UUID> playerKillers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> potionKillers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> pentaKillers = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, Long> lastMobKillTime = new ConcurrentHashMap<>();
     
     // Constantes
     private static final long MOB_KILL_TIMEOUT = 15 * 60 * 1000; // 15 minutos
@@ -75,6 +78,146 @@ public class BloodAndIronWeek extends WeeklyEvent {
     public BloodAndIronWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
         this.prefix = "<b><gradient:#f82f2f:#f74242:#f75555:#f66869:#f67b7c:#f58f8f:#f4a2a2:#f4b5b5:#f3c8c9:#f3dbdc:#f2eeef:#f2eeef:#f2edee:#f2edee:#f2eded:#f3eded:#f3eced:#f3ecec:#f3ecec:#f3ebeb:#f3ebeb>Semana de Sangre y Hierro</gradient></b>";
+    }
+    
+    /**
+     * Reinicializa todos los jugadores online después del reinicio del servidor
+     */
+    private void reinitializeOnlinePlayers() {
+        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+        if (onlinePlayers != null) {
+            for (Player player : onlinePlayers) {
+                if (player != null && player.isOnline()) {
+                    initializePlayer(player);
+                }
+            }
+            plugin.getLogger().info("Reinicializados " + onlinePlayers.size() + " jugadores online tras reanudación");
+        }
+    }
+    
+    /**
+     * Restaura datos específicos del evento después del reinicio
+     */
+    private void restoreEventSpecificData() {
+        try {
+            // Las colecciones son final y ya están inicializadas, solo necesitamos limpiarlas si es necesario
+            // Nota: Las colecciones final no pueden ser reasignadas, solo limpiadas
+            
+            // Validar integridad de datos
+            validateEventData();
+            
+            plugin.getLogger().info("Datos específicos del evento restaurados correctamente");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error al restaurar datos específicos del evento", e);
+        }
+    }
+    
+    /**
+     * Valida la integridad de los datos del evento
+     */
+    private void validateEventData() {
+        try {
+            // Validar que lastHostileMobKillTime no sea futuro
+            long currentTime = System.currentTimeMillis();
+            lastHostileMobKillTime.entrySet().removeIf(entry -> {
+                if (entry.getValue() > currentTime) {
+                    plugin.getLogger().warning("lastHostileMobKillTime para jugador " + entry.getKey() + " está en el futuro, eliminando entrada...");
+                    return true;
+                }
+                return false;
+            });
+            
+            // Validar contadores
+            if (playerKillCount != null) {
+                playerKillCount.entrySet().removeIf(entry -> entry.getValue() < 0);
+            }
+            
+            // Limpiar jugadores offline de las colecciones
+            cleanupOfflinePlayers();
+            
+            plugin.getLogger().info("Validación de datos del evento completada");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error al validar datos del evento", e);
+        }
+    }
+    
+    /**
+     * Limpia jugadores offline de las colecciones del evento
+     */
+    private void cleanupOfflinePlayers() {
+        try {
+            if (survivedPlayers != null) {
+                survivedPlayers.removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
+            }
+            if (deadPlayers != null) {
+                deadPlayers.removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
+            }
+            if (awardedAdrenaline != null) {
+                awardedAdrenaline.removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
+            }
+            if (playerKillCount != null) {
+                playerKillCount.entrySet().removeIf(entry -> Bukkit.getPlayer(entry.getKey()) == null);
+            }
+            if (lastPlayerKillTime != null) {
+                lastPlayerKillTime.entrySet().removeIf(entry -> Bukkit.getPlayer(entry.getKey()) == null);
+            }
+            if (lastHostileMobKillTime != null) {
+                lastHostileMobKillTime.entrySet().removeIf(entry -> Bukkit.getPlayer(entry.getKey()) == null);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al limpiar jugadores offline", e);
+        }
+    }
+    
+    /**
+     * Intenta una recuperación segura del evento en caso de error
+     */
+    private void safeEventRecovery() {
+        try {
+            plugin.getLogger().info("Iniciando recuperación segura del evento...");
+            
+            // Detener tareas actuales
+            stopEventTasks();
+            
+            // Reinicializar colecciones básicas
+            initializeCollections();
+            
+            // Intentar reiniciar tareas básicas
+            if (isActive && !isPaused) {
+                startMainTask();
+                startCheckKillsTask();
+            }
+            
+            plugin.getLogger().info("Recuperación segura completada");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error en recuperación segura", e);
+        }
+    }
+    
+    /**
+     * Inicializa las colecciones básicas del evento
+     * Nota: Los campos final ya están inicializados, solo limpiamos contenido existente
+     */
+    private void initializeCollections() {
+        // Limpiar colecciones existentes en caso de reinicialización
+        survivedPlayers.clear();
+        deadPlayers.clear();
+        awardedAdrenaline.clear();
+        playerKillCount.clear();
+        lastPlayerKillTime.clear();
+        lastHostileMobKillTime.clear();
+        consecutiveKills.clear();
+        potionDamageDealt.clear();
+        instantDamageKillers.clear();
+        pentakillPlayers.clear();
+        mobKillWarningGiven.clear();
+        survivors.clear();
+        playerKillers.clear();
+        potionKillers.clear();
+        pentaKillers.clear();
+        lastMobKillTime.clear();
+        
+        plugin.getLogger().info("Colecciones del evento BloodAndIronWeek inicializadas correctamente");
     }
 
     @Override
@@ -186,16 +329,86 @@ public class BloodAndIronWeek extends WeeklyEvent {
         }
     }
     
+    /**
+     * Maneja la reanudación específica del evento BloodAndIronWeek
+     * @param event El evento de reanudación
+     */
+    public void onResumeEvent(WeeklyEventResumeEvent event) {
+        if (event.getEventType() != EventType.BLOOD_AND_IRON_WEEK) {
+            return;
+        }
+        
+        try {
+            plugin.getLogger().info("Iniciando reanudación específica de BloodAndIronWeek...");
+            
+            // Validar estado del evento antes de reanudar
+            if (!isActive) {
+                plugin.getLogger().warning("Intentando reanudar evento inactivo");
+                return;
+            }
+            
+            // Restaurar datos específicos del evento
+            restoreEventSpecificData();
+            
+            // Reinicializar jugadores online
+            reinitializeOnlinePlayers();
+            
+            // Validar integridad de datos después de la restauración
+            validateEventData();
+            
+            plugin.getLogger().info("Reanudación específica de BloodAndIronWeek completada");
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error en reanudación específica de BloodAndIronWeek", e);
+            // Intentar recuperación segura
+            safeEventRecovery();
+        }
+    }
+    
     @Override
     protected void resumeEventTasks() {
         try {
             if (isActive && !isPaused) {
-                startMainTask();
-                startCheckKillsTask();
-                plugin.getLogger().info("Evento BloodAndIronWeek reanudado");
+                // Verificar y detener tareas existentes antes de iniciar nuevas
+                BukkitTask existingMainTask = mainTaskRef.get();
+                BukkitTask existingCheckTask = checkKillsTaskRef.get();
+                
+                if (existingMainTask != null && !existingMainTask.isCancelled()) {
+                    plugin.getLogger().warning("Tarea principal ya está ejecutándose, cancelando antes de reanudar");
+                    existingMainTask.cancel();
+                    mainTaskRef.set(null);
+                }
+                
+                if (existingCheckTask != null && !existingCheckTask.isCancelled()) {
+                    plugin.getLogger().warning("Tarea de verificación ya está ejecutándose, cancelando antes de reanudar");
+                    existingCheckTask.cancel();
+                    checkKillsTaskRef.set(null);
+                }
+                
+                // Esperar un tick antes de iniciar nuevas tareas para evitar conflictos
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            startMainTask();
+                            startCheckKillsTask();
+                            
+                            // Reinicializar jugadores online después del reinicio del servidor
+                            reinitializeOnlinePlayers();
+                            
+                            plugin.getLogger().info("Evento BloodAndIronWeek reanudado correctamente con sincronización mejorada");
+                        } catch (Exception e) {
+                            plugin.getLogger().log(Level.SEVERE, "Error al iniciar tareas durante reanudación", e);
+                            stopEventTasks();
+                        }
+                    }
+                }.runTaskLater(plugin, 1L);
+                
             }
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Error al reanudar evento", e);
+            // Intentar limpieza en caso de error
+            stopEventTasks();
         }
     }
         
@@ -269,19 +482,33 @@ public class BloodAndIronWeek extends WeeklyEvent {
     
     private void startMainTask() {
         try {
-            // Cancelar tarea existente si existe
+            // Verificar si el evento está activo antes de iniciar
+            if (!isActive || isPaused) {
+                plugin.getLogger().warning("Intentando iniciar tarea principal con evento inactivo o pausado");
+                return;
+            }
+            
+            // Cancelar tarea existente si existe de forma thread-safe
             BukkitTask existingTask = mainTaskRef.getAndSet(null);
             if (existingTask != null && !existingTask.isCancelled()) {
                 existingTask.cancel();
+                plugin.getLogger().info("Tarea principal anterior cancelada antes de iniciar nueva");
             }
             
-            // Iniciar nueva tarea principal
+            // Iniciar nueva tarea principal con validaciones adicionales
             BukkitTask newTask = new BukkitRunnable() {
                 @Override
                 public void run() {
                     try {
+                        // Verificar estado del evento en cada ejecución
+                        if (!isActive || isPaused) {
+                            this.cancel();
+                            mainTaskRef.set(null);
+                            return;
+                        }
+                        
                         Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
-                        if (onlinePlayers != null) {
+                        if (onlinePlayers != null && !onlinePlayers.isEmpty()) {
                             for (Player player : onlinePlayers) {
                                 if (player != null && player.isOnline()) {
                                     checkAndApplyArmorEffects(player);
@@ -291,11 +518,18 @@ public class BloodAndIronWeek extends WeeklyEvent {
                         }
                     } catch (Exception e) {
                         plugin.getLogger().log(Level.WARNING, "Error en tarea principal", e);
+                        // No cancelar la tarea por un error menor, solo registrar
                     }
                 }
             }.runTaskTimer(plugin, 0L, 20L * 5); // Cada 5 segundos
             
-            mainTaskRef.set(newTask);
+            // Verificar que la tarea se creó correctamente
+            if (newTask != null && !newTask.isCancelled()) {
+                mainTaskRef.set(newTask);
+                plugin.getLogger().info("Tarea principal iniciada correctamente (ID: " + newTask.getTaskId() + ")");
+            } else {
+                plugin.getLogger().severe("Error: No se pudo crear la tarea principal");
+            }
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Error al iniciar tarea principal", e);
         }
@@ -303,21 +537,35 @@ public class BloodAndIronWeek extends WeeklyEvent {
     
     private void startCheckKillsTask() {
         try {
-            // Cancelar tarea existente si existe
+            // Verificar si el evento está activo antes de iniciar
+            if (!isActive || isPaused) {
+                plugin.getLogger().warning("Intentando iniciar tarea de verificación con evento inactivo o pausado");
+                return;
+            }
+            
+            // Cancelar tarea existente si existe de forma thread-safe
             BukkitTask existingTask = checkKillsTaskRef.getAndSet(null);
             if (existingTask != null && !existingTask.isCancelled()) {
                 existingTask.cancel();
+                plugin.getLogger().info("Tarea de verificación anterior cancelada antes de iniciar nueva");
             }
             
-            // Iniciar nueva tarea de verificación de kills
+            // Iniciar nueva tarea de verificación de kills con validaciones adicionales
             BukkitTask newTask = new BukkitRunnable() {
                 @Override
                 public void run() {
                     try {
+                        // Verificar estado del evento en cada ejecución
+                        if (!isActive || isPaused) {
+                            this.cancel();
+                            checkKillsTaskRef.set(null);
+                            return;
+                        }
+                        
                         long currentTime = System.currentTimeMillis();
                         
                         Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
-                        if (onlinePlayers != null) {
+                        if (onlinePlayers != null && !onlinePlayers.isEmpty()) {
                             for (Player player : onlinePlayers) {
                                 if (player != null && player.isOnline()) {
                                     checkMobKillTimeout(player, currentTime);
@@ -327,11 +575,18 @@ public class BloodAndIronWeek extends WeeklyEvent {
                         }
                     } catch (Exception e) {
                         plugin.getLogger().log(Level.WARNING, "Error en tarea de verificación de kills", e);
+                        // No cancelar la tarea por un error menor, solo registrar
                     }
                 }
             }.runTaskTimer(plugin, 20L * 60, 20L * 60); // Cada minuto
             
-            checkKillsTaskRef.set(newTask);
+            // Verificar que la tarea se creó correctamente
+            if (newTask != null && !newTask.isCancelled()) {
+                checkKillsTaskRef.set(newTask);
+                plugin.getLogger().info("Tarea de verificación iniciada correctamente (ID: " + newTask.getTaskId() + ")");
+            } else {
+                plugin.getLogger().severe("Error: No se pudo crear la tarea de verificación");
+            }
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Error al iniciar tarea de verificación de kills", e);
         }

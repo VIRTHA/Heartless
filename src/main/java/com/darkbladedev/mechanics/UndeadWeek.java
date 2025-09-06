@@ -15,6 +15,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Event.Result;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTransformEvent;
 import org.bukkit.event.player.PlayerBedEnterEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
@@ -54,6 +55,9 @@ public class UndeadWeek extends WeeklyEvent {
     private Set<UUID> curedVillagers = new HashSet<>();
     private Map<UUID, Integer> curedVillagersCount = new HashMap<>(); // Contador de aldeanos curados por jugador
     private Set<UUID> witherKilledInRedMoon = new HashSet<>();
+    
+    // Sistema de desafíos únicos - rastrear desafíos completados por jugador
+    private Map<UUID, Set<String>> completedChallenges = new HashMap<>();
     
     // Lista de entidades no-muertas
     private final List<EntityType> undeadEntities = Arrays.asList(
@@ -101,6 +105,10 @@ public class UndeadWeek extends WeeklyEvent {
         return witherKilledInRedMoon != null ? new HashSet<>(witherKilledInRedMoon) : new HashSet<>();
     }
     
+    public Map<UUID, Set<String>> getCompletedChallenges() {
+        return completedChallenges != null ? new HashMap<>(completedChallenges) : new HashMap<>();
+    }
+    
     // Métodos setter para testing
     public void setRedMoonKills(Map<UUID, Integer> kills) {
         this.redMoonKillsCount = kills != null ? new HashMap<>(kills) : new HashMap<>();
@@ -120,6 +128,10 @@ public class UndeadWeek extends WeeklyEvent {
     
     public void setCuredInfections(Map<UUID, Integer> cured) {
         this.curedInfectionsCount = cured != null ? new HashMap<>(cured) : new HashMap<>();
+    }
+    
+    public void setCompletedChallenges(Map<UUID, Set<String>> challenges) {
+        this.completedChallenges = challenges != null ? new HashMap<>(challenges) : new HashMap<>();
     }
     
     public long getLastRedMoonNight() {
@@ -1592,21 +1604,29 @@ public class UndeadWeek extends WeeklyEvent {
                     World world = killer.getWorld();
                     
                     if (world != null && world.getEnvironment() == World.Environment.NORMAL) {
-                        // Verificar si ya ha recibido la recompensa
-                        if (!witherKilledInRedMoon.contains(killerId)) {
-                            witherKilledInRedMoon.add(killerId);
-                            killer.sendMessage(MM.toComponent("<green>¡Desafío legendario completado! Has derrotado al Wither en la Noche Roja.</green>"));
-                            
-                            // Aumentar corazón máximo
-                            AttributeInstance maxHealthAttr = killer.getAttribute(Attribute.MAX_HEALTH);
-                            if (maxHealthAttr != null) {
-                                double currentMaxHealth = maxHealthAttr.getValue();
-                                maxHealthAttr.setBaseValue(currentMaxHealth + 2.0);
-                                killer.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón máximo</gold>"));
+                        // Verificar si ya completó este desafío
+                        if (isChallengeAlreadyCompleted(killerId, "asesino_wither_luna_roja")) {
+                            sendAlreadyCompletedMessage(killer, "Asesino del Wither en Luna Roja");
+                        } else {
+                            // Marcar desafío como completado
+                            if (markChallengeCompleted(killerId, "asesino_wither_luna_roja")) {
+                                witherKilledInRedMoon.add(killerId);
+                                killer.sendMessage(MM.toComponent("<green>¡Desafío legendario completado! Has derrotado al Wither en la Noche Roja.</green>"));
                                 
-                                // Efectos visuales y sonoros para la recompensa
-                                killer.playSound(killer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 0.5f);
-                                killer.spawnParticle(Particle.HEART, killer.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+                                // Aumentar corazón máximo
+                                AttributeInstance maxHealthAttr = killer.getAttribute(Attribute.MAX_HEALTH);
+                                if (maxHealthAttr != null) {
+                                    double currentMaxHealth = maxHealthAttr.getValue();
+                                    maxHealthAttr.setBaseValue(currentMaxHealth + 2.0);
+                                    killer.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón máximo</gold>"));
+                                    
+                                    // Efectos visuales y sonoros para la recompensa
+                                    killer.playSound(killer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 0.5f);
+                                    killer.spawnParticle(Particle.HEART, killer.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+                                }
+                                
+                                // Log para debugging
+                                Bukkit.getLogger().info("[UndeadWeek] Jugador " + killer.getName() + " completó desafío 'Asesino del Wither en Luna Roja' por primera vez");
                             }
                         }
                     }
@@ -1616,6 +1636,76 @@ public class UndeadWeek extends WeeklyEvent {
             }
         } catch (Exception e) {
             Bukkit.getLogger().severe("Error en onEntityDamage: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Maneja el evento de muerte de entidades
+     * Gestiona los contadores de eliminaciones durante la Luna Roja
+     */
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onEntityDeath(EntityDeathEvent event) {
+        if (!isActive || isPaused) {
+            return;
+        }
+        
+        try {
+            Entity entity = event.getEntity();
+            
+            // Solo procesar LivingEntity que tienen el método getKiller()
+            if (!(entity instanceof LivingEntity)) {
+                return;
+            }
+            
+            LivingEntity livingEntity = (LivingEntity) entity;
+            Player killer = livingEntity.getKiller();
+            
+            // Solo procesar si hay un jugador asesino y es Luna Roja
+            if (killer == null || !isRedMoonActive) {
+                return;
+            }
+            
+            UUID killerId = killer.getUniqueId();
+            if (killerId == null) {
+                return;
+            }
+            
+            // Verificar si la entidad es no-muerta
+            if (isUndead(entity)) {
+                try {
+                    // Incrementar contador de eliminaciones en Luna Roja
+                    int currentKills = redMoonKillsCount.getOrDefault(killerId, 0);
+                    redMoonKillsCount.put(killerId, currentKills + 1);
+                    
+                    // Notificar al jugador del progreso
+                    killer.sendMessage(MM.toComponent("<yellow>Eliminaciones en Luna Roja: " + redMoonKillsCount.get(killerId) + "/50</yellow>"));
+                    
+                    // Verificar desafío de 50 eliminaciones
+                    if (redMoonKillsCount.get(killerId) >= 50) {
+                        // Verificar si ya completó este desafío
+                        if (isChallengeAlreadyCompleted(killerId, "cazador_nocturno")) {
+                            sendAlreadyCompletedMessage(killer, "Cazador Nocturno");
+                        } else {
+                            // Marcar desafío como completado
+                            if (markChallengeCompleted(killerId, "cazador_nocturno")) {
+                                killer.sendMessage(MM.toComponent("<green>¡Desafío completado! Has eliminado 50 criaturas no-muertas en la Luna Roja.</green>"));
+                                killer.sendMessage(MM.toComponent("<gray>Recompensa: <u>Tag 'Cazador Nocturno'"));
+                                
+                                // Efecto visual y sonoro para la recompensa
+                                killer.playSound(killer.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                                killer.spawnParticle(Particle.SOUL_FIRE_FLAME, killer.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+                                
+                                // Log para debugging
+                                Bukkit.getLogger().info("[UndeadWeek] Jugador " + killer.getName() + " completó desafío 'Cazador Nocturno' por primera vez");
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    Bukkit.getLogger().warning("Error al procesar eliminación en luna roja: " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("Error en onEntityDeath: " + e.getMessage());
         }
     }
     
@@ -1692,18 +1782,29 @@ public class UndeadWeek extends WeeklyEvent {
                     
                     // Verificar desafío completado
                     if (curedCount == 10) {
-                        player.sendMessage(MM.toComponent("<green>¡Desafío completado! Has curado 10 infecciones.</green>"));
-                        
-                        // Aumentar corazón máximo
-                        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
-                        if (maxHealthAttr != null) {
-                            double currentMaxHealth = maxHealthAttr.getValue();
-                            maxHealthAttr.setBaseValue(currentMaxHealth + 2.0);
-                            player.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón máximo</gold>"));
-                            
-                            // Efectos para la recompensa
-                            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 0.5f);
-                            player.spawnParticle(Particle.HEART, player.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+                        // Verificar si ya completó este desafío
+                        if (isChallengeAlreadyCompleted(playerId, "doctor_inmune")) {
+                            sendAlreadyCompletedMessage(player, "Doctor Inmune");
+                        } else {
+                            // Marcar desafío como completado
+                            if (markChallengeCompleted(playerId, "doctor_inmune")) {
+                                player.sendMessage(MM.toComponent("<green>¡Desafío completado! Has curado 10 infecciones.</green>"));
+                                
+                                // Aumentar corazón máximo
+                                AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+                                if (maxHealthAttr != null) {
+                                    double currentMaxHealth = maxHealthAttr.getValue();
+                                    maxHealthAttr.setBaseValue(currentMaxHealth + 2.0);
+                                    player.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón máximo</gold>"));
+                                    
+                                    // Efectos para la recompensa
+                                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 0.5f);
+                                    player.spawnParticle(Particle.HEART, player.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+                                    
+                                    // Log para debugging
+                                    Bukkit.getLogger().info("[UndeadWeek] Jugador " + player.getName() + " completó desafío 'Doctor Inmune' por primera vez");
+                                }
+                            }
                         }
                     }
                 } catch (Exception e) {
@@ -1797,15 +1898,27 @@ public class UndeadWeek extends WeeklyEvent {
                         // Incrementar el contador de aldeanos curados
                         curedVillagersCount.put(playerId, curedVillagersCount.getOrDefault(playerId, 0) + 1);
                         
-                        // Verificar si el jugador ya ha recibido la recompensa del desafío
+                        // Verificar si es el primer aldeano curado (desafío)
                         if (!curedVillagers.contains(playerId)) {
                             curedVillagers.add(playerId);
-                            closestPlayer.sendMessage(MM.toComponent("<green>¡Desafío completado! Has curado a un aldeano zombificado.</green>"));
-                            closestPlayer.sendMessage(MM.toComponent("<gold>Recompensa: <gray><u>Tag</u> \"Dr. Zomboss\"</gold>"));
                             
-                            // Efectos para la recompensa del desafío
-                            closestPlayer.playSound(closestPlayer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-                            closestPlayer.spawnParticle(Particle.ENCHANT, closestPlayer.getLocation().add(0, 1, 0), 50, 0.5, 0.5, 0.5, 0.1);
+                            // Verificar si ya completó este desafío
+                            if (isChallengeAlreadyCompleted(playerId, "sanador_aldeanos_zombis")) {
+                                sendAlreadyCompletedMessage(closestPlayer, "Sanador de Aldeanos Zombis");
+                            } else {
+                                // Marcar desafío como completado
+                                if (markChallengeCompleted(playerId, "sanador_aldeanos_zombis")) {
+                                    closestPlayer.sendMessage(MM.toComponent("<green>¡Desafío completado! Has curado a un aldeano zombificado.</green>"));
+                                    closestPlayer.sendMessage(MM.toComponent("<gold>Recompensa: <gray><u>Tag</u> \"Dr. Zomboss\"</gold>"));
+                                    
+                                    // Efectos para la recompensa del desafío
+                                    closestPlayer.playSound(closestPlayer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                                    closestPlayer.spawnParticle(Particle.ENCHANT, closestPlayer.getLocation().add(0, 1, 0), 50, 0.5, 0.5, 0.5, 0.1);
+                                    
+                                    // Log para debugging
+                                    Bukkit.getLogger().info("[UndeadWeek] Jugador " + closestPlayer.getName() + " completó desafío 'Sanador de Aldeanos Zombis' por primera vez");
+                                }
+                            }
                         } else {
                             // Mensaje para aldeanos adicionales curados
                             int totalCured = curedVillagersCount.get(playerId);
@@ -3039,27 +3152,28 @@ public class UndeadWeek extends WeeklyEvent {
             // Nota: Permitimos comprobar desafíos incluso si el evento ya ha terminado
             // para poder mostrar estadísticas al anunciar el fin del evento.
             
-            // Verificar el tipo de desafío
+            // Mapear IDs antiguos a nuevos para compatibilidad con tests
+            String newChallengeId = challengeId;
             switch (challengeId) {
                 case "cure_infection":
-                    // Jugador ha curado su infección 10 veces
-                    int cures = curedInfectionsCount.getOrDefault(playerId, 0);
-                    return cures >= 10;
+                    newChallengeId = "doctor_inmune";
+                    break;
                 case "cure_villager":
-                    // Jugador ha curado a un aldeano zombificado
-                    int villagersCured = curedVillagersCount.getOrDefault(playerId, 0);
-                    return villagersCured >= 1;
+                    newChallengeId = "sanador_aldeanos_zombis";
+                    break;
                 case "red_moon_kills":
-                    // Jugador ha matado 50 no-muertos durante la Luna Roja
-                    int kills = redMoonKillsCount.getOrDefault(playerId, 0);
-                    return kills >= 50;
+                    newChallengeId = "cazador_nocturno";
+                    break;
                 case "wither_red_moon":
-                    // Jugador ha matado al Wither durante la Luna Roja
-                    return witherKilledInRedMoon != null && witherKilledInRedMoon.contains(playerId);
+                    newChallengeId = "asesino_wither_luna_roja";
+                    break;
                 default:
-                    Bukkit.getLogger().warning("Desafío desconocido: " + challengeId + " para el jugador: " + playerId);
-                    return false;
+                    // Mantener el ID original si no hay mapeo
+                    break;
             }
+            
+            // Usar el nuevo sistema de desafíos únicos
+            return isChallengeAlreadyCompleted(playerId, newChallengeId);
         } catch (Exception e) {
             Bukkit.getLogger().severe("Error al verificar el desafío " + challengeId + " para el jugador " + playerId + ": " + e.getMessage());
             return false;
@@ -3364,10 +3478,10 @@ public class UndeadWeek extends WeeklyEvent {
         player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
         player.sendMessage(MM.toComponent("<gold><b>DESAFÍOS COMPLETADOS:</b></gold>"));
         
-        boolean cureInfection = hasChallengeCompleted(playerId, "cure_infection");
-        boolean cureVillager = hasChallengeCompleted(playerId, "cure_villager");
-        boolean redMoonKillsCh = hasChallengeCompleted(playerId, "red_moon_kills");
-        boolean witherRedMoon = hasChallengeCompleted(playerId, "wither_red_moon");
+        boolean cureInfection = isChallengeAlreadyCompleted(playerId, "doctor_inmune");
+        boolean cureVillager = isChallengeAlreadyCompleted(playerId, "sanador_aldeanos_zombis");
+        boolean redMoonKillsCh = isChallengeAlreadyCompleted(playerId, "cazador_nocturno");
+        boolean witherRedMoon = isChallengeAlreadyCompleted(playerId, "asesino_wither_luna_roja");
         
         player.sendMessage(MM.toComponent("<yellow>🧴 Doctor inmune (curar 10 infecciones):</yellow> " + (cureInfection ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
         if (cureInfection) {
@@ -3477,6 +3591,56 @@ public class UndeadWeek extends WeeklyEvent {
     }
     
     /**
+     * Marca un desafío como completado para un jugador específico
+     * @param playerId UUID del jugador
+     * @param challengeId ID del desafío
+     * @return true si se marcó como completado, false si ya estaba completado
+     */
+    private boolean markChallengeCompleted(UUID playerId, String challengeId) {
+        if (playerId == null || challengeId == null || challengeId.isEmpty()) {
+            return false;
+        }
+        
+        // Inicializar el conjunto de desafíos completados para el jugador si no existe
+        completedChallenges.computeIfAbsent(playerId, k -> new HashSet<>());
+        
+        // Verificar si ya está completado
+        if (completedChallenges.get(playerId).contains(challengeId)) {
+            return false; // Ya estaba completado
+        }
+        
+        // Marcar como completado
+        completedChallenges.get(playerId).add(challengeId);
+        return true; // Se marcó como completado por primera vez
+    }
+    
+    /**
+     * Verifica si un jugador ya completó un desafío específico
+     * @param playerId UUID del jugador
+     * @param challengeId ID del desafío
+     * @return true si ya está completado, false en caso contrario
+     */
+    private boolean isChallengeAlreadyCompleted(UUID playerId, String challengeId) {
+        if (playerId == null || challengeId == null || challengeId.isEmpty()) {
+            return false;
+        }
+        
+        Set<String> playerChallenges = completedChallenges.get(playerId);
+        return playerChallenges != null && playerChallenges.contains(challengeId);
+    }
+    
+    /**
+     * Envía un mensaje al jugador indicando que ya completó el desafío
+     * @param player El jugador
+     * @param challengeName Nombre del desafío para mostrar
+     */
+    private void sendAlreadyCompletedMessage(Player player, String challengeName) {
+        if (player != null && challengeName != null) {
+            player.sendMessage(MM.toComponent("<yellow>⚠ Ya has completado el desafío '<gold>" + challengeName + "</gold>'. Los desafíos solo pueden completarse una vez por evento.</yellow>"));
+        }
+    }
+    
+    /**
      * Obtiene la lista de jugadores que completaron el desafío (para testing)
      */
     public List<UUID> getPlayersWhoCompletedChallenge() {
@@ -3502,14 +3666,15 @@ public class UndeadWeek extends WeeklyEvent {
     }
     
     /**
-     * Verifica si un jugador completó el desafío por UUID (método auxiliar)
+     * Verifica si un jugador completó al menos un desafío (método auxiliar para testing)
      */
     private boolean hasChallengeCompleted(UUID playerId) {
-        int redMoonKills = redMoonKillsCount != null ? redMoonKillsCount.getOrDefault(playerId, 0) : 0;
-        int curedVillagers = curedVillagersCount != null ? curedVillagersCount.getOrDefault(playerId, 0) : 0;
-        int curedInfections = curedInfectionsCount != null ? curedInfectionsCount.getOrDefault(playerId, 0) : 0;
+        if (completedChallenges == null || playerId == null) {
+            return false;
+        }
         
-        return redMoonKills >= 3 && curedVillagers >= 5 && curedInfections >= 1;
+        Set<String> playerChallenges = completedChallenges.get(playerId);
+        return playerChallenges != null && !playerChallenges.isEmpty();
     }
     
     /**

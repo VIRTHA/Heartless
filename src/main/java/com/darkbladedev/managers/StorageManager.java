@@ -383,7 +383,28 @@ public class StorageManager {
      */
     public void loadEventSpecificData(WeeklyEvent event) {
         if (event == null) {
-            plugin.getLogger().warning("Intento de cargar datos de evento nulo");
+            plugin.getLogger().warning("Evento es null, no se pueden cargar datos específicos");
+            return;
+        }
+        
+        // Validaciones completas de estado del evento antes de cargar datos
+        if (!event.isActive()) {
+            plugin.getLogger().warning("Intentando cargar datos para evento inactivo: " + event.getClass().getSimpleName());
+            return;
+        }
+        
+        if (event.isPaused()) {
+            plugin.getLogger().info("Evento está pausado, cargando datos para reanudación: " + event.getClass().getSimpleName());
+        }
+        
+        // Validar que el evento no esté en un estado inconsistente
+        if (event.getStartTime() <= 0) {
+            plugin.getLogger().warning("Evento tiene tiempo de inicio inválido: " + event.getStartTime());
+            return;
+        }
+        
+        if (event.getEndTime() <= event.getStartTime()) {
+            plugin.getLogger().warning("Evento tiene tiempo de fin inválido: " + event.getEndTime() + " (inicio: " + event.getStartTime() + ")");
             return;
         }
         
@@ -400,6 +421,25 @@ public class StorageManager {
             try (FileReader reader = new FileReader(eventDataFile)) {
                 JsonObject eventData = JsonParser.parseReader(reader).getAsJsonObject();
                 String eventType = eventData.has("eventType") ? eventData.get("eventType").getAsString() : "";
+                
+                // Validar coincidencia de tipo de evento
+                String expectedEventType = getExpectedEventType(event);
+                if (expectedEventType == null) {
+                    plugin.getLogger().warning("Tipo de evento no reconocido: " + event.getClass().getSimpleName());
+                    return;
+                }
+                
+                if (eventType.isEmpty()) {
+                    plugin.getLogger().warning("Archivo de datos no contiene tipo de evento válido");
+                    return;
+                }
+                
+                if (!expectedEventType.equals(eventType)) {
+                    plugin.getLogger().warning("Tipo de evento no coincide. Esperado: " + expectedEventType + ", Encontrado: " + eventType);
+                    return;
+                }
+                
+                plugin.getLogger().info("Validación de tipo de evento exitosa: " + eventType);
                 
                 // UndeadWeek
                 if (event instanceof UndeadWeek && "undead_week".equals(eventType)) {
@@ -590,95 +630,186 @@ public class StorageManager {
                 else if (event instanceof BloodAndIronWeek && "blood_and_iron_week".equals(eventType)) {
                     BloodAndIronWeek bloodAndIronWeek = (BloodAndIronWeek) event;
                     
-                    if (eventData.has("lastHostileMobKillTime")) {
-                        JsonObject lastHostileMobKillTimeJson = eventData.getAsJsonObject("lastHostileMobKillTime");
-                        Map<UUID, Long> lastHostileMobKillTime = new HashMap<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> entry : lastHostileMobKillTimeJson.entrySet()) {
-                            lastHostileMobKillTime.put(UUID.fromString(entry.getKey()), entry.getValue().getAsLong());
+                    try {
+                        if (eventData.has("lastHostileMobKillTime")) {
+                            JsonObject lastHostileMobKillTimeJson = eventData.getAsJsonObject("lastHostileMobKillTime");
+                            if (lastHostileMobKillTimeJson != null && lastHostileMobKillTimeJson.size() > 0) {
+                                Map<UUID, Long> lastHostileMobKillTime = new HashMap<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : lastHostileMobKillTimeJson.entrySet()) {
+                                    try {
+                                        UUID playerId = UUID.fromString(entry.getKey());
+                                        long killTime = entry.getValue().getAsLong();
+                                        // Validar que el tiempo no sea futuro
+                                        if (killTime <= System.currentTimeMillis()) {
+                                            lastHostileMobKillTime.put(playerId, killTime);
+                                        } else {
+                                            plugin.getLogger().warning("Tiempo de kill futuro detectado para jugador " + playerId + ", ignorando");
+                                        }
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en lastHostileMobKillTime: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadLastHostileMobKillTime(lastHostileMobKillTime);
+                            }
                         }
-                        bloodAndIronWeek.loadLastHostileMobKillTime(lastHostileMobKillTime);
+                        
+                        if (eventData.has("lastPlayerKillTime")) {
+                            JsonObject lastPlayerKillTimeJson = eventData.getAsJsonObject("lastPlayerKillTime");
+                            if (lastPlayerKillTimeJson != null && lastPlayerKillTimeJson.size() > 0) {
+                                Map<UUID, Long> lastPlayerKillTime = new HashMap<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : lastPlayerKillTimeJson.entrySet()) {
+                                    try {
+                                        UUID playerId = UUID.fromString(entry.getKey());
+                                        long killTime = entry.getValue().getAsLong();
+                                        // Validar que el tiempo no sea futuro
+                                        if (killTime <= System.currentTimeMillis()) {
+                                            lastPlayerKillTime.put(playerId, killTime);
+                                        } else {
+                                            plugin.getLogger().warning("Tiempo de kill de jugador futuro detectado para " + playerId + ", ignorando");
+                                        }
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en lastPlayerKillTime: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadLastPlayerKillTime(lastPlayerKillTime);
+                            }
+                        }
+                        
+                        if (eventData.has("playerKillCount")) {
+                            JsonObject playerKillCountJson = eventData.getAsJsonObject("playerKillCount");
+                            if (playerKillCountJson != null && playerKillCountJson.size() > 0) {
+                                Map<UUID, Integer> playerKillCount = new HashMap<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : playerKillCountJson.entrySet()) {
+                                    try {
+                                        UUID playerId = UUID.fromString(entry.getKey());
+                                        int killCount = entry.getValue().getAsInt();
+                                        // Validar que el conteo no sea negativo
+                                        if (killCount >= 0) {
+                                            playerKillCount.put(playerId, killCount);
+                                        } else {
+                                            plugin.getLogger().warning("Conteo de kills negativo detectado para " + playerId + ", ignorando");
+                                        }
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en playerKillCount: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadPlayerKillCount(playerKillCount);
+                            }
+                        }
+                    } catch (Exception e) {
+                        plugin.getLogger().log(Level.SEVERE, "Error al cargar datos básicos de BloodAndIronWeek", e);
                     }
                     
-                    if (eventData.has("lastPlayerKillTime")) {
-                        JsonObject lastPlayerKillTimeJson = eventData.getAsJsonObject("lastPlayerKillTime");
-                        Map<UUID, Long> lastPlayerKillTime = new HashMap<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> entry : lastPlayerKillTimeJson.entrySet()) {
-                            lastPlayerKillTime.put(UUID.fromString(entry.getKey()), entry.getValue().getAsLong());
+                        if (eventData.has("consecutiveKills")) {
+                            JsonObject consecutiveKillsJson = eventData.getAsJsonObject("consecutiveKills");
+                            if (consecutiveKillsJson != null && consecutiveKillsJson.size() > 0) {
+                                Map<UUID, Integer> consecutiveKills = new HashMap<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : consecutiveKillsJson.entrySet()) {
+                                    try {
+                                        UUID playerId = UUID.fromString(entry.getKey());
+                                        int kills = entry.getValue().getAsInt();
+                                        if (kills >= 0) {
+                                            consecutiveKills.put(playerId, kills);
+                                        } else {
+                                            plugin.getLogger().warning("Kills consecutivos negativos para " + playerId + ", ignorando");
+                                        }
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en consecutiveKills: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadConsecutiveKills(consecutiveKills);
+                            }
                         }
-                        bloodAndIronWeek.loadLastPlayerKillTime(lastPlayerKillTime);
-                    }
-                    
-                    if (eventData.has("playerKillCount")) {
-                        JsonObject playerKillCountJson = eventData.getAsJsonObject("playerKillCount");
-                        Map<UUID, Integer> playerKillCount = new HashMap<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> entry : playerKillCountJson.entrySet()) {
-                            playerKillCount.put(UUID.fromString(entry.getKey()), entry.getValue().getAsInt());
+                        
+                        if (eventData.has("instantDamageKillers")) {
+                            JsonObject instantDamageKillersJson = eventData.getAsJsonObject("instantDamageKillers");
+                            if (instantDamageKillersJson != null) {
+                                Set<UUID> instantDamageKillers = new HashSet<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : instantDamageKillersJson.entrySet()) {
+                                    try {
+                                        instantDamageKillers.add(UUID.fromString(entry.getKey()));
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en instantDamageKillers: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadInstantDamageKillers(instantDamageKillers);
+                            }
                         }
-                        bloodAndIronWeek.loadPlayerKillCount(playerKillCount);
-                    }
-                    
-                    if (eventData.has("consecutiveKills")) {
-                        JsonObject consecutiveKillsJson = eventData.getAsJsonObject("consecutiveKills");
-                        Map<UUID, Integer> consecutiveKills = new HashMap<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> entry : consecutiveKillsJson.entrySet()) {
-                            consecutiveKills.put(UUID.fromString(entry.getKey()), entry.getValue().getAsInt());
+                        
+                        if (eventData.has("pentakillPlayers")) {
+                            JsonObject pentakillPlayersJson = eventData.getAsJsonObject("pentakillPlayers");
+                            if (pentakillPlayersJson != null) {
+                                Set<UUID> pentakillPlayers = new HashSet<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : pentakillPlayersJson.entrySet()) {
+                                    try {
+                                        pentakillPlayers.add(UUID.fromString(entry.getKey()));
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en pentakillPlayers: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadPentakillPlayers(pentakillPlayers);
+                            }
                         }
-                        bloodAndIronWeek.loadConsecutiveKills(consecutiveKills);
-                    }
-                    
-                    if (eventData.has("instantDamageKillers")) {
-                        JsonObject instantDamageKillersJson = eventData.getAsJsonObject("instantDamageKillers");
-                        Set<UUID> instantDamageKillers = new HashSet<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> entry : instantDamageKillersJson.entrySet()) {
-                            instantDamageKillers.add(UUID.fromString(entry.getKey()));
+                        
+                        if (eventData.has("survivedPlayers")) {
+                            JsonObject survivedPlayersJson = eventData.getAsJsonObject("survivedPlayers");
+                            if (survivedPlayersJson != null) {
+                                Set<UUID> survivedPlayers = new HashSet<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : survivedPlayersJson.entrySet()) {
+                                    try {
+                                        survivedPlayers.add(UUID.fromString(entry.getKey()));
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en survivedPlayers: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadSurvivedPlayers(survivedPlayers);
+                            }
                         }
-                        bloodAndIronWeek.loadInstantDamageKillers(instantDamageKillers);
-                    }
-                    
-                    if (eventData.has("pentakillPlayers")) {
-                        JsonObject pentakillPlayersJson = eventData.getAsJsonObject("pentakillPlayers");
-                        Set<UUID> pentakillPlayers = new HashSet<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> entry : pentakillPlayersJson.entrySet()) {
-                            pentakillPlayers.add(UUID.fromString(entry.getKey()));
+                        
+                        if (eventData.has("deadPlayers")) {
+                            JsonObject deadPlayersJson = eventData.getAsJsonObject("deadPlayers");
+                            if (deadPlayersJson != null) {
+                                Set<UUID> deadPlayers = new HashSet<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : deadPlayersJson.entrySet()) {
+                                    try {
+                                        deadPlayers.add(UUID.fromString(entry.getKey()));
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en deadPlayers: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadDeadPlayers(deadPlayers);
+                            }
                         }
-                        bloodAndIronWeek.loadPentakillPlayers(pentakillPlayers);
-                    }
-                    
-                    if (eventData.has("survivedPlayers")) {
-                        JsonObject survivedPlayersJson = eventData.getAsJsonObject("survivedPlayers");
-                        Set<UUID> survivedPlayers = new HashSet<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> entry : survivedPlayersJson.entrySet()) {
-                            survivedPlayers.add(UUID.fromString(entry.getKey()));
+                        
+                        if (eventData.has("awardedAdrenaline")) {
+                            JsonObject awardedAdrenalineJson = eventData.getAsJsonObject("awardedAdrenaline");
+                            if (awardedAdrenalineJson != null) {
+                                Set<UUID> awardedAdrenaline = new HashSet<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : awardedAdrenalineJson.entrySet()) {
+                                    try {
+                                        awardedAdrenaline.add(UUID.fromString(entry.getKey()));
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en awardedAdrenaline: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadAwardedAdrenaline(awardedAdrenaline);
+                            }
                         }
-                        bloodAndIronWeek.loadSurvivedPlayers(survivedPlayers);
-                    }
-                    
-                    if (eventData.has("deadPlayers")) {
-                        JsonObject deadPlayersJson = eventData.getAsJsonObject("deadPlayers");
-                        Set<UUID> deadPlayers = new HashSet<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> entry : deadPlayersJson.entrySet()) {
-                            deadPlayers.add(UUID.fromString(entry.getKey()));
+                        
+                        if (eventData.has("mobKillWarningGiven")) {
+                            JsonObject mobKillWarningGivenJson = eventData.getAsJsonObject("mobKillWarningGiven");
+                            if (mobKillWarningGivenJson != null) {
+                                Set<UUID> mobKillWarningGiven = new HashSet<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : mobKillWarningGivenJson.entrySet()) {
+                                    try {
+                                        mobKillWarningGiven.add(UUID.fromString(entry.getKey()));
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en mobKillWarningGiven: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadMobKillWarningGiven(mobKillWarningGiven);
+                            }
                         }
-                        bloodAndIronWeek.loadDeadPlayers(deadPlayers);
-                    }
-                    
-                    if (eventData.has("awardedAdrenaline")) {
-                        JsonObject awardedAdrenalineJson = eventData.getAsJsonObject("awardedAdrenaline");
-                        Set<UUID> awardedAdrenaline = new HashSet<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> entry : awardedAdrenalineJson.entrySet()) {
-                            awardedAdrenaline.add(UUID.fromString(entry.getKey()));
-                        }
-                        bloodAndIronWeek.loadAwardedAdrenaline(awardedAdrenaline);
-                    }
-                    
-                    if (eventData.has("mobKillWarningGiven")) {
-                        JsonObject mobKillWarningGivenJson = eventData.getAsJsonObject("mobKillWarningGiven");
-                        Set<UUID> mobKillWarningGiven = new HashSet<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> entry : mobKillWarningGivenJson.entrySet()) {
-                            mobKillWarningGiven.add(UUID.fromString(entry.getKey()));
-                        }
-                        bloodAndIronWeek.loadMobKillWarningGiven(mobKillWarningGiven);
-                    }
                     
                     plugin.getLogger().info("Datos específicos de BloodAndIronWeek cargados correctamente");
                 }
@@ -810,6 +941,28 @@ public class StorageManager {
             plugin.getLogger().log(Level.SEVERE, "Error cargando configuración desde " + filePath, e);
             return null;
         }
+    }
+
+    /**
+     * Obtiene el tipo de evento esperado basado en la instancia del evento
+     * @param event La instancia del evento
+     * @return El tipo de evento esperado o null si no se reconoce
+     */
+    private String getExpectedEventType(WeeklyEvent event) {
+        if (event instanceof UndeadWeek) {
+            return "undead_week";
+        } else if (event instanceof AcidWeek) {
+            return "acid_week";
+        } else if (event instanceof ExplosiveWeek) {
+            return "explosive_week";
+        } else if (event instanceof ToxicFog) {
+            return "toxic_fog";
+        } else if (event instanceof BloodAndIronWeek) {
+            return "blood_and_iron_week";
+        } else if (event instanceof EmptyEvent) {
+            return "empty_event";
+        }
+        return null;
     }
 
     public static class WeeklyEventData {

@@ -67,3 +67,10 @@ tasks.shadowJar {
     attributes["paperweight-mappings-namespace"] = "mojang"
   }
 }
+
+// Tarea personalizada para obtener el classpath de pruebas
+task printClasspath {
+    doLast {
+        println configurations.testRuntimeClasspath.asPath
+    }
+}

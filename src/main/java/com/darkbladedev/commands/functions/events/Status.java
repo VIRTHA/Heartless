@@ -64,12 +64,13 @@ public class Status implements SubcommandExecutor, TabCompletable {
         status.append("<white>Evento activo: <aqua>").append(currentEvent.getName()).append("\n");
         status.append("<white>Estado: <aqua>").append(currentEvent.isPaused() ? "<red><b>Paused" : "<green><b>Running").append("\n");
 
-        // Time remaining
-        long remainingTime = currentEvent.getRemainingDuration();
-        if (remainingTime > 0) {
-            long minutes = remainingTime / 60;
-            long seconds = remainingTime % 60;
-            status.append("<white>Tiempo restante: <aqua>").append(String.format("%02d:%02d", minutes, seconds)).append("\n");
+        // Time remaining - obtener tiempo restante del WeeklyEventManager
+        long remainingTimeMs = plugin.getWeeklyEventManager().getRemainingTime();
+        if (remainingTimeMs > 0) {
+            String formattedTime = formatDuration(remainingTimeMs);
+            status.append("<white>Tiempo restante: <aqua>").append(formattedTime).append("\n");
+        } else {
+            status.append("<white>Tiempo restante: <red>Finalizando...\n");
         }
 
         // Additional event-specific info
@@ -80,6 +81,36 @@ public class Status implements SubcommandExecutor, TabCompletable {
 
         status.append("<gray>==============================");
         sender.sendMessage(MM.toComponent(status.toString()));
+    }
+    
+    /**
+     * Formatea una duración en milisegundos a texto legible
+     * @param duration Duración en milisegundos
+     * @return Texto formateado de la duración
+     */
+    private String formatDuration(long duration) {
+        long seconds = duration / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        long days = hours / 24;
+        long weeks = days / 7;
+        
+        if (weeks > 0) {
+            long remainingDays = days % 7;
+            if (remainingDays > 0) {
+                return weeks + "w " + remainingDays + "d " + (hours % 24) + "h";
+            } else {
+                return weeks + "w " + (hours % 24) + "h " + (minutes % 60) + "m";
+            }
+        } else if (days > 0) {
+            return days + "d " + (hours % 24) + "h " + (minutes % 60) + "m";
+        } else if (hours > 0) {
+            return hours + "h " + (minutes % 60) + "m " + (seconds % 60) + "s";
+        } else if (minutes > 0) {
+            return minutes + "m " + (seconds % 60) + "s";
+        } else {
+            return seconds + "s";
+        }
     }
     
 }
