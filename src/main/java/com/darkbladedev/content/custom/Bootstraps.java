@@ -91,6 +91,22 @@ public class Bootstraps implements PluginBootstrap {
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.LEG_ARMOR))
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.FOOT_ARMOR))
                 );
+                
+            // Register First Strike Enchantment
+            event.registry().register(
+                EnchantmentKeys.create(CustomEnchantments.FIRST_STRIKE_KEY),
+                b -> b.maxLevel(1)
+                    .anvilCost(25)
+                    .activeSlots(EquipmentSlotGroup.MAINHAND)
+                    .minimumCost(EnchantmentRegistryEntry.EnchantmentCost.of(20, 10))
+                    .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(30, 15))
+                    .weight(2)
+                    
+                    .description(MM.toComponent("<dark_red>Primer Golpe</dark_red>"))
+                    
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.SWORDS))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.AXES))
+                );
 
         }));
 

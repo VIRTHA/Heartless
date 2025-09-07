@@ -1,6 +1,7 @@
 package com.darkbladedev.testing.tests;
 
 import com.darkbladedev.testing.TestCase;
+import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.managers.WeeklyEventManager;
 import com.darkbladedev.mechanics.WeeklyEvent;
 
@@ -24,9 +25,22 @@ public class WeeklyEventManagerTest extends TestCase {
     
     @Override
     public void setUp() throws Exception {
-        eventManager = new WeeklyEventManager(null); // Mock plugin para pruebas
+        HeartlessMain mockPlugin = createMockPlugin();
+        eventManager = new WeeklyEventManager(mockPlugin);
         mockEvent = new MockWeeklyEvent();
         eventLog = new ArrayList<>();
+    }
+    
+    /**
+     * Crea un mock básico del plugin principal para pruebas.
+     */
+    private HeartlessMain createMockPlugin() {
+        HeartlessMain mockPlugin = org.mockito.Mockito.mock(HeartlessMain.class);
+        org.mockito.Mockito.when(mockPlugin.getLogger())
+            .thenReturn(java.util.logging.Logger.getLogger("MockPlugin"));
+        org.mockito.Mockito.when(mockPlugin.getDataFolder())
+            .thenReturn(new java.io.File(System.getProperty("java.io.tmpdir"), "heartless-test"));
+        return mockPlugin;
     }
     
     @Override
@@ -388,8 +402,17 @@ public class WeeklyEventManagerTest extends TestCase {
         }
         
         public MockWeeklyEvent(String name) {
-            super(null, 3600L); // Mock plugin y duración de 1 hora
+            super(createMockPluginForEvent(), 3600L); // Mock plugin y duración de 1 hora
             this.name = name;
+        }
+        
+        private static HeartlessMain createMockPluginForEvent() {
+            HeartlessMain mockPlugin = org.mockito.Mockito.mock(HeartlessMain.class);
+            org.mockito.Mockito.when(mockPlugin.getLogger())
+                .thenReturn(java.util.logging.Logger.getLogger("MockEventPlugin"));
+            org.mockito.Mockito.when(mockPlugin.getDataFolder())
+                .thenReturn(new java.io.File(System.getProperty("java.io.tmpdir"), "heartless-event-test"));
+            return mockPlugin;
         }
         
         @Override

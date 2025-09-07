@@ -149,7 +149,7 @@ public class UndeadWeekTest extends TestCase {
     @Override
     public void setUp() throws Exception {
         // Crear mocks para los parámetros del constructor
-        HeartlessMain mockPlugin = new MockHeartlessMain();
+        HeartlessMain mockPlugin = MockHeartlessMain.create();
         TimeExpression mockTimeExpression = new MockTimeExpression();
         undeadWeek = new UndeadWeek(mockPlugin, mockTimeExpression);
         mockPlayer1 = new MockPlayer("TestPlayer1");
@@ -453,7 +453,7 @@ public class UndeadWeekTest extends TestCase {
         assertTrue(savedState.size() > 0, "El estado guardado debe contener datos");
         
         // Crear nuevo evento y cargar estado
-        HeartlessMain mockPlugin2 = new MockHeartlessMain();
+        HeartlessMain mockPlugin2 = MockHeartlessMain.create();
         TimeExpression mockTimeExpression2 = new MockTimeExpression();
         UndeadWeek newUndeadWeek = new UndeadWeek(mockPlugin2, mockTimeExpression2);
         newUndeadWeek.loadState(savedState);
@@ -10915,8 +10915,15 @@ public class UndeadWeekTest extends TestCase {
         public void setCancelled(boolean cancelled) {}
     }
 
-    private static class MockHeartlessMain extends HeartlessMain {
-        // Mock implementation para pruebas
+    private static class MockHeartlessMain {
+        public static HeartlessMain create() {
+            HeartlessMain mockPlugin = org.mockito.Mockito.mock(HeartlessMain.class);
+            org.mockito.Mockito.when(mockPlugin.getLogger())
+                .thenReturn(java.util.logging.Logger.getLogger("MockHeartlessMain"));
+            org.mockito.Mockito.when(mockPlugin.getDataFolder())
+                .thenReturn(new java.io.File(System.getProperty("java.io.tmpdir"), "heartless-test"));
+            return mockPlugin;
+        }
     }
     
     private static class MockTimeExpression extends TimeExpression {

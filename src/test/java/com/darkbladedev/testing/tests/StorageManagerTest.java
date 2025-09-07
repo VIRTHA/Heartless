@@ -428,15 +428,15 @@ public class StorageManagerTest extends TestCase {
     }
     
     /**
-     * Elimina recursivamente un directorio y su contenido.
+     * Crea un mock del plugin principal con directorio de datos temporal.
      */
     private HeartlessMain createMockPlugin() {
-        return new HeartlessMain() {
-            @Override
-            public java.util.logging.Logger getLogger() {
-                return java.util.logging.Logger.getLogger("TestLogger");
-            }
-        };
+        HeartlessMain mockPlugin = org.mockito.Mockito.mock(HeartlessMain.class);
+        org.mockito.Mockito.when(mockPlugin.getLogger())
+            .thenReturn(java.util.logging.Logger.getLogger("TestLogger"));
+        org.mockito.Mockito.when(mockPlugin.getDataFolder())
+            .thenReturn(testDataDirectory.toFile());
+        return mockPlugin;
     }
     
     private void deleteDirectory(File directory) {

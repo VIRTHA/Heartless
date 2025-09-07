@@ -45,12 +45,32 @@ public class EnchantmentListeners implements Listener {
     private final Map<UUID, Long> acidInfectionCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, UUID> acidInfectedEntities = new ConcurrentHashMap<>();
     private final Map<UUID, BukkitTask> scheduledTasks = new HashMap<>();
+    
+    // First Strike tracking - tracks players who have already attacked
+    private final Map<UUID, Long> firstStrikeUsed = new ConcurrentHashMap<>();
+    private static final long FIRST_STRIKE_RESET_TIME = 300000; // 5 minutes in milliseconds
 
     public EnchantmentListeners(Plugin plugin) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        
+        // Start periodic cleanup task for expired First Strike cooldowns
+        startPeriodicCleanup();
+        
         logger.info("Custom enchantment registered successfully");
+    }
+    
+    /**
+     * Starts a periodic task to clean up expired First Strike cooldowns
+     */
+    private void startPeriodicCleanup() {
+        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            long currentTime = System.currentTimeMillis();
+            firstStrikeUsed.entrySet().removeIf(entry -> 
+                currentTime - entry.getValue() > FIRST_STRIKE_RESET_TIME
+            );
+        }, 6000L, 6000L); // Run every 5 minutes (6000 ticks)
     }
 
     /**
@@ -100,6 +120,11 @@ public class EnchantmentListeners implements Listener {
             
             // Set cooldown (5 seconds)
             acidInfectionCooldowns.put(playerUUID, System.currentTimeMillis() + 5000);
+        }
+        
+        // Handle First Strike enchantment
+        if (hasEnchantment(weapon, CustomEnchantments.FIRST_STRIKE_KEY)) {
+            handleFirstStrike(player, event);
         }
     }
     
@@ -198,6 +223,46 @@ public class EnchantmentListeners implements Listener {
         // Store the task and mark entity as infected
         scheduledTasks.put(targetUUID, acidTask);
         acidInfectedEntities.put(targetUUID, player.getUniqueId());
+    }
+    
+    /**
+     * Handles the First Strike enchantment logic
+     * First Strike: Deals 60% additional damage on the first attack, then goes on cooldown
+     */
+    private void handleFirstStrike(Player player, EntityDamageByEntityEvent event) {
+        UUID playerUUID = player.getUniqueId();
+        long currentTime = System.currentTimeMillis();
+        
+        // Check if player has used First Strike recently
+        if (firstStrikeUsed.containsKey(playerUUID)) {
+            long timeLeft = firstStrikeUsed.get(playerUUID) + FIRST_STRIKE_RESET_TIME - currentTime;
+            if (timeLeft > 0) {
+                // Still on cooldown, no bonus damage
+                return;
+            }
+        }
+        
+        // Apply First Strike bonus damage (60% additional)
+        double originalDamage = event.getDamage();
+        double bonusDamage = originalDamage * 0.6;
+        event.setDamage(originalDamage + bonusDamage);
+        
+        // Visual and sound effects
+        World world = player.getWorld();
+        world.spawnParticle(Particle.CRIT, event.getEntity().getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0.1);
+        world.spawnParticle(Particle.DAMAGE_INDICATOR, event.getEntity().getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0.1);
+        world.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.2f);
+        
+        // Send message to player
+        Component message = MM.toComponent("<dark_red>¡Primer Golpe activado! +60% de daño adicional</dark_red>");
+        player.sendMessage(message);
+        
+        // Set cooldown
+        firstStrikeUsed.put(playerUUID, currentTime);
+        
+        logger.info("First Strike activated for player " + player.getName() + 
+                   ". Original damage: " + originalDamage + ", Bonus damage: " + bonusDamage + 
+                   ", Total damage: " + (originalDamage + bonusDamage));
     }
 
     /**
@@ -310,6 +375,7 @@ public class EnchantmentListeners implements Listener {
         adrenalineCooldowns.clear();
         acidInfectionCooldowns.clear();
         acidInfectedEntities.clear();
+        firstStrikeUsed.clear();
         logger.info("EnchantmentListeners cleaned up successfully");
     }
 }

@@ -3,6 +3,7 @@ package com.darkbladedev.testing.console;
 import com.darkbladedev.testing.*;
 import com.darkbladedev.testing.tests.*;
 import com.darkbladedev.testing.utils.TestUtils;
+import com.darkbladedev.testing.tests.FirstStrikeEnchantmentTest;
 
 import java.io.File;
 import java.util.*;
@@ -501,6 +502,7 @@ public class TestConsole {
         mainSuite.addTest(new StorageManagerTest());
         mainSuite.addTest(new WeeklyEventManagerTest());
         mainSuite.addTest(new UndeadWeekTest("UndeadWeekTest"));
+        mainSuite.addTest(new FirstStrikeEnchantmentTest());
         
         return mainSuite;
     }
@@ -551,6 +553,10 @@ public class TestConsole {
             case "undeadweektest":
             case "undead":
                 return new UndeadWeekTest("UndeadWeekTest");
+            case "firststrikeenchantmenttest":
+            case "firststrike":
+            case "enchantment":
+                return new FirstStrikeEnchantmentTest();
             default:
                 return null;
         }
@@ -572,6 +578,10 @@ public class TestConsole {
         
         tests.put("Eventos Específicos", Arrays.asList(
             "UndeadWeekTest"
+        ));
+        
+        tests.put("Encantamientos", Arrays.asList(
+            "FirstStrikeEnchantmentTest"
         ));
         
         return tests;

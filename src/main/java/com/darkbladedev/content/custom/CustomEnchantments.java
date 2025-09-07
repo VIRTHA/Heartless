@@ -15,6 +15,7 @@ public class CustomEnchantments {
     public static final Key ACID_INFECTION_KEY = Key.key(namespace, "acid_infection");
     public static final Key TICTAC_KEY = Key.key(namespace, "tictac");
     public static final Key ADRENALINE_KEY = Key.key(namespace, "adrenaline");
+    public static final Key FIRST_STRIKE_KEY = Key.key(namespace, "first_strike");
 
     public Enchantment getEnchantment(Key key) {
         return RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT).get(key);
@@ -24,7 +25,8 @@ public class CustomEnchantments {
         ACID_RESISTANCE(ACID_RESISTANCE_KEY, "Proteccion contra el acido", 1),
         ACID_INFECTION(ACID_INFECTION_KEY, "Contagion", 1),
         TICTAC(TICTAC_KEY, "TicTac", 1),
-        ADRENALINE(ADRENALINE_KEY, "Adrenalina", 1);
+        ADRENALINE(ADRENALINE_KEY, "Adrenalina", 1),
+        FIRST_STRIKE(FIRST_STRIKE_KEY, "Primer Golpe", 1);
 
         private final Key key;
         private final String displayName;
