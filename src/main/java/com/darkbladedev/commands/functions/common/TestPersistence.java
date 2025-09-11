@@ -44,7 +44,7 @@ public class TestPersistence implements SubcommandExecutor {
             if (currentEvent != null) {
                 storageManager.saveEventSpecificData(currentEvent);
             } else {
-                sender.sendMessage(MM.toComponent("§cNo hay evento activo para guardar datos específicos."));
+                sender.sendMessage(MM.toComponent("<red>No hay evento activo para guardar datos específicos."));
             }
             
             // Forzar guardado de datos del evento semanal (a través del WeeklyEventManager)

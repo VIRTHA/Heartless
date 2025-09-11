@@ -53,7 +53,7 @@ public class AddHealth implements SubcommandExecutor, TabCompletable {
         }
         
         if (target == null) {
-            sender.sendMessage("§cJugador no encontrado.");
+            sender.sendMessage(MM.toComponent("<red>Jugador no encontrado."));
             return;
         }
 

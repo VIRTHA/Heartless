@@ -30,7 +30,7 @@ public class SetHealth implements SubcommandExecutor, TabCompletable {
     @Override
     public void execute(CommandSender sender, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage("§cUso: /heartless health heal <jugador>");
+            sender.sendMessage(MM.toComponent("<red>Uso: /heartless health heal <jugador>"));
             return;
         }
 
@@ -38,7 +38,7 @@ public class SetHealth implements SubcommandExecutor, TabCompletable {
         Player target = Bukkit.getPlayer(args[1]);
         
         if (target == null) {
-            sender.sendMessage("§cJugador no encontrado.");
+            sender.sendMessage(MM.toComponent("<red>Jugador no encontrado."));
             return;
         }
             try {

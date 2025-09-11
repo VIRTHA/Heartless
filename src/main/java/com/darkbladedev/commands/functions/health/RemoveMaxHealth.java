@@ -34,7 +34,7 @@ public class RemoveMaxHealth implements SubcommandExecutor, TabCompletable {
         Player target = Bukkit.getPlayer(args[1]);
 
         if (target == null) {
-            sender.sendMessage("§cJugador no encontrado.");
+            sender.sendMessage(MM.toComponent("<red>Jugador no encontrado."));
             return;
         }
         
