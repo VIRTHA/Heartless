@@ -3,6 +3,9 @@ package com.darkbladedev.content.custom.listeners;
 import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.utils.MM;
 
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -48,7 +51,7 @@ public class EnchantmentListeners implements Listener {
     
     // First Strike tracking - tracks players who have already attacked
     private final Map<UUID, Long> firstStrikeUsed = new ConcurrentHashMap<>();
-    private static final long FIRST_STRIKE_RESET_TIME = 300000; // 5 minutes in milliseconds
+    private static final long FIRST_STRIKE_RESET_TIME = 20000; // 20 seconds in milliseconds
 
     public EnchantmentListeners(Plugin plugin) {
         this.plugin = plugin;
@@ -95,12 +98,9 @@ public class EnchantmentListeners implements Listener {
         @SuppressWarnings("unused")
         UUID targetUUID = target.getUniqueId();
         
-        // Handle Carve enchantment
+        // Handle TicTac enchantment - now works on all living entities
         if (hasEnchantment(weapon, CustomEnchantments.TICTAC_KEY)) {
-            // Don't apply to players
-            if (!(target instanceof Player)) {
-                handleTictacEnchantment(player, target);
-            }
+            handleTictacEnchantment(player, target, weapon);
         }
         
         // Handle Acid Infection enchantment
@@ -130,26 +130,44 @@ public class EnchantmentListeners implements Listener {
     
     /**
      * Handles the TicTac enchantment logic
-     * TicTac: Explodes mobs on attack with a 2-second delay
+     * TicTac: Creates a delayed explosion that affects all living entities with dynamic damage calculation
+     * Damage is based on enchantment level and target's resistance attributes
      */
-    private void handleTictacEnchantment(Player player, LivingEntity target) {
-        Location targetLocation = target.getLocation();
+    private void handleTictacEnchantment(Player player, LivingEntity target, ItemStack weapon) {
+        Location targetLocation = target.getLocation().clone();
         World world = target.getWorld();
-
-        // Schedule an explosion after 2 seconds
         UUID targetUUID = target.getUniqueId();
+        
+        // Get enchantment level for dynamic damage calculation
+        org.bukkit.NamespacedKey namespacedKey = org.bukkit.NamespacedKey.fromString(CustomEnchantments.TICTAC_KEY.asString());
+        org.bukkit.enchantments.Enchantment tictacEnchantment = RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT).get(namespacedKey);
+        int enchantmentLevel = weapon.getItemMeta().getEnchantLevel(tictacEnchantment);
+        
+        // Enhanced pre-explosion visual effects
+        createPreExplosionEffects(world, targetLocation, enchantmentLevel);
+        
+        // Schedule an explosion after 2 seconds
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             // Check if the entity is still alive and valid
-            if (target.isValid() && !target.isDead()) {                
-                // Damage the entity
-                target.damage(10);
+            if (target.isValid() && !target.isDead()) {
+                // Calculate dynamic damage based on enchantment power and target resistance
+                double damage = calculateTictacDamage(enchantmentLevel, target);
                 
-                // Create a non-destructive explosion effect
-                world.spawnParticle(Particle.EXPLOSION, targetLocation, 4, 0.5, 0.5, 0.5, 0.1);
-                world.playSound(targetLocation, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.8f);
+                // Apply damage
+                target.damage(damage);
                 
-                // Notify the player
-                // player.sendMessage(MM.toComponent("<red>¡Tu encantamiento Carve ha hecho explotar a tu objetivo!"));
+                // Create enhanced explosion effects
+                createExplosionEffects(world, targetLocation, enchantmentLevel, damage);
+                
+                // Send feedback to player
+                Component message = MM.toComponent(String.format(
+                    "<dark_red>¡TicTac activado! %.1f de daño</dark_red>", 
+                    damage
+                ));
+                player.sendActionBar(message);
+                
+                logger.info(String.format("TicTac enchantment activated by %s on %s. Level: %d, Damage: %.1f", 
+                    player.getName(), target.getType().name(), enchantmentLevel, damage));
             }
             // Remove the task from the map
             scheduledTasks.remove(targetUUID);
@@ -157,6 +175,111 @@ public class EnchantmentListeners implements Listener {
         
         // Store the task in case we need to cancel it later
         scheduledTasks.put(targetUUID, task);
+    }
+    
+    /**
+     * Calculates dynamic damage for TicTac enchantment based on level and target resistance
+     * @param enchantmentLevel The level of the TicTac enchantment
+     * @param target The target entity
+     * @return The calculated damage amount
+     */
+    private double calculateTictacDamage(int enchantmentLevel, LivingEntity target) {
+        // Base damage starts at 8 and increases by 4 per level
+        double baseDamage = 8.0 + (enchantmentLevel * 4.0);
+        
+        // Calculate resistance factor based on target's armor and resistance effects
+        double resistanceFactor = 1.0;
+        
+        // Check for resistance potion effects
+        if (target.hasPotionEffect(PotionEffectType.RESISTANCE)) {
+            PotionEffect resistance = target.getPotionEffect(PotionEffectType.RESISTANCE);
+            if (resistance != null) {
+                // Resistance reduces damage by 20% per level
+                resistanceFactor -= (resistance.getAmplifier() + 1) * 0.2;
+            }
+        }
+        
+        // Factor in armor value for players and mobs with armor
+        if (target instanceof Player) {
+            Player targetPlayer = (Player) target;
+            double armorValue = targetPlayer.getAttribute(Attribute.ARMOR).getValue();
+            // Each armor point reduces damage by 2%
+            resistanceFactor -= (armorValue * 0.02);
+        }
+        
+        // Ensure resistance factor doesn't go below 0.1 (minimum 10% damage)
+        resistanceFactor = Math.max(0.1, resistanceFactor);
+        
+        // Calculate final damage
+        double finalDamage = baseDamage * resistanceFactor;
+        
+        // Cap maximum damage at 30 to prevent one-shots
+        return Math.min(finalDamage, 30.0);
+    }
+    
+    /**
+     * Creates enhanced pre-explosion visual effects
+     * @param world The world where effects will be displayed
+     * @param location The location for the effects
+     * @param enchantmentLevel The enchantment level for scaling effects
+     */
+    private void createPreExplosionEffects(World world, Location location, int enchantmentLevel) {
+        // Warning particles that scale with enchantment level
+        int particleCount = 5 + (enchantmentLevel * 3);
+        
+        // Red dust particles to indicate incoming explosion
+        world.spawnParticle(Particle.DUST, location.add(0, 1, 0), particleCount, 
+            0.3, 0.3, 0.3, 0.1, new Particle.DustOptions(org.bukkit.Color.RED, 1.5f));
+        
+        // Flame particles for dramatic effect
+        world.spawnParticle(Particle.FLAME, location, particleCount / 2, 0.2, 0.2, 0.2, 0.05);
+        
+        // Warning sound
+        world.playSound(location, Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 0.5f);
+    }
+    
+    /**
+     * Creates enhanced explosion visual and sound effects
+     * @param world The world where effects will be displayed
+     * @param location The location for the effects
+     * @param enchantmentLevel The enchantment level for scaling effects
+     * @param damage The damage dealt for effect intensity
+     */
+    private void createExplosionEffects(World world, Location location, int enchantmentLevel, double damage) {
+        // Scale particle count based on enchantment level and damage
+        int baseParticles = 8 + (enchantmentLevel * 4);
+        double damageMultiplier = Math.min(damage / 15.0, 2.0); // Cap at 2x multiplier
+        int totalParticles = (int) (baseParticles * damageMultiplier);
+        
+        // Main explosion particles
+        world.spawnParticle(Particle.EXPLOSION, location, totalParticles / 2, 0.8, 0.8, 0.8, 0.2);
+        
+        // Large explosion particle for high-level enchantments
+        if (enchantmentLevel >= 3) {
+            world.spawnParticle(Particle.EXPLOSION_EMITTER, location, 1, 0, 0, 0, 0);
+        }
+        
+        // Fire particles for burning effect
+        world.spawnParticle(Particle.FLAME, location, totalParticles, 1.0, 1.0, 1.0, 0.15);
+        
+        // Smoke particles for realistic explosion
+        world.spawnParticle(Particle.SMOKE, location, totalParticles / 2, 0.6, 0.6, 0.6, 0.1);
+        
+        // Lava particles for high damage explosions
+        if (damage > 20) {
+            world.spawnParticle(Particle.LAVA, location, totalParticles / 4, 0.5, 0.5, 0.5, 0.1);
+        }
+        
+        // Dynamic sound effects based on damage
+        float volume = Math.min(1.0f, (float) (0.6f + (damage / 30.0f)));
+        float pitch = Math.max(0.5f, (float) (1.0f - (enchantmentLevel * 0.1f)));
+        
+        world.playSound(location, Sound.ENTITY_GENERIC_EXPLODE, volume, pitch);
+        
+        // Additional dramatic sound for high-level enchantments
+        if (enchantmentLevel >= 4) {
+            world.playSound(location, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, volume * 0.3f, pitch + 0.2f);
+        }
     }
     
     /**
@@ -255,7 +378,7 @@ public class EnchantmentListeners implements Listener {
         
         // Send message to player
         Component message = MM.toComponent("<dark_red>¡Primer Golpe activado! +60% de daño adicional</dark_red>");
-        player.sendMessage(message);
+        player.sendActionBar(message);
         
         // Set cooldown
         firstStrikeUsed.put(playerUUID, currentTime);

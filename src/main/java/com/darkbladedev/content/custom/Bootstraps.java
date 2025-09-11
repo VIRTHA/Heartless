@@ -61,7 +61,7 @@ public class Bootstraps implements PluginBootstrap {
             // Register Carve Enchantment
             event.registry().register(
                 EnchantmentKeys.create(CustomEnchantments.TICTAC_KEY),
-                b -> b.maxLevel(1)
+                b -> b.maxLevel(4)
                     .anvilCost(15)
                     .activeSlots(EquipmentSlotGroup.MAINHAND)
                     .minimumCost(EnchantmentRegistryEntry.EnchantmentCost.of(10, 5))
