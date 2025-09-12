@@ -12,7 +12,6 @@ import com.darkbladedev.utils.MM;
 
 public class EventManager {
 
-    @SuppressWarnings("unused")
     private final HeartlessMain plugin;
     private WeeklyEventManager weeklyEventManager;
     private HealthSteal healthStealSystem;
@@ -76,5 +75,31 @@ public class EventManager {
      */
     public void reload() {
         weeklyEventManager.reload();
+    }
+    
+    /**
+     * Método llamado cuando la configuración se recarga
+     */
+    public void onConfigReload() {
+        plugin.getLogger().info("EventManager: Aplicando cambios de configuración...");
+        
+        // Obtener nuevos valores de configuración
+        ConfigManager configManager = HeartlessMain.getConfigManager();
+        
+        // Aplicar configuraciones específicas del sistema de eventos
+        if (configManager.isEventsEnabled()) {
+            // Recargar el WeeklyEventManager que maneja los eventos principales
+            weeklyEventManager.onConfigReload();
+            
+            // Recargar sistemas de mecánicas si es necesario
+            if (healthStealSystem != null && configManager.isHealthStealEnabled()) {
+                // El sistema de HealthSteal se recarga automáticamente con los eventos
+                plugin.getLogger().info("EventManager: Sistema de robo de vida habilitado");
+            }
+        } else {
+            plugin.getLogger().info("EventManager: Sistema de eventos deshabilitado por configuración");
+        }
+        
+        plugin.getLogger().info("EventManager: Configuración actualizada exitosamente");
     }
 }

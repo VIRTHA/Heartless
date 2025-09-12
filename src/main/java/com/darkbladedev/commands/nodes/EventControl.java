@@ -3,7 +3,15 @@ package com.darkbladedev.commands.nodes;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.darkbladedev.commands.functions.events.*;
+import com.darkbladedev.commands.functions.events.Challenges;
+import com.darkbladedev.commands.functions.events.DebugRedMoon;
+import com.darkbladedev.commands.functions.events.Pause;
+import com.darkbladedev.commands.functions.events.Reset;
+import com.darkbladedev.commands.functions.events.Resume;
+import com.darkbladedev.commands.functions.events.Schedule;
+import com.darkbladedev.commands.functions.events.Start;
+import com.darkbladedev.commands.functions.events.Status;
+import com.darkbladedev.commands.functions.events.Stop;
 
 import com.darkbladedev.commands.CommandFunction;
 import com.darkbladedev.commands.SubcommandExecutor;

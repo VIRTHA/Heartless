@@ -26,7 +26,7 @@ import com.google.gson.JsonObject;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.content.semi_custom.CustomEffectsBase;
-import com.darkbladedev.content.semi_custom.effects.*;
+import com.darkbladedev.content.semi_custom.effects.ZombieInfection;
 import com.darkbladedev.utils.MM;
 
 /**
@@ -392,6 +392,27 @@ public class CustomEffectsManager implements Listener {
         Bukkit.getConsoleSender().sendMessage(
             MM.toComponent(plugin.getPrefix() + " <gray>Sistema de efectos personalizados <green>recargado</green>.")
         );
+    }
+    
+    /**
+     * Método llamado cuando la configuración se recarga
+     */
+    public void onConfigReload() {
+        plugin.getLogger().info("CustomEffectsManager: Aplicando cambios de configuración...");
+        
+        // Obtener nuevos valores de configuración
+        ConfigManager configManager = HeartlessMain.getConfigManager();
+        
+        // Aplicar configuraciones específicas de efectos personalizados
+        if (!configManager.isCustomEffectsEnabled()) {
+            // Si los efectos están deshabilitados, limpiar todo
+            cleanup();
+        } else {
+            // Recargar configuraciones específicas de efectos
+            reload();
+        }
+        
+        plugin.getLogger().info("CustomEffectsManager: Configuración actualizada exitosamente");
     }
     
     // Eventos

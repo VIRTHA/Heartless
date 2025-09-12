@@ -1,6 +1,9 @@
-package com.darkbladedev.mechanics;
+package com.darkbladedev.managers;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.mechanics.UndeadWeek;
+import com.darkbladedev.mechanics.WeeklyEvent;
+
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -8,7 +11,12 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -106,6 +114,43 @@ public class WeeklyEventMigrationManager {
         } catch (Exception e) {
             logger.log(Level.WARNING, "Error al verificar eventos antiguos", e);
             return false;
+        }
+    }
+    
+    /**
+     * Recarga la configuración del sistema de migración.
+     * 
+     * Este método:
+     * - Actualiza el mapa de migraciones de eventos
+     * - Verifica nuevos eventos legacy que requieran migración
+     * - Recarga la configuración de migración
+     * - Mantiene el estado actual del sistema
+     */
+    public void reload() {
+        logger.info("[WeeklyEventMigrationManager] Iniciando recarga del sistema de migración...");
+        
+        try {
+            // Reinicializar el mapa de migraciones
+            initializeMigrationMap();
+            
+            // Recargar configuración del plugin para obtener nuevos valores
+            plugin.reloadConfig();
+            
+            // Verificar si hay nuevos eventos que requieran migración
+            boolean needsNewMigration = needsMigration();
+            
+            if (needsNewMigration) {
+                logger.info("[WeeklyEventMigrationManager] Se detectaron eventos que requieren migración después de la recarga.");
+            } else {
+                logger.info("[WeeklyEventMigrationManager] No se requieren migraciones adicionales.");
+            }
+            
+            logger.info("[WeeklyEventMigrationManager] Sistema de migración recargado exitosamente. " +
+                       "Eventos mapeados: " + eventMigrationMap.size());
+            
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "[WeeklyEventMigrationManager] Error durante la recarga del sistema", e);
+            throw new RuntimeException("Error al recargar WeeklyEventMigrationManager", e);
         }
     }
     
@@ -461,7 +506,7 @@ public class WeeklyEventMigrationManager {
         
         info.set("backup.timestamp", timestamp);
         info.set("backup.date", new Date().toString());
-        info.set("backup.plugin-version", plugin.getDescription().getVersion());
+        info.set("backup.plugin-version", plugin.getPluginMeta().getVersion());
         info.set("backup.server-version", Bukkit.getVersion());
         info.set("backup.migration-version", MIGRATION_VERSION);
         

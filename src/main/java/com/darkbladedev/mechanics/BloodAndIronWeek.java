@@ -26,7 +26,12 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
@@ -183,7 +188,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
             initializeCollections();
             
             // Intentar reiniciar tareas básicas
-            if (isActive && !isPaused) {
+            if (isActive.get() && !isPaused.get()) {
                 startMainTask();
                 startCheckKillsTask();
             }
@@ -342,7 +347,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
             plugin.getLogger().info("Iniciando reanudación específica de BloodAndIronWeek...");
             
             // Validar estado del evento antes de reanudar
-            if (!isActive) {
+            if (!isActive.get()) {
                 plugin.getLogger().warning("Intentando reanudar evento inactivo");
                 return;
             }
@@ -368,7 +373,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
     @Override
     protected void resumeEventTasks() {
         try {
-            if (isActive && !isPaused) {
+            if (isActive.get() && !isPaused.get()) {
                 // Verificar y detener tareas existentes antes de iniciar nuevas
                 BukkitTask existingMainTask = mainTaskRef.get();
                 BukkitTask existingCheckTask = checkKillsTaskRef.get();
@@ -415,9 +420,9 @@ public class BloodAndIronWeek extends WeeklyEvent {
     @Override
     public void stop() {
         try {
-            if (!isActive) return;
+            if (!isActive.get()) return;
             
-            isActive = false;
+            isActive.set(false);
             
             // Cancelar tareas de forma segura
             stopEventTasks();
@@ -483,7 +488,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
     private void startMainTask() {
         try {
             // Verificar si el evento está activo antes de iniciar
-            if (!isActive || isPaused) {
+            if (!isActive.get() || isPaused.get()) {
                 plugin.getLogger().warning("Intentando iniciar tarea principal con evento inactivo o pausado");
                 return;
             }
@@ -501,7 +506,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
                 public void run() {
                     try {
                         // Verificar estado del evento en cada ejecución
-                        if (!isActive || isPaused) {
+                        if (!isActive.get() || isPaused.get()) {
                             this.cancel();
                             mainTaskRef.set(null);
                             return;
@@ -538,7 +543,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
     private void startCheckKillsTask() {
         try {
             // Verificar si el evento está activo antes de iniciar
-            if (!isActive || isPaused) {
+            if (!isActive.get() || isPaused.get()) {
                 plugin.getLogger().warning("Intentando iniciar tarea de verificación con evento inactivo o pausado");
                 return;
             }
@@ -556,7 +561,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
                 public void run() {
                     try {
                         // Verificar estado del evento en cada ejecución
-                        if (!isActive || isPaused) {
+                        if (!isActive.get() || isPaused.get()) {
                             this.cancel();
                             checkKillsTaskRef.set(null);
                             return;
@@ -993,7 +998,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerJoin(PlayerJoinEvent event) {
         try {
-            if (!isActive) return;
+            if (!isActive.get()) return;
             
             Player player = event.getPlayer();
             if (player != null) {
@@ -1007,7 +1012,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
         try {
-            if (!isActive) return;
+            if (!isActive.get()) return;
             
             Player victim = event.getEntity();
             if (victim == null) return;
@@ -1033,7 +1038,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityDeath(EntityDeathEvent event) {
         try {
-            if (!isActive) return;
+            if (!isActive.get()) return;
             
             LivingEntity entity = event.getEntity();
             if (entity == null || entity instanceof Player) return;
@@ -1055,7 +1060,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         try {
-            if (!isActive) return;
+            if (!isActive.get()) return;
             
             if (!(event.getDamager() instanceof Player)) return;
             if (!(event.getEntity() instanceof Player)) return;

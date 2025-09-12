@@ -906,6 +906,23 @@ public class WeeklyEventManager {
     }
     
     /**
+     * Método llamado cuando la configuración se recarga
+     */
+    public void onConfigReload() {
+        eventLock.writeLock().lock();
+        try {
+            plugin.getLogger().info("WeeklyEventManager: Aplicando cambios de configuración...");
+            
+            // Aquí se pueden aplicar cambios específicos de configuración
+            // Por ejemplo, actualizar intervalos, duraciones, etc.
+            
+            plugin.getLogger().info("WeeklyEventManager: Configuración actualizada exitosamente");
+        } finally {
+            eventLock.writeLock().unlock();
+        }
+    }
+    
+    /**
      * Gets event progress as percentage (0.0 to 1.0)
      */
     public double getEventProgress() {

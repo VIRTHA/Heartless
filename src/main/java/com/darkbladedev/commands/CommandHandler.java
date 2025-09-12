@@ -1,6 +1,11 @@
 package com.darkbladedev.commands;
 
-import com.darkbladedev.commands.nodes.*;
+import com.darkbladedev.commands.nodes.BanSystem;
+import com.darkbladedev.commands.nodes.Common;
+import com.darkbladedev.commands.nodes.Effects;
+import com.darkbladedev.commands.nodes.Enchantments;
+import com.darkbladedev.commands.nodes.EventControl;
+import com.darkbladedev.commands.nodes.Health;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;

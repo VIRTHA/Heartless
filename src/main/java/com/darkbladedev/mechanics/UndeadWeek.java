@@ -16,7 +16,15 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -120,7 +128,7 @@ public class UndeadWeek extends WeeklyEvent {
             zombieSpawnTask = new BukkitRunnable() {
                 @Override
                 public void run() {
-                    if (isActive && !isPaused) {
+                    if (isActive.get() && !isPaused.get()) {
                         processZombieSpawning();
                     }
                 }
@@ -130,7 +138,7 @@ public class UndeadWeek extends WeeklyEvent {
             effectTask = new BukkitRunnable() {
                 @Override
                 public void run() {
-                    if (isActive && !isPaused) {
+                    if (isActive.get() && !isPaused.get()) {
                         processUndeadEffects();
                     }
                 }
@@ -140,7 +148,7 @@ public class UndeadWeek extends WeeklyEvent {
             cleanupTask = new BukkitRunnable() {
                 @Override
                 public void run() {
-                    if (isActive && !isPaused) {
+                    if (isActive.get() && !isPaused.get()) {
                         cleanupOldZombies();
                     }
                 }

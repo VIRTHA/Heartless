@@ -132,6 +132,26 @@ public class BanManager implements Listener {
     }
     
     /**
+     * Método llamado cuando la configuración se recarga
+     */
+    public void onConfigReload() {
+        plugin.getLogger().info("BanManager: Aplicando cambios de configuración...");
+        
+        // Obtener nuevos valores de configuración
+        ConfigManager configManager = HeartlessMain.getConfigManager();
+        
+        // Aplicar configuraciones específicas del sistema de baneos
+        if (!configManager.isBanSystemEnabled()) {
+            plugin.getLogger().info("BanManager: Sistema de baneos deshabilitado por configuración");
+        } else {
+            // Recargar datos de baneos
+            reloadBanData();
+        }
+        
+        plugin.getLogger().info("BanManager: Configuración actualizada exitosamente");
+    }
+    
+    /**
      * Formats milliseconds into a human-readable time format
      * @param millis Time in milliseconds
      * @return Formatted time string (e.g., "2 días, 5 horas, 30 minutos")

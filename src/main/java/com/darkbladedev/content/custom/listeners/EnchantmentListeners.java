@@ -233,9 +233,6 @@ public class EnchantmentListeners implements Listener {
         
         // Flame particles for dramatic effect
         world.spawnParticle(Particle.FLAME, location, particleCount / 2, 0.2, 0.2, 0.2, 0.05);
-        
-        // Warning sound
-        world.playSound(location, Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 0.5f);
     }
     
     /**

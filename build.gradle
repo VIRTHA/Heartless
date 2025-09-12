@@ -12,6 +12,10 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
+compileJava {
+    options.compilerArgs += ["-Xlint:deprecation", "-Xlint:unchecked"]
+}
+
 jar {
     manifest {
         attributes(

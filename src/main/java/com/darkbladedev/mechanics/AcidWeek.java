@@ -281,8 +281,8 @@ public class AcidWeek extends WeeklyEvent {
             cleanupEventData();
             
             // Marcar como inactivo
-            isActive = false;
-            isPaused = false;
+            isActive.set(false);
+            isPaused.set(false);
             
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error durante limpieza forzada", e);
@@ -316,10 +316,10 @@ public class AcidWeek extends WeeklyEvent {
     @Override
     protected void resumeEventTasks() {
         try {
-            if (isActive && !isCleaningUp.get()) {
+            if (isActive.get() && !isCleaningUp.get()) {
                 startAcidDamageTask();
                 startWeatherControlTask();
-                isPaused = false;
+                isPaused.set(false);
                 plugin.getLogger().info("[AcidWeek] Tareas reanudadas");
             }
         } catch (Exception e) {
@@ -385,7 +385,7 @@ public class AcidWeek extends WeeklyEvent {
                 @Override
                 public void run() {
                     try {
-                        if (!isActive || isPaused || isCleaningUp.get()) {
+                        if (!isActive.get() || isPaused.get() || isCleaningUp.get()) {
                             return;
                         }
                         
@@ -674,7 +674,7 @@ public class AcidWeek extends WeeklyEvent {
                 @Override
                 public void run() {
                     try {
-                        if (!isActive || isPaused || isCleaningUp.get()) {
+                        if (!isActive.get() || isPaused.get() || isCleaningUp.get()) {
                             return;
                         }
                         
@@ -704,7 +704,7 @@ public class AcidWeek extends WeeklyEvent {
     
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
-        if (!isActive || isPaused || event == null) {
+        if (!isActive.get() || isPaused.get() || event == null) {
             return;
         }
         
@@ -736,7 +736,7 @@ public class AcidWeek extends WeeklyEvent {
     
     @EventHandler
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        if (!isActive || isPaused || event == null) {
+        if (!isActive.get() || isPaused.get() || event == null) {
             return;
         }
         
@@ -760,7 +760,7 @@ public class AcidWeek extends WeeklyEvent {
     
     @EventHandler
     public void onPlayerItemDamage(PlayerItemDamageEvent event) {
-        if (!isActive || isPaused || event == null) {
+        if (!isActive.get() || isPaused.get() || event == null) {
             return;
         }
         
@@ -796,7 +796,7 @@ public class AcidWeek extends WeeklyEvent {
     
     @EventHandler
     public void onBlockGrow(BlockGrowEvent event) {
-        if (!isActive || isPaused || event == null) {
+        if (!isActive.get() || isPaused.get() || event == null) {
             return;
         }
         

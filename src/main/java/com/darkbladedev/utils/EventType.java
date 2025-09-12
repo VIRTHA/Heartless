@@ -7,7 +7,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
 import com.darkbladedev.HeartlessMain;
-import com.darkbladedev.mechanics.*;
+import com.darkbladedev.mechanics.AcidWeek;
+import com.darkbladedev.mechanics.BloodAndIronWeek;
+import com.darkbladedev.mechanics.ExplosiveWeek;
+import com.darkbladedev.mechanics.ToxicFog;
+import com.darkbladedev.mechanics.UndeadWeek;
+import com.darkbladedev.mechanics.WeeklyEvent;
 
 /**
  * Enum representing the different types of events that can be created.

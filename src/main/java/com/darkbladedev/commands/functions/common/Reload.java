@@ -42,8 +42,11 @@ public class Reload implements SubcommandExecutor, TabCompletable {
         HeartlessMain plugin = HeartlessMain.getInstance();
 
         try {
-            // Recargar configuración principal (si existe)
-            plugin.reloadConfig();
+            // Recargar configuración principal usando ConfigManager
+            if (HeartlessMain.getConfigManager() != null) {
+                HeartlessMain.getConfigManager().reloadConfig();
+                sender.sendMessage(MM.toComponent(plugin.getPrefix() + " <gray>Configuración <green>recargada</green>."));
+            }
             
             // Reinicializar los sistemas principales
             reloadSystems(plugin, sender);
@@ -91,6 +94,26 @@ public class Reload implements SubcommandExecutor, TabCompletable {
             }
         } catch (Exception e) {
             sender.sendMessage(MM.toComponent(plugin.getPrefix() + " <gray>Sistema de placeholders <red>no recargado: " + e.getMessage() + "</red>"));
+        }
+        
+        // Recargar WeeklyEventTaskOptimizer
+        try {
+            if (HeartlessMain.getTaskOptimizer() != null) {
+                HeartlessMain.getTaskOptimizer().reload();
+                sender.sendMessage(MM.toComponent(plugin.getPrefix() + " <gray>Optimizador de tareas <green>recargado</green>."));
+            }
+        } catch (Exception e) {
+            sender.sendMessage(MM.toComponent(plugin.getPrefix() + " <gray>Optimizador de tareas <red>no recargado: " + e.getMessage() + "</red>"));
+        }
+        
+        // Recargar WeeklyEventMigrationManager
+        try {
+            if (HeartlessMain.getMigrationManager() != null) {
+                HeartlessMain.getMigrationManager().reload();
+                sender.sendMessage(MM.toComponent(plugin.getPrefix() + " <gray>Sistema de migración <green>recargado</green>."));
+            }
+        } catch (Exception e) {
+            sender.sendMessage(MM.toComponent(plugin.getPrefix() + " <gray>Sistema de migración <red>no recargado: " + e.getMessage() + "</red>"));
         }
     }
 }

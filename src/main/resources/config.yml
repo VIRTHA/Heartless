@@ -1,0 +1,61 @@
+# Configuración principal del plugin Heartless
+# Los valores aquí se recargan automáticamente al usar /heartless reload
+
+# Configuración de la base de datos
+database:
+  enabled: false
+  host: "localhost"
+  port: 3306
+  database: "heartless"
+  username: "root"
+  password: ""
+  pool-size: 10
+  connection-timeout: 30000
+
+# Configuración de eventos semanales
+events:
+  enabled: true
+  auto-start: true
+  save-interval: 300  # segundos
+  max-concurrent-events: 1
+  notification-radius: 100
+  
+# Configuración del sistema de salud
+health:
+  default-max-health: 20.0
+  minimum-health: 2.0
+  health-steal-enabled: true
+  health-rewards-enabled: true
+  
+# Configuración del sistema de baneo
+ban-system:
+  enabled: true
+  default-duration: 3600  # segundos (1 hora)
+  broadcast-bans: true
+  
+# Configuración de efectos personalizados
+custom-effects:
+  enabled: true
+  zombie-infection:
+    enabled: true
+    duration: 600  # segundos
+    spread-chance: 0.15
+    cure-villagers-required: 1
+    
+# Configuración de mensajes
+messages:
+  prefix: "<gray>[ <gradient:#ffc329:#ffb029:#ff9c29:#ff8929:#ff7629:#ff6329:#ff5029:#ff3c29:#ff2929>Heartless</gradient> ]</gray>"
+  reload-success: "<green>Plugin recargado exitosamente!</green>"
+  reload-error: "<red>Error al recargar el plugin.</red>"
+  
+# Configuración de optimización
+optimization:
+  task-optimizer-enabled: true
+  max-threads: 4
+  queue-size: 1000
+  
+# Configuración de debug
+debug:
+  enabled: false
+  log-level: "INFO"
+  verbose-events: false

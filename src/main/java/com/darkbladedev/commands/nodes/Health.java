@@ -2,7 +2,12 @@ package com.darkbladedev.commands.nodes;
 
 import com.darkbladedev.commands.CommandFunction;
 import com.darkbladedev.commands.SubcommandExecutor;
-import com.darkbladedev.commands.functions.health.*;
+import com.darkbladedev.commands.functions.health.AddHealth;
+import com.darkbladedev.commands.functions.health.AddMaxHealth;
+import com.darkbladedev.commands.functions.health.RemoveHealth;
+import com.darkbladedev.commands.functions.health.RemoveMaxHealth;
+import com.darkbladedev.commands.functions.health.SetHealth;
+import com.darkbladedev.commands.functions.health.SetMaxHealth;
 
 import java.util.HashMap;
 import java.util.Map;

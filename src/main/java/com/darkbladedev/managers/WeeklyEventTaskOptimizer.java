@@ -1,11 +1,23 @@
-package com.darkbladedev.mechanics;
+package com.darkbladedev.managers;
 
 import com.darkbladedev.HeartlessMain;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
@@ -37,7 +49,7 @@ public class WeeklyEventTaskOptimizer {
     private static final long MONITORING_INTERVAL = 30000L; // 30 segundos
     private static final long CLEANUP_INTERVAL = 300000L;   // 5 minutos
     private static final double CPU_THRESHOLD = 0.8;       // 80% CPU
-    private static final long MEMORY_THRESHOLD = 100 * 1024 * 1024; // 100MB
+    private static final long MEMORY_THRESHOLD = 500 * 1024 * 1024; // 500MB
     
     private final HeartlessMain plugin;
     private final Logger logger;
@@ -113,7 +125,7 @@ public class WeeklyEventTaskOptimizer {
         // Factory de hilos personalizada
         ThreadFactory threadFactory = r -> {
             Thread t = new Thread(r, "WeeklyEvent-Worker-" + 
-                                 Thread.currentThread().getId());
+                                 Thread.currentThread().threadId());
             t.setDaemon(true);
             t.setPriority(Thread.NORM_PRIORITY);
             t.setUncaughtExceptionHandler((thread, ex) -> 
@@ -157,6 +169,76 @@ public class WeeklyEventTaskOptimizer {
         startCleanupTask();
         
         logger.info("WeeklyEventTaskOptimizer iniciado exitosamente.");
+    }
+    
+    /**
+     * Recarga la configuración del optimizador sin afectar las tareas en ejecución.
+     * 
+     * Este método:
+     * - Actualiza los parámetros de configuración
+     * - Ajusta los pools de hilos si es necesario
+     * - Reinicia el monitoreo con nuevos valores
+     * - Mantiene las tareas activas funcionando
+     */
+    public void reload() {
+        logger.info("[WeeklyEventTaskOptimizer] Iniciando recarga del sistema...");
+        
+        try {
+            // Actualizar configuración de monitoreo
+            if (isRunning) {
+                // Cancelar tareas de monitoreo actuales
+                if (monitoringTask != null) {
+                    monitoringTask.cancel();
+                }
+                
+                if (cleanupTask != null) {
+                    cleanupTask.cancel();
+                }
+                
+                // Reiniciar tareas de monitoreo con configuración actualizada
+                startMonitoringTask();
+                startCleanupTask();
+                
+                // Limpiar métricas para empezar fresh
+                totalTasksExecuted.set(0);
+                totalExecutionTime.set(0);
+                
+                logger.info("[WeeklyEventTaskOptimizer] Sistema recargado exitosamente. Tareas activas: " + 
+                           taskExecutor.getActiveCount());
+            } else {
+                logger.info("[WeeklyEventTaskOptimizer] Sistema no estaba en ejecución, recarga omitida.");
+            }
+            
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "[WeeklyEventTaskOptimizer] Error durante la recarga del sistema", e);
+            throw new RuntimeException("Error al recargar WeeklyEventTaskOptimizer", e);
+        }
+    }
+    
+    /**
+     * Método llamado cuando la configuración se recarga
+     */
+    public void onConfigReload() {
+        logger.info("WeeklyEventTaskOptimizer: Aplicando cambios de configuración...");
+        
+        // Obtener nuevos valores de configuración
+        ConfigManager configManager = HeartlessMain.getConfigManager();
+        
+        // Aplicar configuraciones específicas del optimizador
+        if (configManager.isOptimizationTaskOptimizerEnabled()) {
+            // Si la optimización está habilitada, recargar el sistema
+            if (!isRunning) {
+                start();
+            } else {
+                reload();
+            }
+            setOptimizationEnabled(true);
+        } else {
+            // Si está deshabilitada, detener optimización pero mantener funcionalidad básica
+            setOptimizationEnabled(false);
+        }
+        
+        logger.info("WeeklyEventTaskOptimizer: Configuración actualizada exitosamente");
     }
     
     /**

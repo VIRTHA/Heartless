@@ -337,7 +337,7 @@ public class ExplosiveWeek extends WeeklyEvent {
     
     @EventHandler
     public void onCreatureSpawn(CreatureSpawnEvent event) {
-        if (!isActive) return;
+        if (!isActive.get()) return;
         
         if (event.getEntityType() == EntityType.CREEPER) {
             Creeper creeper = (Creeper) event.getEntity();
@@ -347,14 +347,14 @@ public class ExplosiveWeek extends WeeklyEvent {
     
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityExplode(EntityExplodeEvent event) {
-        if (!isActive) return;
+        if (!isActive.get()) return;
         
         // TNT explosions are handled in ExplosionPrimeEvent
     }
     
     @EventHandler
     public void onExplosionPrime(ExplosionPrimeEvent event) {
-        if (!isActive) return;
+        if (!isActive.get()) return;
         
         if (event.getEntity() instanceof TNTPrimed) {
             // Double TNT explosion power
@@ -364,7 +364,7 @@ public class ExplosiveWeek extends WeeklyEvent {
     
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        if (!isActive) return;
+        if (!isActive.get()) return;
         
         if (event.getCause() == DamageCause.BLOCK_EXPLOSION || 
             event.getCause() == DamageCause.ENTITY_EXPLOSION) {
@@ -378,7 +378,7 @@ public class ExplosiveWeek extends WeeklyEvent {
     
     @EventHandler
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        if (!isActive) return;
+        if (!isActive.get()) return;
         
         Entity damager = event.getDamager();
         Entity victim = event.getEntity();
@@ -439,7 +439,7 @@ public class ExplosiveWeek extends WeeklyEvent {
     
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
-        if (!isActive) return;
+        if (!isActive.get()) return;
         
         LivingEntity entity = event.getEntity();
         Player killer = entity.getKiller();
@@ -488,7 +488,7 @@ public class ExplosiveWeek extends WeeklyEvent {
     
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
-        if (!isActive) return;
+        if (!isActive.get()) return;
         
         Block block = event.getBlock();
         Material type = block.getType();
@@ -510,14 +510,14 @@ public class ExplosiveWeek extends WeeklyEvent {
     
     @EventHandler
     public void onWeatherChange(WeatherChangeEvent event) {
-        if (!isActive) return;
+        if (!isActive.get()) return;
         
         // If weather is changing to stormy, check for ghast spawning
         if (event.toWeatherState() && event.getWorld().getEnvironment() == Environment.NORMAL) {
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    if (isActive && event.getWorld().hasStorm()) {
+                    if (isActive.get() && event.getWorld().hasStorm()) {
                         for (Player player : event.getWorld().getPlayers()) {
                             if (random.nextInt(100) < 30) { // 30% chance per player
                                 spawnGhastNearPlayer(player);
@@ -531,14 +531,14 @@ public class ExplosiveWeek extends WeeklyEvent {
     
     @EventHandler
     public void onThunderChange(ThunderChangeEvent event) {
-        if (!isActive) return;
+        if (!isActive.get()) return;
         
         // If thunder is starting, spawn more ghasts
         if (event.toThunderState() && event.getWorld().getEnvironment() == Environment.NORMAL) {
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    if (isActive && event.getWorld().isThundering()) {
+                    if (isActive.get() && event.getWorld().isThundering()) {
                         for (Player player : event.getWorld().getPlayers()) {
                             if (random.nextInt(100) < 50) { // 50% chance per player
                                 spawnGhastNearPlayer(player);
@@ -628,13 +628,13 @@ public class ExplosiveWeek extends WeeklyEvent {
     }
     
     public boolean isActive() {
-        return isActive;
+        return isActive.get();
     }
 
     public void pause() {
-        if (!isActive || isPaused) return;
-        
-        isPaused = true;
+        if (!isActive.get() || isPaused.get()) return;
+         
+         isPaused.set(true);
         
         // Cancel the main task
         if (mainTask != null) {
@@ -644,7 +644,7 @@ public class ExplosiveWeek extends WeeklyEvent {
     }
 
     public void resume() {
-        if (!isActive || !isPaused) return;
+        if (!isActive.get() || !isPaused.get()) return;
         
         // Call parent resume to register event handlers
         super.resume();
