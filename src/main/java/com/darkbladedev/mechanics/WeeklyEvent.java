@@ -16,6 +16,8 @@ import com.darkbladedev.utils.RewardPool;
 import com.darkbladedev.utils.TimeExpression;
 import com.darkbladedev.utils.WeeklyEventData;
 
+import net.kyori.adventure.text.Component;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -35,7 +37,7 @@ public abstract class WeeklyEvent implements Listener {
     
     protected final HeartlessMain plugin;
     protected final Logger logger;
-    protected String prefix;
+    protected Component prefix;
     protected BukkitTask endTask;
     
     // Variables thread-safe
@@ -74,7 +76,7 @@ public abstract class WeeklyEvent implements Listener {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.duration = new TimeExpression(duration + "s");
-        this.prefix = "<gradient:#ff6b6b:#4ecdc4><bold>" + getName() + "</bold></gradient>";
+        this.prefix = MM.toComponent("<gradient:#ff6b6b:#4ecdc4><bold>" + getName() + "</bold></gradient>");
     }
     
     /**
@@ -87,7 +89,7 @@ public abstract class WeeklyEvent implements Listener {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.duration = timeExpression;
-        this.prefix = "<gradient:#ff6b6b:#4ecdc4><bold>" + getName() + "</bold></gradient>";
+        this.prefix = MM.toComponent("<gradient:#ff6b6b:#4ecdc4><bold>" + getName() + "</bold></gradient>");
     }
     
     /**
@@ -371,7 +373,7 @@ public abstract class WeeklyEvent implements Listener {
                 logger.log(Level.SEVERE, "Error en auto-guardado del evento " + getName(), e);
                 errorCount.incrementAndGet();
             }
-        }, 20L * 60 * 5, 20L * 60 * 5); // 5 minutos
+        }, 20L * 60 * 5, AUTO_SAVE_INTERVAL); // 5 minutos
         
         // Limpieza cada 10 minutos
         cleanupTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
@@ -381,7 +383,7 @@ public abstract class WeeklyEvent implements Listener {
                 logger.log(Level.SEVERE, "Error en limpieza periódica del evento " + getName(), e);
                 errorCount.incrementAndGet();
             }
-        }, 20L * 60 * 10, 20L * 60 * 10); // 10 minutos
+        }, 20L * 60 * 10, CLEANUP_INTERVAL); // 10 minutos
     }
     
     /**
@@ -478,8 +480,6 @@ public abstract class WeeklyEvent implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         if (!isActive.get()) return;
-        
-        UUID playerId = event.getPlayer().getUniqueId();
         
         // Llamar al método específico del evento antes de limpiar
         onPlayerQuitEvent(event.getPlayer());

@@ -98,6 +98,7 @@ public class UndeadWeek extends WeeklyEvent {
      */
     public UndeadWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
+        this.prefix = MM.toComponent("<bold><gradient:#82d75a:#7ad667:#71d575:#69d482:#61d390:#59d29d:#50d0aa:#48cfb8:#40cec5:#37cdd3:#2fcce0:#31ccdd:#33ccdb:#34cdd8:#36cdd5:#38cdd3:#3acdd0:#3ccdcd:#3dceca:#3fcec8:#41cec5>Semana de los No-Muertos</gradient></bold>");
         
         // Cargar configuración desde el archivo de configuración
         this.zombieSpawnInterval = plugin.getConfig().getInt("events.undead-week.zombie-spawn-interval", DEFAULT_ZOMBIE_SPAWN_INTERVAL);
@@ -105,8 +106,8 @@ public class UndeadWeek extends WeeklyEvent {
         this.zombieSpawnRadius = plugin.getConfig().getInt("events.undead-week.zombie-spawn-radius", DEFAULT_ZOMBIE_SPAWN_RADIUS);
         this.maxZombiesPerPlayer = plugin.getConfig().getInt("events.undead-week.max-zombies-per-player", DEFAULT_MAX_ZOMBIES_PER_PLAYER);
         this.zombieDespawnTime = plugin.getConfig().getInt("events.undead-week.zombie-despawn-time", DEFAULT_ZOMBIE_DESPAWN_TIME);
-        this.enableNightVision = plugin.getConfig().getBoolean("events.undead-week.effects.night-vision", true);
-        this.enableSlowness = plugin.getConfig().getBoolean("events.undead-week.effects.slowness", true);
+        this.enableNightVision = plugin.getConfig().getBoolean("events.undead-week.effects.night-vision", false);
+        this.enableSlowness = plugin.getConfig().getBoolean("events.undead-week.effects.slowness", false);
         this.enableWeakness = plugin.getConfig().getBoolean("events.undead-week.effects.weakness", false);
         
         plugin.getLogger().info("UndeadWeek configurado - Intervalo spawn: " + zombieSpawnInterval + 
@@ -200,6 +201,7 @@ public class UndeadWeek extends WeeklyEvent {
     /**
      * Inicializa los datos de un jugador cuando se une al evento.
      */
+    @SuppressWarnings("unused")
     private void initializePlayerData(Player player) {
         UUID playerId = player.getUniqueId();
         
@@ -435,7 +437,7 @@ public class UndeadWeek extends WeeklyEvent {
     private void configureZombie(Zombie zombie) {
         // Configuración básica
         zombie.customName(MM.toComponent("<red><bold>Zombie"));
-        zombie.setCustomNameVisible(true);
+        zombie.setCustomNameVisible(false);
         zombie.setRemoveWhenFarAway(false);
         
         // Estadísticas mejoradas

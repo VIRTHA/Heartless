@@ -48,8 +48,9 @@ public class WeeklyEventTaskOptimizer {
     // Configuración de monitoreo
     private static final long MONITORING_INTERVAL = 30000L; // 30 segundos
     private static final long CLEANUP_INTERVAL = 300000L;   // 5 minutos
+    @SuppressWarnings("unused")
     private static final double CPU_THRESHOLD = 0.8;       // 80% CPU
-    private static final long MEMORY_THRESHOLD = 500 * 1024 * 1024; // 500MB
+    private static final long MEMORY_THRESHOLD = 700 * 1024 * 1024; // 500MB
     
     private final HeartlessMain plugin;
     private final Logger logger;
@@ -547,6 +548,7 @@ public class WeeklyEventTaskOptimizer {
     private class OptimizedBukkitTask extends BukkitRunnable {
         private final String taskId;
         private final Runnable task;
+        @SuppressWarnings("unused")
         private final TaskPriority priority;
         
         public OptimizedBukkitTask(String taskId, Runnable task, TaskPriority priority) {
@@ -605,6 +607,7 @@ public class WeeklyEventTaskOptimizer {
             return priority.getValue();
         }
         
+        @SuppressWarnings("unused")
         public String getTaskId() {
             return taskId;
         }
@@ -646,17 +649,22 @@ public class WeeklyEventTaskOptimizer {
             }
         }
         
+        @SuppressWarnings("unused")
         public double getAverageExecutionTime() {
             long count = executionCount.get();
             return count > 0 ? (double) totalExecutionTime.get() / count : 0.0;
         }
         
         // Getters
+        @SuppressWarnings("unused")
         public String getTaskId() { return taskId; }
         public TaskPriority getPriority() { return priority; }
+        @SuppressWarnings("unused")
         public long getExecutionCount() { return executionCount.get(); }
         public long getLastExecutionTime() { return lastExecutionTime; }
+        @SuppressWarnings("unused")
         public long getMinExecutionTime() { return minExecutionTime == Long.MAX_VALUE ? 0 : minExecutionTime; }
+        @SuppressWarnings("unused")
         public long getMaxExecutionTime() { return maxExecutionTime; }
     }
     

@@ -71,6 +71,10 @@ public class WeeklyEventManager {
     private final WeeklyEventDispatcher eventDispatcher;
     private final Map<String, WeeklyEvent> registeredEvents = new HashMap<>();
     
+    // Sistemas integrados
+    private final EventStatisticsManager statisticsManager;
+    private final PluginMonitoringSystem monitoringSystem;
+    
     // Volatile references for thread visibility
     private volatile BukkitTask weeklyTask;
     private volatile EventType currentEventType;
@@ -81,6 +85,10 @@ public class WeeklyEventManager {
         this.dataFile = new File(plugin.getDataFolder(), DATA_FILENAME);
         this.gson = new GsonBuilder().setPrettyPrinting().create();
         this.eventDispatcher = new WeeklyEventDispatcher(plugin, this);
+        
+        // Inicializar sistemas integrados
+        this.statisticsManager = new EventStatisticsManager(plugin);
+        this.monitoringSystem = new PluginMonitoringSystem(plugin, this);
         
         // Ensure data directory exists
         if (!plugin.getDataFolder().exists()) {
@@ -111,6 +119,10 @@ public class WeeklyEventManager {
                 } else {
                     startRandomEvent();
                 }
+                
+                // Inicializar sistema de monitoreo
+                monitoringSystem.startMonitoring();
+                plugin.getLogger().info("Sistema de monitoreo de plugin activado");
             } finally {
                 isEventStarting.set(false);
             }
@@ -276,6 +288,14 @@ public class WeeklyEventManager {
             long totalDuration = System.currentTimeMillis() - eventStartTime.get();
             eventDispatcher.fireEventStop(currentEventType, System.currentTimeMillis(), false, totalDuration);
             
+            // Publicar estadísticas automáticamente antes de detener
+            try {
+                statisticsManager.publishEventStatistics(currentEvent, currentEventType, totalDuration, false);
+                plugin.getLogger().info("Estadísticas del evento publicadas automáticamente");
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error al publicar estadísticas del evento: " + e.getMessage());
+            }
+            
             // Stop the event safely
             try {
                 currentEvent.stop();
@@ -318,6 +338,14 @@ public class WeeklyEventManager {
             // Fire system event before stopping
             long totalDuration = System.currentTimeMillis() - eventStartTime.get();
             eventDispatcher.fireEventStop(currentEventType, System.currentTimeMillis(), true, totalDuration);
+            
+            // Publicar estadísticas automáticamente antes de detener (forzado)
+            try {
+                statisticsManager.publishEventStatistics(currentEvent, currentEventType, totalDuration, true);
+                plugin.getLogger().info("Estadísticas del evento publicadas automáticamente (detención forzada)");
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error al publicar estadísticas del evento (detención forzada): " + e.getMessage());
+            }
             
             // Stop the current event safely
             try {
@@ -865,6 +893,14 @@ public class WeeklyEventManager {
      * Shutdown method for plugin disable
      */
     public void shutdown() {
+        // Detener sistema de monitoreo
+        try {
+            monitoringSystem.stopMonitoring();
+            plugin.getLogger().info("Sistema de monitoreo detenido correctamente");
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error al detener sistema de monitoreo: " + e.getMessage());
+        }
+        
         cleanup();
     }
     
@@ -1088,7 +1124,23 @@ public class WeeklyEventManager {
             eventLock.writeLock().unlock();
         }
     }
-
+    
+    /**
+     * Obtiene el sistema de estadísticas de eventos
+     * @return El sistema de estadísticas
+     */
+    public EventStatisticsManager getStatisticsManager() {
+        return statisticsManager;
+    }
+    
+    /**
+     * Obtiene el sistema de monitoreo del plugin
+     * @return El sistema de monitoreo
+     */
+    public PluginMonitoringSystem getMonitoringSystem() {
+        return monitoringSystem;
+    }
+    
     /**
      * Transiciona de un evento a otro (usado para testing)
      * @param fromEventName El nombre del evento actual
