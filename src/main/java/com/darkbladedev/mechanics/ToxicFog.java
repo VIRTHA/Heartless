@@ -9,7 +9,6 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
-import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 
 import java.util.ArrayList;
@@ -26,7 +25,7 @@ public class ToxicFog extends WeeklyEvent {
     public ToxicFog(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
         this.affectedPlayers = new HashSet<>();
-        this.prefix = MM.toComponent("<b><gradient:#7b0c69:#7f1064:#83145f:#87185a:#8b1c55:#8f2050:#93254b:#972946:#9b2d41:#9f313c:#a33537:#a73932>Niebla Toxica</gradient></b>");
+        this.prefix = "<b><gradient:#7b0c69:#7f1064:#83145f:#87185a:#8b1c55:#8f2050:#93254b:#972946:#9b2d41:#9f313c:#a33537:#a73932>Niebla Toxica</gradient></b>";
     }
     
     @Override

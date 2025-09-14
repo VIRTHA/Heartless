@@ -16,8 +16,6 @@ import com.darkbladedev.utils.RewardPool;
 import com.darkbladedev.utils.TimeExpression;
 import com.darkbladedev.utils.WeeklyEventData;
 
-import net.kyori.adventure.text.Component;
-
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,7 +35,7 @@ public abstract class WeeklyEvent implements Listener {
     
     protected final HeartlessMain plugin;
     protected final Logger logger;
-    protected Component prefix;
+    protected String prefix;
     protected BukkitTask endTask;
     
     // Variables thread-safe
@@ -76,7 +74,7 @@ public abstract class WeeklyEvent implements Listener {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.duration = new TimeExpression(duration + "s");
-        this.prefix = MM.toComponent("<gradient:#ff6b6b:#4ecdc4><bold>" + getName() + "</bold></gradient>");
+        this.prefix = "<gradient:#ff6b6b:#4ecdc4><bold>" + getName() + "</bold></gradient>";
     }
     
     /**
@@ -89,7 +87,7 @@ public abstract class WeeklyEvent implements Listener {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.duration = timeExpression;
-        this.prefix = MM.toComponent("<gradient:#ff6b6b:#4ecdc4><bold>" + getName() + "</bold></gradient>");
+        this.prefix = "<gradient:#ff6b6b:#4ecdc4><bold>" + getName() + "</bold></gradient>";
     }
     
     /**

@@ -184,6 +184,11 @@ public class ConfigManager {
      * Notifica a todos los managers sobre cambios en la configuración
      */
     private void notifyManagersOfConfigChange() {
+        // Notificar al DatabaseManager
+        if (HeartlessMain.getDatabaseManager() != null) {
+            HeartlessMain.getDatabaseManager().onConfigReload();
+        }
+        
         // Notificar al WeeklyEventManager
         if (plugin.getWeeklyEventManager() != null) {
             plugin.getWeeklyEventManager().onConfigReload();
@@ -221,6 +226,24 @@ public class ConfigManager {
     public String getDatabasePassword() { return databasePassword; }
     public int getDatabasePoolSize() { return databasePoolSize; }
     public int getDatabaseConnectionTimeout() { return databaseConnectionTimeout; }
+    
+    // Getters adicionales para DatabaseManager
+    public long getDatabaseConnectionTimeoutLong() {
+        return config.getLong("database.connection-timeout", 30000);
+    }
+    
+    // Getters adicionales para sistema de bans
+    public long getBanDefaultDurationLong() {
+        return config.getLong("ban-system.default-duration", 24); // 24 horas por defecto
+    }
+    
+    public String getBanMessage() {
+        return config.getString("ban-system.ban-message", "<red><b>{reason}\n\n<gray>Duración del baneo: <red>{time}<gray>.\n<gray>Este es tu baneo número <red>{count}<gray>.");
+    }
+    
+    public String getBanBroadcastMessage() {
+        return config.getString("ban-system.broadcast-message", "<red>{player} ha sido baneado del servidor. Razón: {reason}");
+    }
     
     // Events getters
     public boolean isEventsEnabled() { return eventsEnabled; }

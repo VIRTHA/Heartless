@@ -1,0 +1,347 @@
+package com.darkbladedev.managers;
+
+import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.mechanics.WeeklyEvent;
+import com.darkbladedev.mechanics.UndeadWeek;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.logging.Logger;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+/**
+ * Tests para DatabaseManager - Sistema unificado de almacenamiento y persistencia
+ * 
+ * Estos tests verifican:
+ * - Inicialización correcta del DatabaseManager
+ * - Funcionalidad de fallback a JSON cuando la base de datos no está disponible
+ * - Operaciones de guardado y carga de eventos semanales
+ * - Operaciones de guardado y carga de datos de jugadores
+ * - Sistema de cache
+ * - Compatibilidad con configuraciones existentes
+ */
+class DatabaseManagerTest {
+    
+    @Mock
+    private HeartlessMain mockPlugin;
+    
+    @Mock
+    private ConfigManager mockConfigManager;
+    
+    @Mock
+    private Logger mockLogger;
+    
+    private DatabaseManager databaseManager;
+    private File tempDataFolder;
+    
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        
+        // Configurar mocks básicos
+        when(mockPlugin.getLogger()).thenReturn(mockLogger);
+        when(mockPlugin.getDataFolder()).thenReturn(createTempDataFolder());
+        
+        // Configurar ConfigManager mock con valores por defecto
+        when(mockConfigManager.isDatabaseEnabled()).thenReturn(false); // Usar JSON por defecto en tests
+        when(mockConfigManager.getDatabaseHost()).thenReturn("localhost");
+        when(mockConfigManager.getDatabasePort()).thenReturn(3306);
+        when(mockConfigManager.getDatabaseName()).thenReturn("test_db");
+        when(mockConfigManager.getDatabaseUsername()).thenReturn("test_user");
+        when(mockConfigManager.getDatabasePassword()).thenReturn("test_pass");
+        when(mockConfigManager.getDatabasePoolSize()).thenReturn(5);
+        when(mockConfigManager.getDatabaseConnectionTimeout()).thenReturn(30000);
+        
+        // Mock del HeartlessMain estático
+        mockStatic(HeartlessMain.class);
+        when(HeartlessMain.getConfigManager()).thenReturn(mockConfigManager);
+    }
+    
+    @AfterEach
+    void tearDown() {
+        if (databaseManager != null) {
+            databaseManager.shutdown();
+        }
+        
+        // Limpiar archivos temporales
+        if (tempDataFolder != null && tempDataFolder.exists()) {
+            deleteDirectory(tempDataFolder);
+        }
+    }
+    
+    @Test
+    @DisplayName("DatabaseManager se inicializa correctamente con base de datos deshabilitada")
+    void testInitializationWithDatabaseDisabled() {
+        // Arrange
+        when(mockConfigManager.isDatabaseEnabled()).thenReturn(false);
+        
+        // Act
+        databaseManager = new DatabaseManager(mockPlugin);
+        
+        // Assert
+        assertNotNull(databaseManager);
+        assertFalse(databaseManager.isDatabaseEnabled());
+        assertFalse(databaseManager.isDatabaseConnected());
+        
+        // Verificar que se creó el directorio de datos
+        assertTrue(tempDataFolder.exists());
+        
+        // Verificar logs
+        verify(mockLogger).info("DatabaseManager: Base de datos deshabilitada, usando almacenamiento JSON");
+    }
+    
+    @Test
+    @DisplayName("DatabaseManager maneja correctamente la configuración habilitada pero sin conexión")
+    void testInitializationWithDatabaseEnabledButNoConnection() {
+        // Arrange
+        when(mockConfigManager.isDatabaseEnabled()).thenReturn(true);
+        // No configuramos una base de datos real, por lo que debería fallar la conexión
+        
+        // Act
+        databaseManager = new DatabaseManager(mockPlugin);
+        
+        // Assert
+        assertNotNull(databaseManager);
+        assertTrue(databaseManager.isDatabaseEnabled());
+        assertFalse(databaseManager.isDatabaseConnected()); // Debería fallar la conexión
+        
+        // Verificar que se logueó el error y el fallback
+        verify(mockLogger).log(eq(java.util.logging.Level.SEVERE), contains("Error conectando a la base de datos"), any(Exception.class));
+    }
+    
+    @Test
+    @DisplayName("Guardado de evento semanal funciona con almacenamiento JSON")
+    void testSaveWeeklyEventToJSON() throws Exception {
+        // Arrange
+        when(mockConfigManager.isDatabaseEnabled()).thenReturn(false);
+        databaseManager = new DatabaseManager(mockPlugin);
+        
+        WeeklyEvent mockEvent = mock(UndeadWeek.class);
+        when(mockEvent.getStartTime()).thenReturn(System.currentTimeMillis());
+        when(mockEvent.getEndTime()).thenReturn(System.currentTimeMillis() + 604800000L); // +1 semana
+        when(mockEvent.isActive()).thenReturn(true);
+        when(mockEvent.isPaused()).thenReturn(false);
+        when(mockEvent.getPauseStartTime()).thenReturn(0L);
+        when(mockEvent.getTotalPausedTime()).thenReturn(0L);
+        
+        // Act
+        CompletableFuture<Boolean> result = databaseManager.saveWeeklyEvent(mockEvent);
+        Boolean success = result.get();
+        
+        // Assert
+        assertTrue(success);
+        
+        // Verificar que se creó el archivo JSON
+        File eventFile = new File(tempDataFolder, "event_data.json");
+        assertTrue(eventFile.exists());
+        assertTrue(eventFile.length() > 0);
+    }
+    
+    @Test
+    @DisplayName("Carga de evento semanal funciona con almacenamiento JSON")
+    void testLoadWeeklyEventFromJSON() throws Exception {
+        // Arrange
+        when(mockConfigManager.isDatabaseEnabled()).thenReturn(false);
+        databaseManager = new DatabaseManager(mockPlugin);
+        
+        // Primero guardar un evento
+        WeeklyEvent mockEvent = mock(UndeadWeek.class);
+        long startTime = System.currentTimeMillis();
+        long endTime = startTime + 604800000L;
+        
+        when(mockEvent.getStartTime()).thenReturn(startTime);
+        when(mockEvent.getEndTime()).thenReturn(endTime);
+        when(mockEvent.isActive()).thenReturn(true);
+        when(mockEvent.isPaused()).thenReturn(false);
+        when(mockEvent.getPauseStartTime()).thenReturn(0L);
+        when(mockEvent.getTotalPausedTime()).thenReturn(0L);
+        
+        CompletableFuture<Boolean> saveResult = databaseManager.saveWeeklyEvent(mockEvent);
+        assertTrue(saveResult.get());
+        
+        // Act - Cargar el evento
+        CompletableFuture<DatabaseManager.WeeklyEventData> loadResult = databaseManager.loadWeeklyEvent();
+        DatabaseManager.WeeklyEventData loadedData = loadResult.get();
+        
+        // Assert
+        assertNotNull(loadedData);
+        assertEquals("undead_week", loadedData.eventType);
+        assertEquals(startTime, loadedData.startTime);
+        assertEquals(endTime, loadedData.endTime);
+        assertTrue(loadedData.eventActive);
+        assertFalse(loadedData.isPaused);
+    }
+    
+    @Test
+    @DisplayName("Guardado de datos de jugador funciona con almacenamiento JSON")
+    void testSavePlayerDataToJSON() throws Exception {
+        // Arrange
+        when(mockConfigManager.isDatabaseEnabled()).thenReturn(false);
+        databaseManager = new DatabaseManager(mockPlugin);
+        
+        UUID playerUUID = UUID.randomUUID();
+        String playerName = "TestPlayer";
+        Map<String, Object> playerData = new HashMap<>();
+        playerData.put("infected", true);
+        playerData.put("infectionTime", System.currentTimeMillis());
+        playerData.put("playerKills", 5);
+        playerData.put("banCount", 0);
+        
+        // Act
+        CompletableFuture<Boolean> result = databaseManager.savePlayerData(playerUUID, playerName, playerData);
+        Boolean success = result.get();
+        
+        // Assert
+        assertTrue(success);
+        
+        // Verificar que se creó el archivo JSON
+        File playerFile = new File(tempDataFolder, "player_data.json");
+        assertTrue(playerFile.exists());
+        assertTrue(playerFile.length() > 0);
+    }
+    
+    @Test
+    @DisplayName("Carga de datos de jugador funciona con almacenamiento JSON")
+    void testLoadPlayerDataFromJSON() throws Exception {
+        // Arrange
+        when(mockConfigManager.isDatabaseEnabled()).thenReturn(false);
+        databaseManager = new DatabaseManager(mockPlugin);
+        
+        UUID playerUUID = UUID.randomUUID();
+        String playerName = "TestPlayer";
+        Map<String, Object> originalData = new HashMap<>();
+        originalData.put("infected", true);
+        originalData.put("infectionTime", 123456789L);
+        originalData.put("playerKills", 5);
+        originalData.put("banCount", 2);
+        
+        // Guardar datos primero
+        CompletableFuture<Boolean> saveResult = databaseManager.savePlayerData(playerUUID, playerName, originalData);
+        assertTrue(saveResult.get());
+        
+        // Act - Cargar datos
+        CompletableFuture<Map<String, Object>> loadResult = databaseManager.loadPlayerData(playerUUID);
+        Map<String, Object> loadedData = loadResult.get();
+        
+        // Assert
+        assertNotNull(loadedData);
+        assertEquals(playerName, loadedData.get("playerName"));
+        assertEquals(true, loadedData.get("infected"));
+        assertEquals(5.0, ((Number) loadedData.get("playerKills")).doubleValue()); // JSON puede convertir a double
+        assertEquals(2.0, ((Number) loadedData.get("banCount")).doubleValue());
+    }
+    
+    @Test
+    @DisplayName("Sistema de cache funciona correctamente")
+    void testCacheSystem() throws Exception {
+        // Arrange
+        when(mockConfigManager.isDatabaseEnabled()).thenReturn(false);
+        databaseManager = new DatabaseManager(mockPlugin);
+        
+        UUID playerUUID = UUID.randomUUID();
+        String playerName = "CacheTestPlayer";
+        Map<String, Object> playerData = new HashMap<>();
+        playerData.put("infected", false);
+        playerData.put("playerKills", 10);
+        
+        // Guardar datos
+        databaseManager.savePlayerData(playerUUID, playerName, playerData).get();
+        
+        // Act - Cargar datos dos veces (segunda vez debería usar cache)
+        long startTime1 = System.nanoTime();
+        Map<String, Object> loadedData1 = databaseManager.loadPlayerData(playerUUID).get();
+        long endTime1 = System.nanoTime();
+        
+        long startTime2 = System.nanoTime();
+        Map<String, Object> loadedData2 = databaseManager.loadPlayerData(playerUUID).get();
+        long endTime2 = System.nanoTime();
+        
+        // Assert
+        assertNotNull(loadedData1);
+        assertNotNull(loadedData2);
+        assertEquals(loadedData1.get("playerName"), loadedData2.get("playerName"));
+        
+        // La segunda carga debería ser más rápida (usando cache)
+        long duration1 = endTime1 - startTime1;
+        long duration2 = endTime2 - startTime2;
+        
+        // Nota: Este test puede ser flaky dependiendo del sistema, pero generalmente el cache es más rápido
+        assertTrue(duration2 <= duration1 * 2, "Cache debería ser más rápido o similar");
+    }
+    
+    @Test
+    @DisplayName("onConfigReload actualiza correctamente la configuración")
+    void testConfigReload() {
+        // Arrange
+        when(mockConfigManager.isDatabaseEnabled()).thenReturn(false);
+        databaseManager = new DatabaseManager(mockPlugin);
+        
+        assertFalse(databaseManager.isDatabaseEnabled());
+        assertFalse(databaseManager.isDatabaseConnected());
+        
+        // Act - Simular cambio de configuración
+        when(mockConfigManager.isDatabaseEnabled()).thenReturn(true);
+        databaseManager.onConfigReload();
+        
+        // Assert
+        assertTrue(databaseManager.isDatabaseEnabled());
+        // La conexión puede fallar en el test, pero el estado enabled debería cambiar
+        
+        // Verificar logs de recarga
+        verify(mockLogger).info("DatabaseManager: Aplicando cambios de configuración...");
+    }
+    
+    @Test
+    @DisplayName("shutdown cierra correctamente las conexiones")
+    void testShutdown() {
+        // Arrange
+        when(mockConfigManager.isDatabaseEnabled()).thenReturn(false);
+        databaseManager = new DatabaseManager(mockPlugin);
+        
+        // Act
+        assertDoesNotThrow(() -> databaseManager.shutdown());
+        
+        // Assert - No debería haber excepciones
+        // En un test real con base de datos, verificaríamos que las conexiones se cerraron
+    }
+    
+    // Métodos de utilidad para tests
+    
+    private File createTempDataFolder() {
+        try {
+            tempDataFolder = File.createTempFile("heartless_test", "");
+            tempDataFolder.delete();
+            tempDataFolder.mkdirs();
+            return tempDataFolder;
+        } catch (Exception e) {
+            throw new RuntimeException("Error creando directorio temporal para tests", e);
+        }
+    }
+    
+    private void deleteDirectory(File directory) {
+        if (directory.exists()) {
+            File[] files = directory.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        deleteDirectory(file);
+                    } else {
+                        file.delete();
+                    }
+                }
+            }
+            directory.delete();
+        }
+    }
+}

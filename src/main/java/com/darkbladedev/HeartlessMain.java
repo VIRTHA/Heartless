@@ -14,6 +14,7 @@ import com.darkbladedev.managers.BanManager;
 import com.darkbladedev.managers.ConfigManager;
 import com.darkbladedev.managers.ContentManager;
 import com.darkbladedev.managers.CustomEffectsManager;
+import com.darkbladedev.managers.DatabaseManager;
 import com.darkbladedev.managers.EventManager;
 import com.darkbladedev.managers.PlaceholderApiManager;
 import com.darkbladedev.managers.StorageManager;
@@ -34,6 +35,7 @@ public class HeartlessMain extends JavaPlugin {
     private static PlaceholderApiManager papiManager;
     private static BanManager banManager;
     private static StorageManager storageManager;
+    private static DatabaseManager databaseManager;
     private static CustomEffectsManager customEffectsManager;
     private static EnchantmentListeners enchantmentListeners;
     private static WeeklyEventTaskOptimizer taskOptimizer;
@@ -49,6 +51,9 @@ public class HeartlessMain extends JavaPlugin {
         
         // Inicializar ConfigManager PRIMERO para que esté disponible para todos los demás managers
         configManager = new ConfigManager(instance);
+        
+        // Inicializar DatabaseManager después del ConfigManager
+        databaseManager = new DatabaseManager(instance);
         
         // Inicializar WeeklyEventManager primero ya que EventManager lo necesita
         weeklyEventManager = new WeeklyEventManager(instance);
@@ -75,6 +80,11 @@ public class HeartlessMain extends JavaPlugin {
         // Guardar datos del evento semanal activo
         if (weeklyEventManager != null) {
             weeklyEventManager.shutdown();
+        }
+        
+        // Cerrar DatabaseManager
+        if (databaseManager != null) {
+            databaseManager.shutdown();
         }
         
         // Guardar datos del ciclo de día
@@ -184,6 +194,10 @@ public class HeartlessMain extends JavaPlugin {
 
     public StorageManager getStorageManager() {
         return storageManager;
+    }
+    
+    public static DatabaseManager getDatabaseManager() {
+        return databaseManager;
     }
     
     public static EnchantmentListeners getEnchantmentListeners() {

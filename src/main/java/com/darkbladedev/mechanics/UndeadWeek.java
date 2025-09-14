@@ -98,7 +98,7 @@ public class UndeadWeek extends WeeklyEvent {
      */
     public UndeadWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
-        this.prefix = MM.toComponent("<bold><gradient:#82d75a:#7ad667:#71d575:#69d482:#61d390:#59d29d:#50d0aa:#48cfb8:#40cec5:#37cdd3:#2fcce0:#31ccdd:#33ccdb:#34cdd8:#36cdd5:#38cdd3:#3acdd0:#3ccdcd:#3dceca:#3fcec8:#41cec5>Semana de los No-Muertos</gradient></bold>");
+        this.prefix = "<bold><gradient:#82d75a:#7ad667:#71d575:#69d482:#61d390:#59d29d:#50d0aa:#48cfb8:#40cec5:#37cdd3:#2fcce0:#31ccdd:#33ccdb:#34cdd8:#36cdd5:#38cdd3:#3acdd0:#3ccdcd:#3dceca:#3fcec8:#41cec5>Semana de los No-Muertos</gradient></bold>";
         
         // Cargar configuración desde el archivo de configuración
         this.zombieSpawnInterval = plugin.getConfig().getInt("events.undead-week.zombie-spawn-interval", DEFAULT_ZOMBIE_SPAWN_INTERVAL);

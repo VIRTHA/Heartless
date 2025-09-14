@@ -71,7 +71,7 @@ public class ExplosiveWeek extends WeeklyEvent {
     
     public ExplosiveWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
-        this.prefix = MM.toComponent("<b><gradient:#ed2f2f:#f15c5c:#f58888:#f9b5b5:#fce1e1:#ffffff:#ffffff:#ffffff:#ffffff:#ffffff:#fce1e2:#f8b5b5:#f48989:#f05c5d:#ec3031>Semana Explosiva</gradient></b>");
+        this.prefix = "<b><gradient:#ed2f2f:#f15c5c:#f58888:#f9b5b5:#fce1e1:#ffffff:#ffffff:#ffffff:#ffffff:#ffffff:#fce1e2:#f8b5b5:#f48989:#f05c5d:#ec3031>Semana Explosiva</gradient></b>";
     }
     
     @Override

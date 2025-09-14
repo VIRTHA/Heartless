@@ -225,6 +225,14 @@ public class BanManager implements Listener {
             return;
         }
         
+        ConfigManager configManager = HeartlessMain.getConfigManager();
+        
+        // Verificar si el sistema de baneos está habilitado
+        if (!configManager.isBanSystemEnabled()) {
+            plugin.getLogger().info("Intento de baneo cancelado: sistema de baneos deshabilitado");
+            return;
+        }
+        
         UUID playerUUID = player.getUniqueId();
         
         // Actualizar contador de baneos
@@ -234,22 +242,26 @@ public class BanManager implements Listener {
         // Agregar a la lista de baneados
         banList.add(playerUUID);
         
-        // Si el baneo es de 0 horas o menos, solo mostrar advertencia
+        // Usar duración por defecto si no se especifica o es 0
         if (banHours <= 0) {
-            player.sendMessage(MM.toComponent("<red>" + banReason));
-            player.sendMessage(MM.toComponent("<green>Estás exento de baneo gracias a tus permisos."));
-            return;
+            final int configBanHours = configManager.getBanDefaultDuration();
+            if (configBanHours <= 0) {
+                player.sendMessage(MM.toComponent("<red>" + banReason));
+                player.sendMessage(MM.toComponent("<green>Estás exento de baneo gracias a tus permisos."));
+                return;
+            }
         }
         
         // Calcular fecha de expiración
         Date expirationDate = new Date(System.currentTimeMillis() + (banHours * 60 * 60 * 1000));
         
-        // Mensaje de baneo para el jugador
-        Component banMessage = MM.toComponent(
-            "<red><b>" + banReason + "\n\n" +
-            "<gray>Duración del baneo: <red>" + banHours + " horas<gray>.\n" +
-            "<gray>Este es tu baneo número <red>" + banCount + "<gray>."
-        );
+        // Obtener mensaje de baneo desde configuración
+        String banMessageText = configManager.getBanMessage()
+            .replace("{reason}", banReason)
+            .replace("{time}", banHours + " horas")
+            .replace("{count}", String.valueOf(banCount));
+        
+        Component banMessage = MM.toComponent(banMessageText);
         
         // Notificar al jugador antes del baneo
         player.sendMessage(MM.toComponent("<red>" + banReason));
@@ -270,6 +282,15 @@ public class BanManager implements Listener {
 
                 // Expulsar al jugador
                 player.kick(banMessage);
+                
+                // Broadcast si está habilitado
+                if (configManager.isBanBroadcast()) {
+                    String broadcastMessage = configManager.getBanBroadcastMessage()
+                        .replace("{player}", player.getName())
+                        .replace("{reason}", banReason)
+                        .replace("{time}", banHours + " horas");
+                    Bukkit.getConsoleSender().sendMessage(MM.toComponent(broadcastMessage));
+                }
                 
                 // Notificar a los administradores
                 Bukkit.getConsoleSender().sendMessage(MM.toComponent(
