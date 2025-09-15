@@ -23,11 +23,13 @@ public class ConfigManager {
     
     // Cache de valores de configuración para acceso rápido
     private boolean databaseEnabled;
+    private String databaseType;
     private String databaseHost;
     private int databasePort;
     private String databaseName;
     private String databaseUsername;
     private String databasePassword;
+    private String sqliteFile;
     private int databasePoolSize;
     private int databaseConnectionTimeout;
     
@@ -131,13 +133,21 @@ public class ConfigManager {
     private void loadConfigValues() {
         // Database configuration
         databaseEnabled = config.getBoolean("database.enabled", false);
-        databaseHost = config.getString("database.host", "localhost");
-        databasePort = config.getInt("database.port", 3306);
-        databaseName = config.getString("database.database", "heartless");
-        databaseUsername = config.getString("database.username", "root");
-        databasePassword = config.getString("database.password", "");
-        databasePoolSize = config.getInt("database.pool-size", 10);
-        databaseConnectionTimeout = config.getInt("database.connection-timeout", 30000);
+        databaseType = config.getString("database.type", "sqlite").toLowerCase();
+        
+        // MySQL configuration
+        databaseHost = config.getString("database.mysql.host", "localhost");
+        databasePort = config.getInt("database.mysql.port", 3306);
+        databaseName = config.getString("database.mysql.database", "heartless");
+        databaseUsername = config.getString("database.mysql.username", "root");
+        databasePassword = config.getString("database.mysql.password", "");
+        
+        // SQLite configuration
+        sqliteFile = config.getString("database.sqlite.file", "heartless.db");
+        
+        // Pool configuration
+        databasePoolSize = config.getInt("database.pool.size", 10);
+        databaseConnectionTimeout = config.getInt("database.pool.connection-timeout", 30000);
         
         // Events configuration
         eventsEnabled = config.getBoolean("events.enabled", true);
@@ -219,13 +229,19 @@ public class ConfigManager {
     
     // Database getters
     public boolean isDatabaseEnabled() { return databaseEnabled; }
+    public String getDatabaseType() { return databaseType; }
     public String getDatabaseHost() { return databaseHost; }
     public int getDatabasePort() { return databasePort; }
     public String getDatabaseName() { return databaseName; }
     public String getDatabaseUsername() { return databaseUsername; }
     public String getDatabasePassword() { return databasePassword; }
+    public String getSqliteFile() { return sqliteFile; }
     public int getDatabasePoolSize() { return databasePoolSize; }
     public int getDatabaseConnectionTimeout() { return databaseConnectionTimeout; }
+    
+    // Database type helpers
+    public boolean isMySQLDatabase() { return "mysql".equals(databaseType); }
+    public boolean isSQLiteDatabase() { return "sqlite".equals(databaseType); }
     
     // Getters adicionales para DatabaseManager
     public long getDatabaseConnectionTimeoutLong() {

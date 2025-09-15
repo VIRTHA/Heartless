@@ -1,17 +1,24 @@
 package com.darkbladedev;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
 import com.darkbladedev.commands.CommandHandler;
 import com.darkbladedev.content.custom.listeners.EnchantmentListeners;
 import com.darkbladedev.listeners.UndeadWeekStatsListener;
+import com.darkbladedev.managers.AutoSaveManager;
+import com.darkbladedev.managers.BackupManager;
 import com.darkbladedev.managers.BanManager;
 import com.darkbladedev.managers.ConfigManager;
+import com.darkbladedev.managers.PostRestartValidator;
 import com.darkbladedev.managers.ContentManager;
 import com.darkbladedev.managers.CustomEffectsManager;
 import com.darkbladedev.managers.DatabaseManager;
@@ -27,6 +34,7 @@ public class HeartlessMain extends JavaPlugin {
 
     private static final String prefix = "<gray>[ <gradient:#ffc329:#ffb029:#ff9c29:#ff8929:#ff7629:#ff6329:#ff5029:#ff3c29:#ff2929>Heartless</gradient> ]</gray>";
     private static HeartlessMain instance;
+    private static Gson gson;
 
     private static ConfigManager configManager;
     private static EventManager eventManager;
@@ -40,6 +48,13 @@ public class HeartlessMain extends JavaPlugin {
     private static EnchantmentListeners enchantmentListeners;
     private static WeeklyEventTaskOptimizer taskOptimizer;
     private static WeeklyEventMigrationManager migrationManager;
+    private static AutoSaveManager autoSaveManager;
+    private static PostRestartValidator postRestartValidator;
+    private static BackupManager backupManager;
+    
+    static {
+        gson = new GsonBuilder().setPrettyPrinting().create();
+    }
     
     @Override
     public void onEnable() {
@@ -49,11 +64,26 @@ public class HeartlessMain extends JavaPlugin {
         // Mostrar banner de inicio
         displayStartupBanner();
         
+        // Programar validación post-reinicio
+        if (postRestartValidator != null) {
+            postRestartValidator.startPostRestartValidation();
+        }
+        
         // Inicializar ConfigManager PRIMERO para que esté disponible para todos los demás managers
         configManager = new ConfigManager(instance);
         
         // Inicializar DatabaseManager después del ConfigManager
         databaseManager = new DatabaseManager(instance);
+        
+        // Inicializar BackupManager
+        backupManager = new BackupManager(instance);
+        
+        // Inicializar AutoSaveManager después de DatabaseManager
+        autoSaveManager = new AutoSaveManager(instance);
+        
+        // Inicializar PostRestartValidator
+        postRestartValidator = new PostRestartValidator(instance);
+        getLogger().info("PostRestartValidator inicializado");
         
         // Inicializar WeeklyEventManager primero ya que EventManager lo necesita
         weeklyEventManager = new WeeklyEventManager(instance);
@@ -80,6 +110,36 @@ public class HeartlessMain extends JavaPlugin {
         // Guardar datos del evento semanal activo
         if (weeklyEventManager != null) {
             weeklyEventManager.shutdown();
+        }
+        
+        // Realizar guardado de emergencia antes del shutdown
+        if (autoSaveManager != null) {
+            try {
+                getLogger().info("Realizando guardado de emergencia...");
+                autoSaveManager.performEmergencySave().get(); // Esperar a que termine
+                autoSaveManager.shutdown();
+            } catch (Exception e) {
+                getLogger().severe("Error durante guardado de emergencia: " + e.getMessage());
+            }
+        }
+        
+        // Crear respaldo de emergencia
+        if (backupManager != null) {
+            try {
+                BackupManager.BackupResult backupResult = backupManager.createEmergencyBackup().get(30, TimeUnit.SECONDS);
+                if (backupResult.isSuccess()) {
+                    getLogger().info("Respaldo de emergencia creado exitosamente");
+                } else {
+                    getLogger().warning("Error creando respaldo de emergencia: " + backupResult.getMessage());
+                }
+            } catch (Exception e) {
+                getLogger().severe("Error durante respaldo de emergencia: " + e.getMessage());
+            }
+        }
+        
+        if (postRestartValidator != null) {
+            getLogger().info("Guardando estado pre-reinicio para validación...");
+            postRestartValidator.savePreRestartState();
         }
         
         // Cerrar DatabaseManager
@@ -210,6 +270,22 @@ public class HeartlessMain extends JavaPlugin {
     
     public static WeeklyEventMigrationManager getMigrationManager() {
         return migrationManager;
+    }
+    
+    public static AutoSaveManager getAutoSaveManager() {
+        return autoSaveManager;
+    }
+    
+    public static PostRestartValidator getPostRestartValidator() {
+        return postRestartValidator;
+    }
+    
+    public static BackupManager getBackupManager() {
+        return backupManager;
+    }
+    
+    public Gson getGson() {
+        return gson;
     }
     
     /**

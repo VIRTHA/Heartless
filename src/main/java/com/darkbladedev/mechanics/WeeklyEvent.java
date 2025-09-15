@@ -56,6 +56,14 @@ public abstract class WeeklyEvent implements Listener {
     
     protected final Set<UUID> activePlayers = ConcurrentHashMap.newKeySet();
     protected final Map<UUID, Object> playerData = new ConcurrentHashMap<>();
+    
+    /**
+     * Obtiene los datos de jugadores del evento
+     * @return Mapa con los datos de jugadores
+     */
+    public Map<UUID, Object> getPlayerData() {
+        return new HashMap<>(playerData);
+    }
     protected final Map<UUID, Long> playerJoinTimes = new ConcurrentHashMap<>();
     private final List<BukkitTask> eventTasks = Collections.synchronizedList(new ArrayList<>());
     private final Map<String, BukkitTask> customTasks = new ConcurrentHashMap<>();

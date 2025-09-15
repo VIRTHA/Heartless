@@ -17,7 +17,6 @@ commands:
     permission: heartless.access
     permission-message: "You do not have permission to use this command."
 
-
 # Permissions Statement
 permissions:
   # Main Permissions
@@ -43,6 +42,9 @@ permissions:
     default: op
   heartless.admin.zombieinfection:
     description: "Permite administrar el sistema de infección zombie."
+    default: op
+  heartless.admin.autosave:
+    description: "Permite administrar el sistema de guardado automático."
     default: op
 
     

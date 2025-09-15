@@ -15,14 +15,15 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import java.sql.*;
+import java.io.File;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
-import java.io.File;
 import java.io.FileWriter;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * DatabaseManager unificado que centraliza todas las operaciones de base de datos
@@ -106,20 +107,35 @@ public class DatabaseManager {
     private void setupHikariCP() {
         HikariConfig config = new HikariConfig();
         
-        // Configuración desde ConfigManager
-        config.setJdbcUrl("jdbc:mysql://" + configManager.getDatabaseHost() + ":" + 
-                          configManager.getDatabasePort() + "/" + configManager.getDatabaseName());
-        config.setUsername(configManager.getDatabaseUsername());
-        config.setPassword(configManager.getDatabasePassword());
+        // Configuración según el tipo de base de datos
+        if (configManager.isMySQLDatabase()) {
+            setupMySQLConnection(config);
+        } else if (configManager.isSQLiteDatabase()) {
+            setupSQLiteConnection(config);
+        } else {
+            throw new IllegalArgumentException("Tipo de base de datos no soportado: " + configManager.getDatabaseType());
+        }
         
-        // Configuración del pool
+        // Configuración común del pool
         config.setMaximumPoolSize(configManager.getDatabasePoolSize());
         config.setConnectionTimeout(configManager.getDatabaseConnectionTimeout());
         config.setIdleTimeout(600000); // 10 minutos
         config.setMaxLifetime(1800000); // 30 minutos
         config.setLeakDetectionThreshold(60000); // 1 minuto
         
-        // Configuraciones adicionales para optimización
+        this.dataSource = new HikariDataSource(config);
+    }
+    
+    /**
+     * Configura la conexión MySQL
+     */
+    private void setupMySQLConnection(HikariConfig config) {
+        config.setJdbcUrl("jdbc:mysql://" + configManager.getDatabaseHost() + ":" + 
+                          configManager.getDatabasePort() + "/" + configManager.getDatabaseName());
+        config.setUsername(configManager.getDatabaseUsername());
+        config.setPassword(configManager.getDatabasePassword());
+        
+        // Configuraciones específicas de MySQL para optimización
         config.addDataSourceProperty("cachePrepStmts", "true");
         config.addDataSourceProperty("prepStmtCacheSize", "250");
         config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
@@ -131,7 +147,31 @@ public class DatabaseManager {
         config.addDataSourceProperty("elideSetAutoCommits", "true");
         config.addDataSourceProperty("maintainTimeStats", "false");
         
-        this.dataSource = new HikariDataSource(config);
+        plugin.getLogger().info("DatabaseManager: Configurando conexión MySQL a " + 
+                               configManager.getDatabaseHost() + ":" + configManager.getDatabasePort());
+    }
+    
+    /**
+     * Configura la conexión SQLite
+     */
+    private void setupSQLiteConnection(HikariConfig config) {
+        File dbFile = new File(plugin.getDataFolder(), configManager.getSqliteFile());
+        String jdbcUrl = "jdbc:sqlite:" + dbFile.getAbsolutePath();
+        
+        config.setJdbcUrl(jdbcUrl);
+        config.setDriverClassName("org.sqlite.JDBC");
+        
+        // Configuraciones específicas de SQLite
+        config.addDataSourceProperty("journal_mode", "WAL");
+        config.addDataSourceProperty("synchronous", "NORMAL");
+        config.addDataSourceProperty("cache_size", "10000");
+        config.addDataSourceProperty("foreign_keys", "true");
+        config.addDataSourceProperty("busy_timeout", "30000");
+        
+        // SQLite funciona mejor con menos conexiones concurrentes
+        config.setMaximumPoolSize(Math.min(configManager.getDatabasePoolSize(), 5));
+        
+        plugin.getLogger().info("DatabaseManager: Configurando conexión SQLite a " + dbFile.getAbsolutePath());
     }
     
     /**
@@ -141,64 +181,122 @@ public class DatabaseManager {
         if (!databaseConnected) return;
         
         try (Connection conn = dataSource.getConnection()) {
-            // Tabla para eventos semanales
-            String createEventsTable = """
-                CREATE TABLE IF NOT EXISTS weekly_events (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    event_type VARCHAR(50) NOT NULL,
-                    start_time BIGINT NOT NULL,
-                    end_time BIGINT,
-                    is_active BOOLEAN DEFAULT FALSE,
-                    is_paused BOOLEAN DEFAULT FALSE,
-                    pause_start_time BIGINT DEFAULT 0,
-                    total_paused_time BIGINT DEFAULT 0,
-                    event_data JSON,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                )""";
+            String createEventsTable;
+            String createPlayersTable;
+            String createStatsTable;
+            String createConfigTable;
             
-            // Tabla para datos de jugadores
-            String createPlayersTable = """
-                CREATE TABLE IF NOT EXISTS player_data (
-                    uuid VARCHAR(36) PRIMARY KEY,
-                    player_name VARCHAR(16),
-                    infected BOOLEAN DEFAULT FALSE,
-                    infection_time BIGINT DEFAULT 0,
-                    cured_infections INT DEFAULT 0,
-                    red_moon_kills INT DEFAULT 0,
-                    player_kills INT DEFAULT 0,
-                    consecutive_kills INT DEFAULT 0,
-                    last_hostile_kill BIGINT DEFAULT 0,
-                    last_player_kill BIGINT DEFAULT 0,
-                    ban_count INT DEFAULT 0,
-                    health_data JSON,
-                    effects_data JSON,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                )""";
-            
-            // Tabla para estadísticas
-            String createStatsTable = """
-                CREATE TABLE IF NOT EXISTS event_statistics (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    event_id INT,
-                    stat_type VARCHAR(50) NOT NULL,
-                    stat_key VARCHAR(100) NOT NULL,
-                    stat_value TEXT,
-                    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (event_id) REFERENCES weekly_events(id) ON DELETE CASCADE,
-                    INDEX idx_event_stat (event_id, stat_type),
-                    INDEX idx_stat_key (stat_key)
-                )""";
-            
-            // Tabla para configuraciones
-            String createConfigTable = """
-                CREATE TABLE IF NOT EXISTS plugin_config (
-                    config_key VARCHAR(100) PRIMARY KEY,
-                    config_value TEXT,
-                    config_type VARCHAR(20) DEFAULT 'STRING',
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                )""";
+            if (configManager.isMySQLDatabase()) {
+                // Sintaxis específica de MySQL
+                createEventsTable = """
+                    CREATE TABLE IF NOT EXISTS weekly_events (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        event_type VARCHAR(50) NOT NULL,
+                        start_time BIGINT NOT NULL,
+                        end_time BIGINT,
+                        is_active BOOLEAN DEFAULT FALSE,
+                        is_paused BOOLEAN DEFAULT FALSE,
+                        pause_start_time BIGINT DEFAULT 0,
+                        total_paused_time BIGINT DEFAULT 0,
+                        event_data JSON,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )""";
+                
+                createPlayersTable = """
+                    CREATE TABLE IF NOT EXISTS player_data (
+                        uuid VARCHAR(36) PRIMARY KEY,
+                        player_name VARCHAR(16),
+                        infected BOOLEAN DEFAULT FALSE,
+                        infection_time BIGINT DEFAULT 0,
+                        cured_infections INT DEFAULT 0,
+                        red_moon_kills INT DEFAULT 0,
+                        player_kills INT DEFAULT 0,
+                        consecutive_kills INT DEFAULT 0,
+                        last_hostile_kill BIGINT DEFAULT 0,
+                        last_player_kill BIGINT DEFAULT 0,
+                        ban_count INT DEFAULT 0,
+                        health_data JSON,
+                        effects_data JSON,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )""";
+                
+                createStatsTable = """
+                    CREATE TABLE IF NOT EXISTS event_statistics (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        event_id INT,
+                        stat_type VARCHAR(50) NOT NULL,
+                        stat_key VARCHAR(100) NOT NULL,
+                        stat_value TEXT,
+                        recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (event_id) REFERENCES weekly_events(id) ON DELETE CASCADE,
+                        INDEX idx_event_stat (event_id, stat_type),
+                        INDEX idx_stat_key (stat_key)
+                    )""";
+                
+                createConfigTable = """
+                    CREATE TABLE IF NOT EXISTS plugin_config (
+                        config_key VARCHAR(100) PRIMARY KEY,
+                        config_value TEXT,
+                        config_type VARCHAR(20) DEFAULT 'STRING',
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )""";
+            } else {
+                // Sintaxis compatible con SQLite
+                createEventsTable = """
+                    CREATE TABLE IF NOT EXISTS weekly_events (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        event_type TEXT NOT NULL,
+                        start_time INTEGER NOT NULL,
+                        end_time INTEGER,
+                        is_active INTEGER DEFAULT 0,
+                        is_paused INTEGER DEFAULT 0,
+                        pause_start_time INTEGER DEFAULT 0,
+                        total_paused_time INTEGER DEFAULT 0,
+                        event_data TEXT,
+                        created_at INTEGER DEFAULT (strftime('%s', 'now')),
+                        updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+                    )""";
+                
+                createPlayersTable = """
+                    CREATE TABLE IF NOT EXISTS player_data (
+                        uuid TEXT PRIMARY KEY,
+                        player_name TEXT,
+                        infected INTEGER DEFAULT 0,
+                        infection_time INTEGER DEFAULT 0,
+                        cured_infections INTEGER DEFAULT 0,
+                        red_moon_kills INTEGER DEFAULT 0,
+                        player_kills INTEGER DEFAULT 0,
+                        consecutive_kills INTEGER DEFAULT 0,
+                        last_hostile_kill INTEGER DEFAULT 0,
+                        last_player_kill INTEGER DEFAULT 0,
+                        ban_count INTEGER DEFAULT 0,
+                        health_data TEXT,
+                        effects_data TEXT,
+                        created_at INTEGER DEFAULT (strftime('%s', 'now')),
+                        updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+                    )""";
+                
+                createStatsTable = """
+                    CREATE TABLE IF NOT EXISTS event_statistics (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        event_id INTEGER,
+                        stat_type TEXT NOT NULL,
+                        stat_key TEXT NOT NULL,
+                        stat_value TEXT,
+                        recorded_at INTEGER DEFAULT (strftime('%s', 'now')),
+                        FOREIGN KEY (event_id) REFERENCES weekly_events(id) ON DELETE CASCADE
+                    )""";
+                
+                createConfigTable = """
+                    CREATE TABLE IF NOT EXISTS plugin_config (
+                        config_key TEXT PRIMARY KEY,
+                        config_value TEXT,
+                        config_type TEXT DEFAULT 'STRING',
+                        updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+                    )""";
+            }
             
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute(createEventsTable);
@@ -206,7 +304,40 @@ public class DatabaseManager {
                 stmt.execute(createStatsTable);
                 stmt.execute(createConfigTable);
                 
-                plugin.getLogger().info("DatabaseManager: Tablas creadas/verificadas exitosamente");
+                // Crear triggers para SQLite para simular ON UPDATE CURRENT_TIMESTAMP
+                if (configManager.isSQLiteDatabase()) {
+                    String updateTriggerEvents = """
+                        CREATE TRIGGER IF NOT EXISTS update_weekly_events_timestamp 
+                        AFTER UPDATE ON weekly_events
+                        BEGIN
+                            UPDATE weekly_events SET updated_at = strftime('%s', 'now') WHERE id = NEW.id;
+                        END""";
+                    
+                    String updateTriggerPlayers = """
+                        CREATE TRIGGER IF NOT EXISTS update_player_data_timestamp 
+                        AFTER UPDATE ON player_data
+                        BEGIN
+                            UPDATE player_data SET updated_at = strftime('%s', 'now') WHERE uuid = NEW.uuid;
+                        END""";
+                    
+                    String updateTriggerConfig = """
+                        CREATE TRIGGER IF NOT EXISTS update_plugin_config_timestamp 
+                        AFTER UPDATE ON plugin_config
+                        BEGIN
+                            UPDATE plugin_config SET updated_at = strftime('%s', 'now') WHERE config_key = NEW.config_key;
+                        END""";
+                    
+                    stmt.execute(updateTriggerEvents);
+                    stmt.execute(updateTriggerPlayers);
+                    stmt.execute(updateTriggerConfig);
+                    
+                    // Crear índices para SQLite
+                    stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_stat ON event_statistics(event_id, stat_type)");
+                    stmt.execute("CREATE INDEX IF NOT EXISTS idx_stat_key ON event_statistics(stat_key)");
+                }
+                
+                plugin.getLogger().info("DatabaseManager: Tablas creadas/verificadas exitosamente para " + 
+                                       configManager.getDatabaseType().toUpperCase());
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "DatabaseManager: Error creando tablas", e);
@@ -342,13 +473,51 @@ public class DatabaseManager {
             JsonObject eventData = JsonParser.parseReader(reader).getAsJsonObject();
             
             WeeklyEventData data = new WeeklyEventData();
-            data.eventType = eventData.get("eventType").getAsString();
-            data.startTime = eventData.get("startTime").getAsLong();
-            data.endTime = eventData.get("endTime").getAsLong();
-            data.eventActive = eventData.get("isActive").getAsBoolean();
-            data.isPaused = eventData.get("isPaused").getAsBoolean();
-            data.pauseStartTime = eventData.get("pauseStartTime").getAsLong();
-            data.totalPausedTime = eventData.get("totalPausedTime").getAsLong();
+            
+            // Validaciones null-safe para evitar NullPointerException
+            if (eventData.get("eventType") != null) {
+                data.eventType = eventData.get("eventType").getAsString();
+            } else {
+                plugin.getLogger().warning("Campo 'eventType' faltante en event_data.json");
+                data.eventType = "empty";
+            }
+            
+            if (eventData.get("startTime") != null) {
+                data.startTime = eventData.get("startTime").getAsLong();
+            } else {
+                data.startTime = 0L;
+            }
+            
+            if (eventData.get("endTime") != null) {
+                data.endTime = eventData.get("endTime").getAsLong();
+            } else {
+                data.endTime = 0L;
+            }
+            
+            if (eventData.get("isActive") != null) {
+                data.eventActive = eventData.get("isActive").getAsBoolean();
+            } else {
+                plugin.getLogger().warning("Campo 'isActive' faltante en event_data.json");
+                data.eventActive = false;
+            }
+            
+            if (eventData.get("isPaused") != null) {
+                data.isPaused = eventData.get("isPaused").getAsBoolean();
+            } else {
+                data.isPaused = false;
+            }
+            
+            if (eventData.get("pauseStartTime") != null) {
+                data.pauseStartTime = eventData.get("pauseStartTime").getAsLong();
+            } else {
+                data.pauseStartTime = 0L;
+            }
+            
+            if (eventData.get("totalPausedTime") != null) {
+                data.totalPausedTime = eventData.get("totalPausedTime").getAsLong();
+            } else {
+                data.totalPausedTime = 0L;
+            }
             
             return data;
             
@@ -680,6 +849,346 @@ public class DatabaseManager {
     
     public HikariDataSource getDataSource() {
         return dataSource;
+    }
+    
+    /**
+     * Prueba la conexión a la base de datos
+     * @return true si la conexión es exitosa
+     */
+    public boolean testConnection() {
+        if (!databaseEnabled || !databaseConnected || dataSource == null) {
+            return false;
+        }
+        
+        try (Connection conn = dataSource.getConnection()) {
+            return conn != null && !conn.isClosed();
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.WARNING, "Error probando conexión a base de datos", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Verifica la integridad de los datos almacenados
+     * @return CompletableFuture con el resultado de la verificación
+     */
+    public CompletableFuture<DataIntegrityResult> verifyDataIntegrity() {
+        return CompletableFuture.supplyAsync(() -> {
+            DataIntegrityResult result = new DataIntegrityResult();
+            
+            try {
+                // Verificar integridad de eventos semanales
+                result.eventDataIntegrity = verifyEventDataIntegrity();
+                
+                // Verificar integridad de datos de jugadores
+                result.playerDataIntegrity = verifyPlayerDataIntegrity();
+                
+                // Verificar consistencia entre base de datos y JSON
+                if (databaseConnected) {
+                    result.consistencyCheck = verifyDatabaseJsonConsistency();
+                }
+                
+                result.overallIntegrity = result.eventDataIntegrity && 
+                                        result.playerDataIntegrity && 
+                                        (result.consistencyCheck || !databaseConnected);
+                
+                plugin.getLogger().info(String.format(
+                    "Verificación de integridad completada - Eventos: %s, Jugadores: %s, Consistencia: %s",
+                    result.eventDataIntegrity ? "OK" : "ERROR",
+                    result.playerDataIntegrity ? "OK" : "ERROR",
+                    result.consistencyCheck ? "OK" : "ERROR"
+                ));
+                
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.SEVERE, "Error durante verificación de integridad", e);
+                result.overallIntegrity = false;
+                result.errorMessage = e.getMessage();
+            }
+            
+            return result;
+        });
+    }
+    
+    /**
+     * Verifica la integridad de los datos de eventos
+     */
+    private boolean verifyEventDataIntegrity() {
+        try {
+            if (databaseConnected) {
+                // Verificar estructura de tabla de eventos
+                try (Connection conn = dataSource.getConnection()) {
+                    String checkQuery = "SELECT COUNT(*) FROM weekly_events WHERE event_data IS NOT NULL";
+                    try (PreparedStatement stmt = conn.prepareStatement(checkQuery);
+                         ResultSet rs = stmt.executeQuery()) {
+                        
+                        if (rs.next()) {
+                            int validRecords = rs.getInt(1);
+                            plugin.getLogger().info("Registros válidos de eventos en BD: " + validRecords);
+                        }
+                    }
+                }
+            }
+            
+            // Verificar archivo JSON de eventos
+            if (eventDataFile.exists()) {
+                try (FileReader reader = new FileReader(eventDataFile)) {
+                    JsonObject eventJson = JsonParser.parseReader(reader).getAsJsonObject();
+                    
+                    // Verificar campos esenciales
+                    boolean hasValidStructure = eventJson.has("eventActive") && 
+                                              eventJson.has("eventType") && 
+                                              eventJson.has("startTime");
+                    
+                    if (!hasValidStructure) {
+                        plugin.getLogger().warning("Estructura de datos de eventos JSON inválida");
+                        return false;
+                    }
+                }
+            }
+            
+            return true;
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error verificando integridad de datos de eventos", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Verifica la integridad de los datos de jugadores
+     */
+    private boolean verifyPlayerDataIntegrity() {
+        try {
+            if (databaseConnected) {
+                // Verificar estructura de tabla de jugadores
+                try (Connection conn = dataSource.getConnection()) {
+                    String checkQuery = "SELECT COUNT(*) FROM player_data WHERE uuid IS NOT NULL";
+                    try (PreparedStatement stmt = conn.prepareStatement(checkQuery);
+                         ResultSet rs = stmt.executeQuery()) {
+                        
+                        if (rs.next()) {
+                            int validRecords = rs.getInt(1);
+                            plugin.getLogger().info("Registros válidos de jugadores en BD: " + validRecords);
+                        }
+                    }
+                }
+            }
+            
+            // Verificar archivo JSON de jugadores
+            if (playerDataFile.exists()) {
+                try (FileReader reader = new FileReader(playerDataFile)) {
+                    JsonObject playerJson = JsonParser.parseReader(reader).getAsJsonObject();
+                    
+                    // Verificar que cada entrada de jugador tenga UUID válido
+                    for (String key : playerJson.keySet()) {
+                        try {
+                            UUID.fromString(key);
+                        } catch (IllegalArgumentException e) {
+                            plugin.getLogger().warning("UUID de jugador inválido encontrado: " + key);
+                            return false;
+                        }
+                    }
+                }
+            }
+            
+            return true;
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error verificando integridad de datos de jugadores", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Verifica la consistencia entre base de datos y archivos JSON
+     */
+    private boolean verifyDatabaseJsonConsistency() {
+        if (!databaseConnected) {
+            return true; // No hay BD para comparar
+        }
+        
+        try {
+            // Comparar datos de eventos
+            WeeklyEventData dbEventData = loadEventFromDatabase();
+            WeeklyEventData jsonEventData = loadEventFromJSON();
+            
+            if (dbEventData != null && jsonEventData != null) {
+                boolean eventsConsistent = Objects.equals(dbEventData.eventType, jsonEventData.eventType) &&
+                                         dbEventData.eventActive == jsonEventData.eventActive;
+                
+                if (!eventsConsistent) {
+                    plugin.getLogger().warning("Inconsistencia detectada entre datos de eventos en BD y JSON");
+                    return false;
+                }
+            }
+            
+            return true;
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error verificando consistencia BD-JSON", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Realiza una reparación automática de datos corruptos
+     */
+    public CompletableFuture<Boolean> repairCorruptedData() {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                plugin.getLogger().info("Iniciando reparación automática de datos...");
+                
+                boolean repaired = false;
+                
+                // Reparar archivos JSON corruptos
+                if (!verifyEventDataIntegrity()) {
+                    repaired |= repairEventDataFile();
+                }
+                
+                if (!verifyPlayerDataIntegrity()) {
+                    repaired |= repairPlayerDataFile();
+                }
+                
+                // Sincronizar BD con JSON si hay inconsistencias
+                if (databaseConnected && !verifyDatabaseJsonConsistency()) {
+                    repaired |= synchronizeDatabaseWithJson();
+                }
+                
+                if (repaired) {
+                    plugin.getLogger().info("Reparación de datos completada exitosamente");
+                } else {
+                    plugin.getLogger().info("No se encontraron datos que requieran reparación");
+                }
+                
+                return repaired;
+                
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.SEVERE, "Error durante reparación de datos", e);
+                return false;
+            }
+        });
+    }
+    
+    private boolean repairEventDataFile() {
+        try {
+            // Crear estructura básica de eventos si el archivo está corrupto
+            JsonObject defaultEventData = new JsonObject();
+            defaultEventData.addProperty("eventActive", false);
+            defaultEventData.addProperty("eventType", "NONE");
+            defaultEventData.addProperty("startTime", 0L);
+            defaultEventData.addProperty("endTime", 0L);
+            defaultEventData.addProperty("isPaused", false);
+            defaultEventData.addProperty("pauseStartTime", 0L);
+            defaultEventData.addProperty("totalPausedTime", 0L);
+            
+            try (FileWriter writer = new FileWriter(eventDataFile)) {
+                gson.toJson(defaultEventData, writer);
+            }
+            
+            plugin.getLogger().info("Archivo de datos de eventos reparado");
+            return true;
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error reparando archivo de eventos", e);
+            return false;
+        }
+    }
+    
+    private boolean repairPlayerDataFile() {
+        try {
+            // Crear estructura básica de jugadores si el archivo está corrupto
+            JsonObject defaultPlayerData = new JsonObject();
+            
+            try (FileWriter writer = new FileWriter(playerDataFile)) {
+                gson.toJson(defaultPlayerData, writer);
+            }
+            
+            plugin.getLogger().info("Archivo de datos de jugadores reparado");
+            return true;
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error reparando archivo de jugadores", e);
+            return false;
+        }
+    }
+    
+    private boolean synchronizeDatabaseWithJson() {
+        try {
+            // Priorizar datos de la base de datos y actualizar JSON
+            WeeklyEventData dbData = loadEventFromDatabase();
+            if (dbData != null) {
+                saveEventToJSON(createEventFromData(dbData));
+                plugin.getLogger().info("Datos de eventos sincronizados desde BD a JSON");
+                return true;
+            }
+            return false;
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Error sincronizando BD con JSON", e);
+            return false;
+        }
+    }
+    
+    private WeeklyEvent createEventFromData(WeeklyEventData data) {
+        // Crear un evento básico para sincronización
+        // Esto es una implementación simplificada
+        return new WeeklyEvent(plugin, 3600) { // 1 hora por defecto
+            @Override
+            public boolean isActive() { return data.eventActive; }
+            
+            @Override
+            public void start() {}
+            
+            @Override
+            public void stop() {}
+            
+            @Override
+            public void pause() {}
+            
+            @Override
+            public void resume() {}
+            
+            @Override
+            public void stopEventTasks() {}
+            
+            @Override
+            public void startEventTasks() {}
+            
+            @Override
+            public String getName() {
+                return data.eventType;
+            }
+        };
+    }
+    
+    /**
+     * Clase para encapsular resultados de verificación de integridad
+     */
+    public static class DataIntegrityResult {
+        public boolean eventDataIntegrity = false;
+        public boolean playerDataIntegrity = false;
+        public boolean consistencyCheck = false;
+        public boolean overallIntegrity = false;
+        public String errorMessage = null;
+        
+        public boolean isValid() {
+            return overallIntegrity;
+        }
+        
+        public String getStatusReport() {
+            StringBuilder report = new StringBuilder();
+            report.append("=== Reporte de Integridad de Datos ===\n");
+            report.append("Datos de Eventos: ").append(eventDataIntegrity ? "✓ OK" : "✗ ERROR").append("\n");
+            report.append("Datos de Jugadores: ").append(playerDataIntegrity ? "✓ OK" : "✗ ERROR").append("\n");
+            report.append("Consistencia BD-JSON: ").append(consistencyCheck ? "✓ OK" : "✗ ERROR").append("\n");
+            report.append("Estado General: ").append(overallIntegrity ? "✓ VÁLIDO" : "✗ REQUIERE ATENCIÓN").append("\n");
+            
+            if (errorMessage != null) {
+                report.append("Error: ").append(errorMessage).append("\n");
+            }
+            
+            return report.toString();
+        }
     }
     
     /**

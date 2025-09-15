@@ -4,13 +4,21 @@
 
 # Configuración de Base de Datos
 database:
-  enabled: false  # true para usar MySQL/MariaDB, false para usar almacenamiento JSON
-  host: "localhost"
-  port: 3306
-  database: "heartless_db"
-  username: "heartless_user"
-  password: "your_password_here"
+  enabled: false  # true para usar base de datos, false para usar almacenamiento JSON
+  type: "sqlite"  # Tipo de base de datos: "mysql", "sqlite"
   
+  # Configuración para MySQL/MariaDB
+  mysql:
+    host: "localhost"
+    port: 3306
+    database: "heartless_db"
+    username: "heartless_user"
+    password: "your_password_here"
+  
+  # Configuración para SQLite
+  sqlite:
+    file: "heartless.db"  # Nombre del archivo de base de datos SQLite
+    
   # Configuración del pool de conexiones HikariCP
   pool:
     size: 10  # Número máximo de conexiones en el pool

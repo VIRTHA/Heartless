@@ -469,6 +469,14 @@ public class WeeklyEventManager {
             currentEvent = event;
             isEventActive.set(true);
             
+            // Iniciar seguimiento de estadísticas
+            try {
+                statisticsManager.startTracking(eventType.getEventName(), eventType.getEventName());
+                plugin.getLogger().info("Seguimiento de estadísticas iniciado para: " + eventType.getEventName());
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error al iniciar seguimiento de estadísticas: " + e.getMessage());
+            }
+            
             // Start the event
             currentEvent.start();
             saveEventData();
