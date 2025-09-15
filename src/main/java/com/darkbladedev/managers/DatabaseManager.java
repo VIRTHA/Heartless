@@ -83,22 +83,34 @@ public class DatabaseManager {
      * Inicializa el sistema de base de datos
      */
     private void initialize() {
+        plugin.getLogger().info("DatabaseManager: Iniciando inicialización...");
+        
         this.databaseEnabled = configManager.isDatabaseEnabled();
+        plugin.getLogger().info("DatabaseManager: Base de datos habilitada: " + databaseEnabled);
         
         if (databaseEnabled) {
             try {
+                plugin.getLogger().info("DatabaseManager: Configurando HikariCP...");
                 setupHikariCP();
+                plugin.getLogger().info("DatabaseManager: HikariCP configurado exitosamente");
+                
+                plugin.getLogger().info("DatabaseManager: Creando tablas...");
                 createTables();
+                plugin.getLogger().info("DatabaseManager: Tablas creadas exitosamente");
+                
                 this.databaseConnected = true;
                 plugin.getLogger().info("DatabaseManager: Conexión a base de datos establecida exitosamente");
             } catch (Exception e) {
                 plugin.getLogger().log(Level.SEVERE, "DatabaseManager: Error conectando a la base de datos, usando fallback JSON", e);
+                plugin.getLogger().severe("DatabaseManager: Detalles del error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
                 this.databaseConnected = false;
             }
         } else {
             plugin.getLogger().info("DatabaseManager: Base de datos deshabilitada, usando almacenamiento JSON");
             this.databaseConnected = false;
         }
+        
+        plugin.getLogger().info("DatabaseManager: Inicialización completada. Estado final - Conectado: " + this.databaseConnected);
     }
     
     /**
@@ -178,9 +190,16 @@ public class DatabaseManager {
      * Crea las tablas necesarias si no existen
      */
     private void createTables() {
-        if (!databaseConnected) return;
+        plugin.getLogger().info("DatabaseManager: Iniciando createTables(). Estado databaseConnected: " + databaseConnected);
         
+        if (!databaseConnected) {
+            plugin.getLogger().warning("DatabaseManager: createTables() cancelado - databaseConnected es false");
+            return;
+        }
+        
+        plugin.getLogger().info("DatabaseManager: Obteniendo conexión de dataSource...");
         try (Connection conn = dataSource.getConnection()) {
+            plugin.getLogger().info("DatabaseManager: Conexión obtenida exitosamente. Tipo de BD: " + configManager.getDatabaseType());
             String createEventsTable;
             String createPlayersTable;
             String createStatsTable;
@@ -299,13 +318,25 @@ public class DatabaseManager {
             }
             
             try (Statement stmt = conn.createStatement()) {
+                plugin.getLogger().info("DatabaseManager: Ejecutando creación de tabla weekly_events...");
                 stmt.execute(createEventsTable);
+                plugin.getLogger().info("DatabaseManager: Tabla weekly_events creada exitosamente");
+                
+                plugin.getLogger().info("DatabaseManager: Ejecutando creación de tabla player_data...");
                 stmt.execute(createPlayersTable);
+                plugin.getLogger().info("DatabaseManager: Tabla player_data creada exitosamente");
+                
+                plugin.getLogger().info("DatabaseManager: Ejecutando creación de tabla event_statistics...");
                 stmt.execute(createStatsTable);
+                plugin.getLogger().info("DatabaseManager: Tabla event_statistics creada exitosamente");
+                
+                plugin.getLogger().info("DatabaseManager: Ejecutando creación de tabla plugin_config...");
                 stmt.execute(createConfigTable);
+                plugin.getLogger().info("DatabaseManager: Tabla plugin_config creada exitosamente");
                 
                 // Crear triggers para SQLite para simular ON UPDATE CURRENT_TIMESTAMP
                 if (configManager.isSQLiteDatabase()) {
+                    plugin.getLogger().info("DatabaseManager: Creando triggers para SQLite...");
                     String updateTriggerEvents = """
                         CREATE TRIGGER IF NOT EXISTS update_weekly_events_timestamp 
                         AFTER UPDATE ON weekly_events
@@ -327,13 +358,19 @@ public class DatabaseManager {
                             UPDATE plugin_config SET updated_at = strftime('%s', 'now') WHERE config_key = NEW.config_key;
                         END""";
                     
+                    plugin.getLogger().info("DatabaseManager: Ejecutando trigger para weekly_events...");
                     stmt.execute(updateTriggerEvents);
+                    plugin.getLogger().info("DatabaseManager: Ejecutando trigger para player_data...");
                     stmt.execute(updateTriggerPlayers);
+                    plugin.getLogger().info("DatabaseManager: Ejecutando trigger para plugin_config...");
                     stmt.execute(updateTriggerConfig);
+                    plugin.getLogger().info("DatabaseManager: Todos los triggers creados exitosamente");
                     
                     // Crear índices para SQLite
+                    plugin.getLogger().info("DatabaseManager: Creando índices para SQLite...");
                     stmt.execute("CREATE INDEX IF NOT EXISTS idx_event_stat ON event_statistics(event_id, stat_type)");
                     stmt.execute("CREATE INDEX IF NOT EXISTS idx_stat_key ON event_statistics(stat_key)");
+                    plugin.getLogger().info("DatabaseManager: Índices creados exitosamente");
                 }
                 
                 plugin.getLogger().info("DatabaseManager: Tablas creadas/verificadas exitosamente para " + 

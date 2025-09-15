@@ -4,7 +4,7 @@
 
 # Configuración de Base de Datos
 database:
-  enabled: false  # true para usar base de datos, false para usar almacenamiento JSON
+  enabled: true  # true para usar base de datos, false para usar almacenamiento JSON
   type: "sqlite"  # Tipo de base de datos: "mysql", "sqlite"
   
   # Configuración para MySQL/MariaDB

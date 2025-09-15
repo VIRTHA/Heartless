@@ -13,4 +13,6 @@ run-tests.sh
 run-tests.bat
 test-reports
 temp_classpath.txt
-logs/latest.log
+logs/*
+
+src/test/*
