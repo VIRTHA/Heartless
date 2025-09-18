@@ -989,8 +989,8 @@ public class WeeklyEventManager {
      * @param event El evento a registrar
      */
     public void registerEvent(WeeklyEvent event) {
-        if (event != null && event.getName() != null) {
-            registeredEvents.put(event.getName(), event);
+        if (event != null && event.getId() != null) {
+            registeredEvents.put(event.getId(), event);
         }
     }
 
@@ -1058,7 +1058,7 @@ public class WeeklyEventManager {
      * @return true si el evento está activo
      */
     public boolean isEventActive(String eventName) {
-        return isEventActive.get() && currentEvent != null && currentEvent.getName().equals(eventName);
+        return isEventActive.get() && currentEvent != null && currentEvent.getId().equals(eventName);
     }
 
     /**
@@ -1082,7 +1082,7 @@ public class WeeklyEventManager {
                     try {
                         event.stop();
                     } catch (Exception e) {
-                        plugin.getLogger().warning("Error al detener evento " + event.getName() + ": " + e.getMessage());
+                        plugin.getLogger().warning("Error al detener evento " + event.getId() + ": " + e.getMessage());
                     }
                 }
             }
@@ -1100,7 +1100,7 @@ public class WeeklyEventManager {
         try {
             this.currentEvent = event;
             if (event != null) {
-                this.currentEventType = EventType.getByName(event.getName());
+                this.currentEventType = EventType.getByName(event.getId());
             } else {
                 this.currentEventType = null;
             }
@@ -1171,7 +1171,7 @@ public class WeeklyEventManager {
                 
                 // Establecer el nuevo evento como actual
                 this.currentEvent = toEvent;
-                this.currentEventType = EventType.getByName(toEvent.getName());
+                this.currentEventType = EventType.getByName(toEvent.getId());
                 
                 // Iniciar el nuevo evento
                 toEvent.start();
@@ -1205,7 +1205,7 @@ public class WeeklyEventManager {
             // En una implementación real, esto usaría un scheduler
             try {
                 this.currentEvent = event;
-                this.currentEventType = EventType.getByName(event.getName());
+                this.currentEventType = EventType.getByName(event.getId());
                 event.start();
                 
                 // Programar detención después de la duración especificada

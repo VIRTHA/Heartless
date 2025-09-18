@@ -57,7 +57,7 @@ public class EventManager {
         } catch (Exception e) {
             Bukkit.getConsoleSender().sendMessage(MM.toComponent("<red><b>Ha ocurrido un problema al detener un evento.</b></red>"));
             Bukkit.getConsoleSender().sendMessage(MM.toComponent("  <yellow><b>Detalles:</b></yellow>"));
-            Bukkit.getConsoleSender().sendMessage(MM.toComponent("    <gray><b>Evento: </b></gray>").append(MM.toComponent(weeklyEventManager.getCurrentEvent().getName())));
+            Bukkit.getConsoleSender().sendMessage(MM.toComponent("    <gray><b>Evento: </b></gray>").append(MM.toComponent(weeklyEventManager.getCurrentEvent().getId())));
             Bukkit.getConsoleSender().sendMessage(MM.toComponent("    <gray><b>Ejecutor: </b></gray>").append(MM.toComponent(executor.getName())));
             Bukkit.getConsoleSender().sendMessage(MM.toComponent("    <gray><b>Registro de error: </b></gray>").appendNewline().append(MM.toComponent(e.getMessage())));
             return false;

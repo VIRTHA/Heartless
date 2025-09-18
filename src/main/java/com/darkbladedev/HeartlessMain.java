@@ -83,7 +83,6 @@ public class HeartlessMain extends JavaPlugin {
         
         // Inicializar PostRestartValidator
         postRestartValidator = new PostRestartValidator(instance);
-        getLogger().info("PostRestartValidator inicializado");
         
         // Inicializar WeeklyEventManager primero ya que EventManager lo necesita
         weeklyEventManager = new WeeklyEventManager(instance);

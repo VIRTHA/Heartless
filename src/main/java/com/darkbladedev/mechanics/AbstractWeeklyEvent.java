@@ -244,11 +244,23 @@ public abstract class AbstractWeeklyEvent {
     // Métodos abstractos que deben implementar las subclases
     
     /**
+     * Obtiene el ID interno del evento.
+     * Este ID representa el nombre interno del evento y no debe mostrarse en mensajes.
+     * Para mostrar mensajes, usar el prefix del evento.
+     * 
+     * @return ID interno del evento
+     */
+    public abstract String getId();
+    
+    /**
      * Obtiene el nombre del evento.
+     * Por defecto retorna el ID, pero puede ser sobrescrito para compatibilidad.
      * 
      * @return Nombre del evento
      */
-    public abstract String getName();
+    public String getName() {
+        return getId();
+    }
     
     /**
      * Inicializa las tareas específicas del evento.

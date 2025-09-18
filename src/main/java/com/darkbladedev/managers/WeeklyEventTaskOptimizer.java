@@ -46,11 +46,11 @@ public class WeeklyEventTaskOptimizer {
     private static final int QUEUE_CAPACITY = 100;
     
     // Configuración de monitoreo
-    private static final long MONITORING_INTERVAL = 30000L; // 30 segundos
+    private static final long MONITORING_INTERVAL = 60000L; // 60 segundos
     private static final long CLEANUP_INTERVAL = 300000L;   // 5 minutos
     @SuppressWarnings("unused")
     private static final double CPU_THRESHOLD = 0.8;       // 80% CPU
-    private static final long MEMORY_THRESHOLD = 700 * 1024 * 1024; // 500MB
+    private static final long MEMORY_THRESHOLD = 700 * 1024 * 1024; // 700MB
     
     private final HeartlessMain plugin;
     private final Logger logger;

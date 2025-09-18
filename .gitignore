@@ -14,5 +14,6 @@ run-tests.bat
 test-reports
 temp_classpath.txt
 logs/*
+test-data
 
 src/test/*

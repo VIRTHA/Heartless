@@ -54,11 +54,11 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
     
     /**
      * Muestra los desafíos específicos del evento activo
-     * @param sender El remitente del comando
+     * @param sender El CommandSender que ejecutó el comando
      * @param event El evento activo
      */
     private void showEventChallenges(CommandSender sender, WeeklyEvent event) {
-        String eventName = event.getName();
+        String eventName = event.getId();
         
         // Encabezado común
         sender.sendMessage(MM.toComponent("<gray><b>=== <gold>DESAFÍOS DE " + eventName.toUpperCase() + "</gold> <gray><b>==="));

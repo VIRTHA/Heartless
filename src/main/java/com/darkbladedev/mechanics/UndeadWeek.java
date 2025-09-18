@@ -54,8 +54,7 @@ import java.util.logging.Level;
  */
 public class UndeadWeek extends WeeklyEvent {
     
-    // === CONSTANTES DE CONFIGURACIÓN ===
-    private static final String EVENT_NAME = "UndeadWeek";
+    // === CONSTANTES DE CONFIGURACIÓN ===  
     private static final int DEFAULT_ZOMBIE_SPAWN_INTERVAL = 300; // 15 segundos en ticks
     private static final int DEFAULT_EFFECT_INTERVAL = 600; // 30 segundos en ticks
     private static final int DEFAULT_ZOMBIE_SPAWN_RADIUS = 50;
@@ -118,8 +117,8 @@ public class UndeadWeek extends WeeklyEvent {
     // === IMPLEMENTACIÓN DE MÉTODOS ABSTRACTOS ===
     
     @Override
-    public String getName() {
-        return EVENT_NAME;
+    public String getId() {
+        return "undead_week";
     }
     
     @Override

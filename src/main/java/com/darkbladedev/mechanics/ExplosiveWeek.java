@@ -206,8 +206,8 @@ public class ExplosiveWeek extends WeeklyEvent {
     }
     
     @Override
-    public String getName() {
-        return "Semana Explosiva";
+    public String getId() {
+        return "explosive_week";
     }
     
     @Override

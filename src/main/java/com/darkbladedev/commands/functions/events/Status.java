@@ -61,7 +61,7 @@ public class Status implements SubcommandExecutor, TabCompletable {
         }
 
         // Build status message
-        status.append("<white>Evento activo: <aqua>").append(currentEvent.getName()).append("\n");
+        status.append("<white>Evento activo: <aqua>").append(currentEvent.getId()).append("\n");
         status.append("<white>Estado: <aqua>").append(currentEvent.isPaused() ? "<red><b>Paused" : "<green><b>Running").append("\n");
 
         // Time remaining - obtener tiempo restante del WeeklyEventManager

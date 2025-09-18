@@ -94,16 +94,36 @@ public class DatabaseManager {
                 setupHikariCP();
                 plugin.getLogger().info("DatabaseManager: HikariCP configurado exitosamente");
                 
+                // Probar la conexión antes de continuar
+                plugin.getLogger().info("DatabaseManager: Probando conexión a la base de datos...");
+                if (!testConnectionInternal()) {
+                    throw new SQLException("No se pudo establecer conexión con la base de datos");
+                }
+                plugin.getLogger().info("DatabaseManager: Conexión probada exitosamente");
+                
+                // Establecer databaseConnected = true ANTES de crear tablas
+                this.databaseConnected = true;
+                
                 plugin.getLogger().info("DatabaseManager: Creando tablas...");
                 createTables();
                 plugin.getLogger().info("DatabaseManager: Tablas creadas exitosamente");
                 
-                this.databaseConnected = true;
+                // Verificar que las tablas existan después de crearlas
+                verifyTablesExist();
                 plugin.getLogger().info("DatabaseManager: Conexión a base de datos establecida exitosamente");
             } catch (Exception e) {
                 plugin.getLogger().log(Level.SEVERE, "DatabaseManager: Error conectando a la base de datos, usando fallback JSON", e);
                 plugin.getLogger().severe("DatabaseManager: Detalles del error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+                if (e.getCause() != null) {
+                    plugin.getLogger().severe("DatabaseManager: Causa raíz: " + e.getCause().getClass().getSimpleName() + " - " + e.getCause().getMessage());
+                }
                 this.databaseConnected = false;
+                
+                // Limpiar recursos si hay error
+                if (dataSource != null && !dataSource.isClosed()) {
+                    dataSource.close();
+                    dataSource = null;
+                }
             }
         } else {
             plugin.getLogger().info("DatabaseManager: Base de datos deshabilitada, usando almacenamiento JSON");
@@ -111,6 +131,145 @@ public class DatabaseManager {
         }
         
         plugin.getLogger().info("DatabaseManager: Inicialización completada. Estado final - Conectado: " + this.databaseConnected);
+    }
+    
+    /**
+     * Verifica que todas las tablas necesarias existan en la base de datos
+     */
+    private void verifyTablesExist() {
+        if (!databaseConnected || dataSource == null) {
+            plugin.getLogger().warning("DatabaseManager: No se puede verificar tablas - conexión no disponible");
+            return;
+        }
+        
+        plugin.getLogger().info("DatabaseManager: Verificando existencia de tablas...");
+        
+        String[] requiredTables = {"weekly_events", "player_data"};
+        
+        try (Connection conn = dataSource.getConnection()) {
+            DatabaseMetaData metaData = conn.getMetaData();
+            
+            for (String tableName : requiredTables) {
+                try (ResultSet rs = metaData.getTables(null, null, tableName, new String[]{"TABLE"})) {
+                    if (rs.next()) {
+                        plugin.getLogger().info("DatabaseManager: Tabla '" + tableName + "' existe correctamente");
+                    } else {
+                        plugin.getLogger().severe("DatabaseManager: ¡TABLA FALTANTE! '" + tableName + "' no existe");
+                        // Intentar recrear la tabla específica
+                        recreateTable(tableName, conn);
+                    }
+                }
+            }
+            
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.SEVERE, "DatabaseManager: Error verificando tablas", e);
+        }
+        
+        plugin.getLogger().info("DatabaseManager: Verificación de tablas completada");
+    }
+    
+    /**
+     * Recrea una tabla específica si no existe
+     */
+    private void recreateTable(String tableName, Connection conn) {
+        plugin.getLogger().warning("DatabaseManager: Intentando recrear tabla: " + tableName);
+        
+        try {
+            if ("weekly_events".equals(tableName)) {
+                createWeeklyEventsTable(conn);
+            } else if ("player_data".equals(tableName)) {
+                createPlayerDataTable(conn);
+            }
+            plugin.getLogger().info("DatabaseManager: Tabla '" + tableName + "' recreada exitosamente");
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.SEVERE, "DatabaseManager: Error recreando tabla " + tableName, e);
+        }
+    }
+    
+    /**
+     * Crea específicamente la tabla weekly_events
+     */
+    private void createWeeklyEventsTable(Connection conn) throws SQLException {
+        String databaseType = configManager.getDatabaseType();
+        String sql;
+        
+        if ("mysql".equalsIgnoreCase(databaseType)) {
+            sql = """
+                CREATE TABLE IF NOT EXISTS weekly_events (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    event_type VARCHAR(50) NOT NULL UNIQUE,
+                    start_time BIGINT NOT NULL,
+                    end_time BIGINT NOT NULL,
+                    is_active BOOLEAN DEFAULT FALSE,
+                    is_paused BOOLEAN DEFAULT FALSE,
+                    pause_start_time BIGINT DEFAULT 0,
+                    total_paused_time BIGINT DEFAULT 0,
+                    event_data TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """;
+        } else {
+            sql = """
+                CREATE TABLE IF NOT EXISTS weekly_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_type TEXT NOT NULL UNIQUE,
+                    start_time INTEGER NOT NULL,
+                    end_time INTEGER NOT NULL,
+                    is_active INTEGER DEFAULT 0,
+                    is_paused INTEGER DEFAULT 0,
+                    pause_start_time INTEGER DEFAULT 0,
+                    total_paused_time INTEGER DEFAULT 0,
+                    event_data TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+                """;
+        }
+        
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.executeUpdate();
+            plugin.getLogger().info("DatabaseManager: Tabla weekly_events creada/verificada");
+        }
+    }
+    
+    /**
+     * Crea específicamente la tabla player_data
+     */
+    private void createPlayerDataTable(Connection conn) throws SQLException {
+        String databaseType = configManager.getDatabaseType();
+        String sql;
+        
+        if ("mysql".equalsIgnoreCase(databaseType)) {
+            sql = """
+                CREATE TABLE IF NOT EXISTS player_data (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    player_uuid VARCHAR(36) NOT NULL UNIQUE,
+                    player_name VARCHAR(16) NOT NULL,
+                    data_json TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_player_uuid (player_uuid),
+                    INDEX idx_player_name (player_name)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """;
+        } else {
+            sql = """
+                CREATE TABLE IF NOT EXISTS player_data (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    player_uuid TEXT NOT NULL UNIQUE,
+                    player_name TEXT NOT NULL,
+                    data_json TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+                """;
+        }
+        
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.executeUpdate();
+            plugin.getLogger().info("DatabaseManager: Tabla player_data creada/verificada");
+        }
     }
     
     /**
@@ -399,18 +558,31 @@ public class DatabaseManager {
      * Guarda evento en base de datos
      */
     private boolean saveEventToDatabase(WeeklyEvent event) {
-        String sql = """
-            INSERT INTO weekly_events (event_type, start_time, end_time, is_active, 
-                                     is_paused, pause_start_time, total_paused_time, event_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                end_time = VALUES(end_time),
-                is_active = VALUES(is_active),
-                is_paused = VALUES(is_paused),
-                pause_start_time = VALUES(pause_start_time),
-                total_paused_time = VALUES(total_paused_time),
-                event_data = VALUES(event_data)
-            """;
+        String sql;
+        String databaseType = configManager.getDatabaseType();
+        
+        if ("mysql".equalsIgnoreCase(databaseType)) {
+            // Sintaxis MySQL
+            sql = """
+                INSERT INTO weekly_events (event_type, start_time, end_time, is_active, 
+                                         is_paused, pause_start_time, total_paused_time, event_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    end_time = VALUES(end_time),
+                    is_active = VALUES(is_active),
+                    is_paused = VALUES(is_paused),
+                    pause_start_time = VALUES(pause_start_time),
+                    total_paused_time = VALUES(total_paused_time),
+                    event_data = VALUES(event_data)
+                """;
+        } else {
+            // Sintaxis SQLite
+            sql = """
+                INSERT OR REPLACE INTO weekly_events (event_type, start_time, end_time, is_active, 
+                                                    is_paused, pause_start_time, total_paused_time, event_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """;
+        }
         
         try (Connection conn = dataSource.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -581,25 +753,39 @@ public class DatabaseManager {
      * Guarda datos de jugador en base de datos
      */
     private boolean savePlayerToDatabase(UUID playerUUID, String playerName, Map<String, Object> data) {
-        String sql = """
-            INSERT INTO player_data (uuid, player_name, infected, infection_time, cured_infections,
-                                   red_moon_kills, player_kills, consecutive_kills, last_hostile_kill,
-                                   last_player_kill, ban_count, health_data, effects_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                player_name = VALUES(player_name),
-                infected = VALUES(infected),
-                infection_time = VALUES(infection_time),
-                cured_infections = VALUES(cured_infections),
-                red_moon_kills = VALUES(red_moon_kills),
-                player_kills = VALUES(player_kills),
-                consecutive_kills = VALUES(consecutive_kills),
-                last_hostile_kill = VALUES(last_hostile_kill),
-                last_player_kill = VALUES(last_player_kill),
-                ban_count = VALUES(ban_count),
-                health_data = VALUES(health_data),
-                effects_data = VALUES(effects_data)
-            """;
+        String sql;
+        String databaseType = configManager.getDatabaseType();
+        
+        if ("mysql".equalsIgnoreCase(databaseType)) {
+            // Sintaxis MySQL
+            sql = """
+                INSERT INTO player_data (uuid, player_name, infected, infection_time, cured_infections,
+                                       red_moon_kills, player_kills, consecutive_kills, last_hostile_kill,
+                                       last_player_kill, ban_count, health_data, effects_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    player_name = VALUES(player_name),
+                    infected = VALUES(infected),
+                    infection_time = VALUES(infection_time),
+                    cured_infections = VALUES(cured_infections),
+                    red_moon_kills = VALUES(red_moon_kills),
+                    player_kills = VALUES(player_kills),
+                    consecutive_kills = VALUES(consecutive_kills),
+                    last_hostile_kill = VALUES(last_hostile_kill),
+                    last_player_kill = VALUES(last_player_kill),
+                    ban_count = VALUES(ban_count),
+                    health_data = VALUES(health_data),
+                    effects_data = VALUES(effects_data)
+                """;
+        } else {
+            // Sintaxis SQLite
+            sql = """
+                INSERT OR REPLACE INTO player_data (uuid, player_name, infected, infection_time, cured_infections,
+                                                  red_moon_kills, player_kills, consecutive_kills, last_hostile_kill,
+                                                  last_player_kill, ban_count, health_data, effects_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
+        }
         
         try (Connection conn = dataSource.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -893,14 +1079,35 @@ public class DatabaseManager {
      * @return true si la conexión es exitosa
      */
     public boolean testConnection() {
-        if (!databaseEnabled || !databaseConnected || dataSource == null) {
+        return testConnectionInternal();
+    }
+    
+    private boolean testConnectionInternal() {
+        if (!databaseEnabled || dataSource == null) {
+            plugin.getLogger().warning("DatabaseManager: No se puede probar conexión - Base de datos deshabilitada o DataSource nulo");
             return false;
         }
         
-        try (Connection conn = dataSource.getConnection()) {
-            return conn != null && !conn.isClosed();
+        try (Connection connection = dataSource.getConnection()) {
+            if (connection == null || connection.isClosed()) {
+                plugin.getLogger().warning("DatabaseManager: Conexión nula o cerrada");
+                return false;
+            }
+            
+            // Probar con una consulta simple
+            try (Statement stmt = connection.createStatement()) {
+                if (configManager.isSQLiteDatabase()) {
+                    stmt.executeQuery("SELECT 1").close();
+                } else {
+                    stmt.executeQuery("SELECT 1").close();
+                }
+            }
+            
+            plugin.getLogger().info("DatabaseManager: Prueba de conexión exitosa");
+            return true;
         } catch (SQLException e) {
-            plugin.getLogger().log(Level.WARNING, "Error probando conexión a base de datos", e);
+            plugin.getLogger().log(Level.SEVERE, "DatabaseManager: Error probando conexión a la base de datos", e);
+            plugin.getLogger().severe("DatabaseManager: Detalles del error de conexión: " + e.getErrorCode() + " - " + e.getMessage());
             return false;
         }
     }
@@ -1192,7 +1399,7 @@ public class DatabaseManager {
             public void startEventTasks() {}
             
             @Override
-            public String getName() {
+            public String getId() {
                 return data.eventType;
             }
         };

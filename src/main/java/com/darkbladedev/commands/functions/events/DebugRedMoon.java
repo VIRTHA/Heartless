@@ -54,7 +54,7 @@ public class DebugRedMoon implements SubcommandExecutor, TabCompletable {
             
             // Verificar si es UndeadWeek
             if (!(currentEvent instanceof UndeadWeek)) {
-                sender.sendMessage(MM.toComponent("<red>El evento actual no es UndeadWeek. Evento actual: " + currentEvent.getName()));
+                sender.sendMessage(MM.toComponent("<red>El evento actual no es UndeadWeek. Evento actual: " + currentEvent.getId()));
                 return;
             }
             

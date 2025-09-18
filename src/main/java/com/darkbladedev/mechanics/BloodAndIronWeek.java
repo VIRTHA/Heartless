@@ -270,8 +270,8 @@ public class BloodAndIronWeek extends WeeklyEvent {
     }
     
     @Override
-    public String getName() {
-        return "Semana de Sangre y Hierro";
+    public String getId() {
+        return "blood_and_iron_week";
     }
     
     @Override

@@ -290,8 +290,8 @@ public class AcidWeek extends WeeklyEvent {
     }
     
     @Override
-    public String getName() {
-        return "Semana Ácida";
+    public String getId() {
+        return "acid_week";
     }
     
     @Override

@@ -71,9 +71,11 @@ dependencies {
   testImplementation 'org.mockito:mockito-core:5.8.0'
   testImplementation 'org.mockito:mockito-junit-jupiter:5.8.0'
   
-  // Excluir Paper API de MockBukkit para evitar conflictos
+  // Excluir Paper API y PluginLoader de MockBukkit para evitar conflictos
   testImplementation('org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.1.0') {
     exclude group: 'io.papermc.paper', module: 'paper-api'
+    exclude group: 'org.bukkit', module: 'bukkit'
+    exclude group: 'net.kyori'
   }
   testImplementation 'com.zaxxer:HikariCP:7.0.2'
   testImplementation 'org.xerial:sqlite-jdbc:3.47.1.0'

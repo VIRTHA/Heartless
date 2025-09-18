@@ -156,8 +156,8 @@ public class ToxicFog extends WeeklyEvent {
 
 
     @Override
-    public String getName() {
-        return "Niebla Tóxica";
+    public String getId() {
+        return "toxic_fog";
     }
 
 

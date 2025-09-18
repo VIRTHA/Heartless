@@ -82,7 +82,7 @@ public abstract class WeeklyEvent implements Listener {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.duration = new TimeExpression(duration + "s");
-        this.prefix = "<gradient:#ff6b6b:#4ecdc4><bold>" + getName() + "</bold></gradient>";
+        this.prefix = "<gradient:#ff6b6b:#4ecdc4><bold>" + getId() + "</bold></gradient>";
     }
     
     /**
@@ -95,7 +95,7 @@ public abstract class WeeklyEvent implements Listener {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.duration = timeExpression;
-        this.prefix = "<gradient:#ff6b6b:#4ecdc4><bold>" + getName() + "</bold></gradient>";
+        this.prefix = "<gradient:#ff6b6b:#4ecdc4><bold>" + getId() + "</bold></gradient>";
     }
     
     /**
@@ -216,7 +216,7 @@ public abstract class WeeklyEvent implements Listener {
     /**
      * @return El nombre del evento
      */
-    public abstract String getName();
+    public abstract String getId();
     
     /**
      * Inicia las tareas específicas del evento.
@@ -309,7 +309,7 @@ public abstract class WeeklyEvent implements Listener {
         data.totalPausedTime = this.totalPausedTime.get();
         data.startTime = this.startTime.get();
         data.endTime = this.endTime.get();
-        data.eventType = this.getName();
+        data.eventType = this.getId();
         data.isActive = this.isActive.get();
         data.isPaused = this.isPaused.get();
         return data;
@@ -376,7 +376,7 @@ public abstract class WeeklyEvent implements Listener {
                 lastSaveTime.set(System.currentTimeMillis());
                 saveCount.incrementAndGet();
             } catch (Exception e) {
-                logger.log(Level.SEVERE, "Error en auto-guardado del evento " + getName(), e);
+                logger.log(Level.SEVERE, "Error en auto-guardado del evento " + getId(), e);
                 errorCount.incrementAndGet();
             }
         }, 20L * 60 * 5, AUTO_SAVE_INTERVAL); // 5 minutos
@@ -386,7 +386,7 @@ public abstract class WeeklyEvent implements Listener {
             try {
                 performPeriodicCleanup();
             } catch (Exception e) {
-                logger.log(Level.SEVERE, "Error en limpieza periódica del evento " + getName(), e);
+                logger.log(Level.SEVERE, "Error en limpieza periódica del evento " + getId(), e);
                 errorCount.incrementAndGet();
             }
         }, 20L * 60 * 10, CLEANUP_INTERVAL); // 10 minutos
@@ -561,7 +561,7 @@ public abstract class WeeklyEvent implements Listener {
          }
          
          try {
-             logger.info("Forzando detención del evento: " + getName());
+             logger.info("Forzando detención del evento: " + getId());
              
              // Detener todas las tareas inmediatamente
              stopSystemTasks();
@@ -579,11 +579,11 @@ public abstract class WeeklyEvent implements Listener {
              // Hook de fuerza de detención
              onEventForceStop();
              
-             logger.info("Evento " + getName() + " detenido forzadamente");
+             logger.info("Evento " + getId() + " detenido forzadamente");
              return true;
              
          } catch (Exception e) {
-             logger.log(Level.SEVERE, "Error al forzar detención del evento " + getName(), e);
+             logger.log(Level.SEVERE, "Error al forzar detención del evento " + getId(), e);
              errorCount.incrementAndGet();
              return false;
          } finally {

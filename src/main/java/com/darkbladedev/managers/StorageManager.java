@@ -153,7 +153,17 @@ public class StorageManager {
         data.totalPausedTime = event.getTotalPausedTime();
         data.startTime = event.getStartTime();
         data.endTime = event.getEndTime();
-        data.eventType = EventType.getByName(event.getName()).getEventName();
+        
+        // Validación null-safe para EventType.getByName()
+        EventType eventType = EventType.getByName(event.getId());
+        if (eventType != null) {
+            data.eventType = eventType.getEventName();
+        } else {
+            // Fallback: usar el ID del evento directamente si no se encuentra en el enum
+            plugin.getLogger().warning("EventType no encontrado para: " + event.getId() + ". Usando ID directo.");
+            data.eventType = event.getId();
+        }
+        
         data.eventActive = event.isActive();
         return data;
     }

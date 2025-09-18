@@ -237,7 +237,7 @@ public class AutoSaveManager {
                         dbManager.saveWeeklyEvent(currentEvent);
                     }
                     
-                    logger.info("Datos del evento semanal guardados: " + currentEvent.getName());
+                    logger.info("Datos del evento semanal guardados: " + currentEvent.getId());
                     return true;
                 }
             }
@@ -659,7 +659,7 @@ public class AutoSaveManager {
             if (eventManager != null) {
                 WeeklyEvent currentEvent = eventManager.getCurrentEvent();
                 if (currentEvent != null) {
-                    logger.info("Evento semanal restaurado correctamente: " + currentEvent.getName());
+                    logger.info("Evento semanal restaurado correctamente: " + currentEvent.getId());
                     
                     // Verificar que los datos del evento no estén vacíos
                     Map<UUID, Object> playerData = currentEvent.getPlayerData();

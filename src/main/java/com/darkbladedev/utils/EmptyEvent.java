@@ -11,7 +11,7 @@ public class EmptyEvent extends WeeklyEvent {
     }
 
     @Override
-    public String getName() {
+    public String getId() {
         return "empty";
     }
 
