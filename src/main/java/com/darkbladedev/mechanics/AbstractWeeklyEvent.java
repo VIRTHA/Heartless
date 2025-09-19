@@ -1,315 +1,680 @@
 package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.utils.MM;
+import com.darkbladedev.utils.TimeExpression;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
- * Clase base abstracta para todos los eventos semanales.
- * Proporciona patrones estandarizados para inicialización, manejo de tareas,
- * validación de datos y limpieza de recursos.
+ * Clase abstracta base que proporciona funcionalidades comunes para todos los eventos semanales.
  * 
- * Esta clase implementa las mejores prácticas identificadas durante la auditoría
- * de eventos existentes, incluyendo:
- * - Manejo thread-safe de tareas y datos de jugadores
- * - Validación consistente de estado del evento
- * - Limpieza automática de recursos
- * - Manejo robusto de errores
+ * Esta clase implementa el patrón Template Method para estandarizar el comportamiento
+ * de los eventos semanales mientras permite personalización específica.
+ * 
+ * Funcionalidades proporcionadas:
+ * - Sistema de desafíos y logros unificado
+ * - Persistencia automática de datos específicos del evento
+ * - Validaciones de estado robustas
+ * - Gestión de estadísticas de jugadores
+ * - Manejo de errores y recuperación automática
+ * - Thread-safety completo
  * 
  * @author DarkBladeDev
+ * @version 2.0
  * @since 1.0
  */
-public abstract class AbstractWeeklyEvent {
+public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     
-    // Referencias thread-safe para el manejo de tareas
-    protected final AtomicReference<BukkitTask> mainTask = new AtomicReference<>();
-    protected final AtomicReference<BukkitTask> secondaryTask = new AtomicReference<>();
-    protected final AtomicReference<BukkitTask> cleanupTask = new AtomicReference<>();
+    // === CONSTANTES DEL SISTEMA ===
+    protected static final long CHALLENGE_CHECK_INTERVAL = 30 * 20L; // 30 segundos
+    protected static final long STATISTICS_UPDATE_INTERVAL = 60 * 20L; // 1 minuto
+    protected static final long DATA_PERSISTENCE_INTERVAL = 5 * 60 * 20L; // 5 minutos
+    protected static final int MAX_RETRIES = 3;
     
-    // Estado del evento
-    protected final AtomicBoolean isActive = new AtomicBoolean(false);
-    protected final AtomicBoolean isPaused = new AtomicBoolean(false);
+    // === GESTIÓN DE DESAFÍOS ===
+    protected final Map<String, ChallengeDefinition> availableChallenges = new ConcurrentHashMap<>();
+    protected final Map<UUID, Set<String>> completedChallenges = new ConcurrentHashMap<>();
+    protected final Map<UUID, Map<String, Object>> challengeProgress = new ConcurrentHashMap<>();
+    protected final Map<UUID, Long> lastChallengeCheck = new ConcurrentHashMap<>();
     
-    // Colecciones thread-safe para datos de jugadores
-    protected final Set<Player> activePlayers = ConcurrentHashMap.newKeySet();
-    protected final ConcurrentHashMap<Player, Object> playerData = new ConcurrentHashMap<>();
+    // === ESTADÍSTICAS DEL EVENTO ===
+    protected final Map<UUID, Map<String, Object>> playerStatistics = new ConcurrentHashMap<>();
+    protected final Map<String, AtomicLong> globalStatistics = new ConcurrentHashMap<>();
+    protected final AtomicLong totalParticipants = new AtomicLong(0);
+    protected final AtomicLong totalChallengesCompleted = new AtomicLong(0);
     
-    // Referencias del plugin
-    protected final HeartlessMain plugin;
-    protected final Logger logger;
+    // === PERSISTENCIA DE DATOS ===
+    protected final Map<String, Object> eventSpecificData = new ConcurrentHashMap<>();
+    protected final AtomicBoolean dataDirty = new AtomicBoolean(false);
+    protected final AtomicLong lastDataSave = new AtomicLong(0);
+    
+    // === TAREAS DEL SISTEMA ===
+    private BukkitTask challengeTask;
+    private BukkitTask statisticsTask;
+    private BukkitTask persistenceTask;
+    
+    // === CONTROL DE ESTADO ===
+    protected final AtomicBoolean challengeSystemEnabled = new AtomicBoolean(true);
+    protected final AtomicBoolean statisticsEnabled = new AtomicBoolean(true);
+    protected final AtomicBoolean autoSaveEnabled = new AtomicBoolean(true);
     
     /**
-     * Constructor base para eventos semanales.
+     * Constructor base para eventos semanales abstractos.
      * 
-     * @param plugin Instancia del plugin principal
+     * @param plugin El plugin principal
+     * @param duration Duración del evento
      */
-    protected AbstractWeeklyEvent(HeartlessMain plugin) {
-        this.plugin = plugin;
-        this.logger = plugin.getLogger();
+    public AbstractWeeklyEvent(HeartlessMain plugin, TimeExpression duration) {
+        super(plugin, duration);
+        initializeEventSystems();
     }
     
     /**
-     * Inicia el evento semanal.
-     * Implementa validaciones de estado y manejo de errores estandarizado.
+     * Inicializa los sistemas internos del evento abstracto.
      */
-    public final void startEvent() {
-        // Validar que el evento no esté ya activo
-        if (isActive.get()) {
-            logger.warning(getName() + " ya está activo. Ignorando llamada a startEvent().");
-            return;
+    private void initializeEventSystems() {
+        // Inicializar estadísticas globales básicas
+        globalStatistics.put("event_starts", new AtomicLong(0));
+        globalStatistics.put("event_stops", new AtomicLong(0));
+        globalStatistics.put("total_errors", new AtomicLong(0));
+        globalStatistics.put("data_saves", new AtomicLong(0));
+        
+        // Configurar desafíos básicos si están habilitados
+        if (challengeSystemEnabled.get()) {
+            setupBasicChallenges();
         }
         
+        logger.info("[" + getId() + "] Sistemas del evento abstracto inicializados correctamente");
+    }
+    
+    /**
+     * Configura los desafíos básicos comunes a todos los eventos.
+     * Los eventos específicos pueden sobrescribir este método para añadir desafíos personalizados.
+     */
+    protected void setupBasicChallenges() {
+        // Desafío de participación básica
+        registerChallenge("participation", new ChallengeDefinition(
+            "participation",
+            "Participar en el evento",
+            "Únete al evento semanal",
+            1,
+            Collections.singletonList("heartless:participation_reward")
+        ));
+        
+        // Desafío de supervivencia
+        registerChallenge("survivor", new ChallengeDefinition(
+            "survivor",
+            "Superviviente",
+            "Sobrevive durante todo el evento",
+            1,
+            Collections.singletonList("heartless:survivor_reward")
+        ));
+    }
+    
+    // === TEMPLATE METHODS ===
+    
+    @Override
+    public final void start() {
         try {
-            // Marcar como activo antes de inicializar
-            isActive.set(true);
-            isPaused.set(false);
+            globalStatistics.get("event_starts").incrementAndGet();
             
-            // Reinicializar jugadores online
-            reinitializeOnlinePlayers();
+            // Inicializar jugadores online
+            initializeOnlinePlayers();
             
-            // Inicializar tareas específicas del evento
-            initializeEventTasks();
+            // Inicializar datos específicos del evento
+            initializeEventSpecificData();
             
-            logger.info(getName() + " iniciado correctamente.");
+            // Iniciar tareas del sistema abstracto
+            startAbstractEventTasks();
+            
+            // Llamar al método específico del evento
+            onEventStart();
+            
+            // Iniciar tareas específicas del evento
+            super.start();
+            
+            logger.info("[" + getId() + "] Evento iniciado correctamente con " + 
+                       getActivePlayerCount() + " jugadores");
             
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Error al iniciar " + getName() + ": " + e.getMessage(), e);
-            // Limpiar estado en caso de error
-            forceCleanup();
-            throw new RuntimeException("Fallo al iniciar evento: " + getName(), e);
+            globalStatistics.get("total_errors").incrementAndGet();
+            logger.log(Level.SEVERE, "[" + getId() + "] Error al iniciar el evento", e);
+            handleEventError("start", e);
         }
     }
     
-    /**
-     * Detiene el evento semanal de manera segura.
-     */
-    public final void stopEvent() {
-        if (!isActive.get()) {
-            logger.warning(getName() + " no está activo. Ignorando llamada a stopEvent().");
-            return;
-        }
-        
+    @Override
+    public final void stop() {
         try {
-            // Detener todas las tareas
-            stopEventTasks();
+            globalStatistics.get("event_stops").incrementAndGet();
             
-            // Limpiar datos del evento
-            cleanupEventData();
+            // Detener tareas del sistema abstracto
+            stopAbstractEventTasks();
             
-            // Marcar como inactivo
-            isActive.set(false);
-            isPaused.set(false);
+            // Guardar datos finales
+            if (autoSaveEnabled.get()) {
+                saveEventSpecificData();
+            }
             
-            logger.info(getName() + " detenido correctamente.");
+            // Procesar estadísticas finales
+            processFinalStatistics();
+            
+            // Llamar al método específico del evento
+            onEventStop();
+            
+            // Detener el evento base
+            super.stop();
+            
+            logger.info("[" + getId() + "] Evento detenido correctamente");
             
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Error al detener " + getName() + ": " + e.getMessage(), e);
-            // Forzar limpieza en caso de error
-            forceCleanup();
+            globalStatistics.get("total_errors").incrementAndGet();
+            logger.log(Level.SEVERE, "[" + getId() + "] Error al detener el evento", e);
+            handleEventError("stop", e);
         }
     }
     
+    // === MÉTODOS ABSTRACTOS PARA IMPLEMENTACIÓN ESPECÍFICA ===
+    
     /**
-     * Pausa el evento temporalmente.
+     * Llamado cuando el evento se inicia. Los eventos específicos deben implementar
+     * su lógica de inicialización aquí.
      */
-    public final void pauseEvent() {
-        if (!isActive.get()) {
-            logger.warning("No se puede pausar " + getName() + " porque no está activo.");
+    protected abstract void onEventStart();
+    
+    /**
+     * Llamado cuando el evento se detiene. Los eventos específicos deben implementar
+     * su lógica de limpieza aquí.
+     */
+    protected abstract void onEventStop();
+    
+    /**
+     * Inicializa los datos específicos del evento.
+     * Los eventos deben sobrescribir este método para configurar sus datos iniciales.
+     */
+    protected abstract void initializeEventSpecificData();
+    
+    /**
+     * Guarda los datos específicos del evento.
+     * Los eventos deben sobrescribir este método para persistir sus datos.
+     */
+    protected abstract void saveEventSpecificData();
+    
+    /**
+     * Procesa las estadísticas específicas del evento.
+     * Llamado periódicamente durante el evento.
+     */
+    protected abstract void processEventStatistics();
+    
+    // === SISTEMA DE DESAFÍOS ===
+    
+    /**
+     * Registra un nuevo desafío en el sistema.
+     * 
+     * @param challengeId ID único del desafío
+     * @param definition Definición del desafío
+     */
+    protected final void registerChallenge(String challengeId, ChallengeDefinition definition) {
+        if (challengeId == null || definition == null) {
+            logger.warning("[" + getId() + "] Intento de registrar desafío nulo");
             return;
         }
         
-        isPaused.set(true);
-        pauseEventTasks();
-        logger.info(getName() + " pausado.");
+        availableChallenges.put(challengeId, definition);
+        logger.info("[" + getId() + "] Desafío registrado: " + challengeId);
     }
     
     /**
-     * Reanuda el evento después de una pausa.
+     * Verifica si un jugador ha completado un desafío específico.
+     * 
+     * @param playerId ID del jugador
+     * @param challengeId ID del desafío
+     * @return true si el desafío está completado
      */
-    public final void resumeEvent() {
-        if (!isActive.get()) {
-            logger.warning("No se puede reanudar " + getName() + " porque no está activo.");
-            return;
-        }
+    public final boolean hasChallengeCompleted(UUID playerId, String challengeId) {
+        if (playerId == null || challengeId == null) return false;
         
-        isPaused.set(false);
-        resumeEventTasks();
-        logger.info(getName() + " reanudado.");
+        Set<String> playerChallenges = completedChallenges.get(playerId);
+        return playerChallenges != null && playerChallenges.contains(challengeId);
     }
     
     /**
-     * Reinicializa los datos de jugadores online.
-     * Útil después de reinicios del servidor.
+     * Marca un desafío como completado para un jugador.
+     * 
+     * @param playerId ID del jugador
+     * @param challengeId ID del desafío
      */
-    protected final void reinitializeOnlinePlayers() {
-        activePlayers.clear();
-        playerData.clear();
+    public final void completeChallengeForPlayer(UUID playerId, String challengeId) {
+        if (playerId == null || challengeId == null) return;
         
-        // Agregar jugadores online actuales
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player != null && player.isOnline()) {
-                activePlayers.add(player);
-                initializePlayerData(player);
+        completedChallenges.computeIfAbsent(playerId, k -> ConcurrentHashMap.newKeySet())
+                          .add(challengeId);
+        
+        totalChallengesCompleted.incrementAndGet();
+        dataDirty.set(true);
+        
+        // Notificar al jugador
+        Player player = Bukkit.getPlayer(playerId);
+        if (player != null && player.isOnline()) {
+            ChallengeDefinition challenge = availableChallenges.get(challengeId);
+            if (challenge != null) {
+                notifyPlayerChallengeCompleted(player, challenge);
+                giveRewards(player, challenge.getRewards());
             }
         }
         
-        logger.info("Reinicializados " + activePlayers.size() + " jugadores para " + getName());
+        logger.info("[" + getId() + "] Desafío completado: " + challengeId + " por " + playerId);
     }
     
     /**
-     * Cancela una tarea de manera thread-safe.
+     * Actualiza el progreso de un desafío para un jugador.
      * 
-     * @param taskRef Referencia atómica a la tarea
+     * @param playerId ID del jugador
+     * @param challengeId ID del desafío
+     * @param progress Progreso actual
+     * @param maxProgress Progreso máximo requerido
      */
-    protected final void cancelTaskSafely(AtomicReference<BukkitTask> taskRef) {
-        BukkitTask task = taskRef.get();
-        if (task != null && !task.isCancelled()) {
-            try {
-                task.cancel();
-            } catch (Exception e) {
-                logger.log(Level.WARNING, "Error al cancelar tarea en " + getName() + ": " + e.getMessage(), e);
-            } finally {
-                taskRef.set(null);
+    protected final void updateChallengeProgress(UUID playerId, String challengeId, 
+                                               Object progress, Object maxProgress) {
+        if (playerId == null || challengeId == null) return;
+        
+        Map<String, Object> playerProgress = challengeProgress.computeIfAbsent(
+            playerId, k -> new ConcurrentHashMap<>());
+        
+        playerProgress.put(challengeId + "_current", progress);
+        playerProgress.put(challengeId + "_max", maxProgress);
+        
+        dataDirty.set(true);
+    }
+    
+    // === SISTEMA DE ESTADÍSTICAS ===
+    
+    /**
+     * Actualiza una estadística específica para un jugador.
+     * 
+     * @param playerId ID del jugador
+     * @param statistic Nombre de la estadística
+     * @param value Valor a establecer
+     */
+    protected final void updatePlayerStatistic(UUID playerId, String statistic, Object value) {
+        if (playerId == null || statistic == null || value == null) return;
+        
+        playerStatistics.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>())
+                       .put(statistic, value);
+        dataDirty.set(true);
+    }
+    
+    /**
+     * Incrementa una estadística numérica para un jugador.
+     * 
+     * @param playerId ID del jugador
+     * @param statistic Nombre de la estadística
+     * @param increment Cantidad a incrementar
+     */
+    protected final void incrementPlayerStatistic(UUID playerId, String statistic, long increment) {
+        if (playerId == null || statistic == null) return;
+        
+        Map<String, Object> stats = playerStatistics.computeIfAbsent(
+            playerId, k -> new ConcurrentHashMap<>());
+        
+        Object current = stats.get(statistic);
+        long newValue = (current instanceof Number ? ((Number) current).longValue() : 0) + increment;
+        stats.put(statistic, newValue);
+        
+        dataDirty.set(true);
+    }
+    
+    /**
+     * Obtiene una estadística específica de un jugador.
+     * 
+     * @param playerId ID del jugador
+     * @param statistic Nombre de la estadística
+     * @return Valor de la estadística o null si no existe
+     */
+    protected final Object getPlayerStatistic(UUID playerId, String statistic) {
+        if (playerId == null || statistic == null) return null;
+        
+        Map<String, Object> stats = playerStatistics.get(playerId);
+        return stats != null ? stats.get(statistic) : null;
+    }
+    
+    /**
+     * Actualiza una estadística global del evento.
+     * 
+     * @param statistic Nombre de la estadística
+     * @param value Valor a establecer
+     */
+    protected final void updateGlobalStatistic(String statistic, long value) {
+        if (statistic == null) return;
+        
+        globalStatistics.computeIfAbsent(statistic, k -> new AtomicLong(0)).set(value);
+        dataDirty.set(true);
+    }
+    
+    /**
+     * Incrementa una estadística global del evento.
+     * 
+     * @param statistic Nombre de la estadística
+     * @param increment Cantidad a incrementar
+     */
+    protected final void incrementGlobalStatistic(String statistic, long increment) {
+        if (statistic == null) return;
+        
+        globalStatistics.computeIfAbsent(statistic, k -> new AtomicLong(0))
+                       .addAndGet(increment);
+        dataDirty.set(true);
+    }
+    
+    // === TAREAS DEL SISTEMA ABSTRACTO ===
+    
+    /**
+     * Inicia las tareas del sistema abstracto.
+     */
+    private void startAbstractEventTasks() {
+        if (challengeSystemEnabled.get()) {
+            startChallengeCheckTask();
+        }
+        
+        if (statisticsEnabled.get()) {
+            startStatisticsTask();
+        }
+        
+        if (autoSaveEnabled.get()) {
+            startPersistenceTask();
+        }
+    }
+    
+    /**
+     * Detiene las tareas del sistema abstracto.
+     */
+    private void stopAbstractEventTasks() {
+        if (challengeTask != null && !challengeTask.isCancelled()) {
+            challengeTask.cancel();
+        }
+        
+        if (statisticsTask != null && !statisticsTask.isCancelled()) {
+            statisticsTask.cancel();
+        }
+        
+        if (persistenceTask != null && !persistenceTask.isCancelled()) {
+            persistenceTask.cancel();
+        }
+    }
+    
+    /**
+     * Inicia la tarea de verificación de desafíos.
+     */
+    private void startChallengeCheckTask() {
+        challengeTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                try {
+                    processChallengeChecks();
+                } catch (Exception e) {
+                    globalStatistics.get("total_errors").incrementAndGet();
+                    logger.log(Level.WARNING, "[" + getId() + "] Error en verificación de desafíos", e);
+                }
+            }
+        }.runTaskTimerAsynchronously(plugin, CHALLENGE_CHECK_INTERVAL, CHALLENGE_CHECK_INTERVAL);
+    }
+    
+    /**
+     * Inicia la tarea de actualización de estadísticas.
+     */
+    private void startStatisticsTask() {
+        statisticsTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                try {
+                    processEventStatistics();
+                } catch (Exception e) {
+                    globalStatistics.get("total_errors").incrementAndGet();
+                    logger.log(Level.WARNING, "[" + getId() + "] Error en procesamiento de estadísticas", e);
+                }
+            }
+        }.runTaskTimerAsynchronously(plugin, STATISTICS_UPDATE_INTERVAL, STATISTICS_UPDATE_INTERVAL);
+    }
+    
+    /**
+     * Inicia la tarea de persistencia automática.
+     */
+    private void startPersistenceTask() {
+        persistenceTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                try {
+                    if (dataDirty.get() && 
+                        System.currentTimeMillis() - lastDataSave.get() > DATA_PERSISTENCE_INTERVAL * 50) {
+                        saveEventSpecificData();
+                        globalStatistics.get("data_saves").incrementAndGet();
+                        dataDirty.set(false);
+                        lastDataSave.set(System.currentTimeMillis());
+                    }
+                } catch (Exception e) {
+                    globalStatistics.get("total_errors").incrementAndGet();
+                    logger.log(Level.WARNING, "[" + getId() + "] Error en persistencia automática", e);
+                }
+            }
+        }.runTaskTimerAsynchronously(plugin, DATA_PERSISTENCE_INTERVAL, DATA_PERSISTENCE_INTERVAL);
+    }
+    
+    // === MÉTODOS DE UTILIDAD ===
+    
+    /**
+     * Procesa las verificaciones de desafíos para todos los jugadores activos.
+     */
+    private void processChallengeChecks() {
+        long currentTime = System.currentTimeMillis();
+        
+        for (UUID playerId : getActivePlayers()) {
+            Long lastCheck = lastChallengeCheck.get(playerId);
+            if (lastCheck == null || currentTime - lastCheck > CHALLENGE_CHECK_INTERVAL * 50) {
+                checkPlayerChallenges(playerId);
+                lastChallengeCheck.put(playerId, currentTime);
             }
         }
     }
     
     /**
-     * Detiene todas las tareas del evento.
+     * Verifica los desafíos específicos para un jugador.
+     * Los eventos específicos pueden sobrescribir este método.
+     * 
+     * @param playerId ID del jugador
      */
-    protected final void stopEventTasks() {
-        cancelTaskSafely(mainTask);
-        cancelTaskSafely(secondaryTask);
-        cancelTaskSafely(cleanupTask);
-        
-        // Permitir que las subclases detengan tareas adicionales
-        stopAdditionalTasks();
-    }
-    
-    /**
-     * Limpia todos los datos del evento.
-     */
-    protected final void cleanupEventData() {
-        activePlayers.clear();
-        playerData.clear();
-        
-        // Permitir que las subclases limpien datos adicionales
-        cleanupAdditionalData();
-    }
-    
-    /**
-     * Limpieza forzada en caso de errores críticos.
-     */
-    protected final void forceCleanup() {
-        try {
-            stopEventTasks();
-            cleanupEventData();
-            isActive.set(false);
-            isPaused.set(false);
-            logger.info("Limpieza forzada completada para " + getName());
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Error durante limpieza forzada de " + getName(), e);
+    protected void checkPlayerChallenges(UUID playerId) {
+        // Verificar desafío de participación
+        if (!hasChallengeCompleted(playerId, "participation")) {
+            completeChallengeForPlayer(playerId, "participation");
         }
     }
     
     /**
-     * Verifica si el evento está activo y no pausado.
+     * Procesa las estadísticas finales del evento.
+     */
+    private void processFinalStatistics() {
+        totalParticipants.set(getActivePlayers().size());
+        
+        // Verificar desafío de supervivencia para jugadores activos
+        for (UUID playerId : getActivePlayers()) {
+            if (!hasChallengeCompleted(playerId, "survivor")) {
+                completeChallengeForPlayer(playerId, "survivor");
+            }
+        }
+    }
+    
+    /**
+     * Notifica a un jugador que ha completado un desafío.
      * 
-     * @return true si el evento puede ejecutar operaciones
+     * @param player El jugador
+     * @param challenge El desafío completado
      */
-    protected final boolean canExecute() {
-        return isActive.get() && !isPaused.get();
+    private void notifyPlayerChallengeCompleted(Player player, ChallengeDefinition challenge) {
+        String message = prefix + " <green>¡Desafío completado!</green> " +
+                        "<yellow>" + challenge.getDisplayName() + "</yellow>";
+        player.sendMessage(MM.toComponent(message));
     }
     
     /**
-     * Limpia jugadores desconectados de las colecciones.
-     * Debe llamarse periódicamente para evitar memory leaks.
-     */
-    protected final void cleanupDisconnectedPlayers() {
-        activePlayers.removeIf(player -> player == null || !player.isOnline());
-        playerData.entrySet().removeIf(entry -> {
-            Player player = entry.getKey();
-            return player == null || !player.isOnline();
-        });
-    }
-    
-    // Métodos abstractos que deben implementar las subclases
-    
-    /**
-     * Obtiene el ID interno del evento.
-     * Este ID representa el nombre interno del evento y no debe mostrarse en mensajes.
-     * Para mostrar mensajes, usar el prefix del evento.
+     * Otorga recompensas a un jugador.
      * 
-     * @return ID interno del evento
+     * @param player El jugador
+     * @param rewards Lista de recompensas
      */
-    public abstract String getId();
+    private void giveRewards(Player player, List<String> rewards) {
+        if (rewards == null || rewards.isEmpty()) return;
+        
+        for (String reward : rewards) {
+            // Aquí se integraría con el sistema de recompensas del plugin
+            // Por ahora, solo registramos la recompensa
+            logger.info("[" + getId() + "] Recompensa otorgada a " + player.getName() + ": " + reward);
+        }
+    }
     
     /**
-     * Obtiene el nombre del evento.
-     * Por defecto retorna el ID, pero puede ser sobrescrito para compatibilidad.
+     * Maneja errores del evento de manera robusta.
      * 
-     * @return Nombre del evento
+     * @param operation Operación que causó el error
+     * @param error El error ocurrido
      */
-    public String getName() {
-        return getId();
+    private void handleEventError(String operation, Exception error) {
+        logger.log(Level.SEVERE, "[" + getId() + "] Error crítico en operación: " + operation, error);
+        
+        // Intentar recuperación automática
+        try {
+            if ("start".equals(operation) && !isActive()) {
+                logger.info("[" + getId() + "] Intentando recuperación automática del inicio...");
+                // Lógica de recuperación específica
+            }
+        } catch (Exception recoveryError) {
+            logger.log(Level.SEVERE, "[" + getId() + "] Fallo en recuperación automática", recoveryError);
+        }
     }
     
-    /**
-     * Inicializa las tareas específicas del evento.
-     * Llamado durante startEvent().
-     */
-    protected abstract void initializeEventTasks();
+    // === GETTERS PARA ACCESO A DATOS ===
     
     /**
-     * Inicializa los datos específicos de un jugador.
+     * Obtiene todas las estadísticas de un jugador.
      * 
-     * @param player Jugador a inicializar
+     * @param playerId ID del jugador
+     * @return Mapa con las estadísticas del jugador
      */
-    protected abstract void initializePlayerData(Player player);
-    
-    /**
-     * Pausa las tareas específicas del evento.
-     * Llamado durante pauseEvent().
-     */
-    protected abstract void pauseEventTasks();
-    
-    /**
-     * Reanuda las tareas específicas del evento.
-     * Llamado durante resumeEvent().
-     */
-    protected abstract void resumeEventTasks();
-    
-    /**
-     * Detiene tareas adicionales específicas del evento.
-     * Llamado durante stopEventTasks().
-     */
-    protected abstract void stopAdditionalTasks();
-    
-    /**
-     * Limpia datos adicionales específicos del evento.
-     * Llamado durante cleanupEventData().
-     */
-    protected abstract void cleanupAdditionalData();
-    
-    // Getters para el estado del evento
-    
-    public final boolean isActive() {
-        return isActive.get();
+    public final Map<String, Object> getPlayerStatistics(UUID playerId) {
+        Map<String, Object> stats = playerStatistics.get(playerId);
+        return stats != null ? new HashMap<>(stats) : new HashMap<>();
     }
     
-    public final boolean isPaused() {
-        return isPaused.get();
+    /**
+     * Obtiene todas las estadísticas globales del evento.
+     * 
+     * @return Mapa con las estadísticas globales
+     */
+    public final Map<String, Long> getGlobalStatistics() {
+        Map<String, Long> stats = new HashMap<>();
+        globalStatistics.forEach((key, value) -> stats.put(key, value.get()));
+        return stats;
     }
     
-    public final int getActivePlayerCount() {
-        return activePlayers.size();
+    /**
+     * Obtiene los desafíos completados por un jugador.
+     * 
+     * @param playerId ID del jugador
+     * @return Set con los IDs de desafíos completados
+     */
+    public final Set<String> getCompletedChallenges(UUID playerId) {
+        Set<String> challenges = completedChallenges.get(playerId);
+        return challenges != null ? new HashSet<>(challenges) : new HashSet<>();
+    }
+    
+    /**
+     * Obtiene el progreso de desafíos de un jugador.
+     * 
+     * @param playerId ID del jugador
+     * @return Mapa con el progreso de desafíos
+     */
+    public final Map<String, Object> getChallengeProgress(UUID playerId) {
+        Map<String, Object> progress = challengeProgress.get(playerId);
+        return progress != null ? new HashMap<>(progress) : new HashMap<>();
+    }
+    
+    /**
+     * Obtiene el total de participantes del evento.
+     * 
+     * @return Número total de participantes
+     */
+    public final long getTotalParticipants() {
+        return totalParticipants.get();
+    }
+    
+    /**
+     * Obtiene el total de desafíos completados.
+     * 
+     * @return Número total de desafíos completados
+     */
+    public final long getTotalChallengesCompleted() {
+        return totalChallengesCompleted.get();
+    }
+    
+    // === CONFIGURACIÓN DEL SISTEMA ===
+    
+    /**
+     * Habilita o deshabilita el sistema de desafíos.
+     * 
+     * @param enabled true para habilitar, false para deshabilitar
+     */
+    protected final void setChallengeSystemEnabled(boolean enabled) {
+        challengeSystemEnabled.set(enabled);
+    }
+    
+    /**
+     * Habilita o deshabilita el sistema de estadísticas.
+     * 
+     * @param enabled true para habilitar, false para deshabilitar
+     */
+    protected final void setStatisticsEnabled(boolean enabled) {
+        statisticsEnabled.set(enabled);
+    }
+    
+    /**
+     * Habilita o deshabilita el guardado automático.
+     * 
+     * @param enabled true para habilitar, false para deshabilitar
+     */
+    protected final void setAutoSaveEnabled(boolean enabled) {
+        autoSaveEnabled.set(enabled);
+    }
+    
+    /**
+     * Definición de un desafío del evento.
+     */
+    protected static class ChallengeDefinition {
+        private final String id;
+        private final String displayName;
+        private final String description;
+        private final int requiredProgress;
+        private final List<String> rewards;
+        
+        public ChallengeDefinition(String id, String displayName, String description, 
+                                 int requiredProgress, List<String> rewards) {
+            this.id = id;
+            this.displayName = displayName;
+            this.description = description;
+            this.requiredProgress = requiredProgress;
+            this.rewards = rewards != null ? new ArrayList<>(rewards) : new ArrayList<>();
+        }
+        
+        public String getId() { return id; }
+        public String getDisplayName() { return displayName; }
+        public String getDescription() { return description; }
+        public int getRequiredProgress() { return requiredProgress; }
+        public List<String> getRewards() { return new ArrayList<>(rewards); }
     }
 }

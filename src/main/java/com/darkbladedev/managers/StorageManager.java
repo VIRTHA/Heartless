@@ -479,27 +479,27 @@ public class StorageManager {
                     // Cargar mapas desde JSON
                     if (eventData.has("infectedPlayers")) {
                         JsonObject infectedPlayersJson = eventData.getAsJsonObject("infectedPlayers");
-                        Map<String, Object> infectedPlayers = new HashMap<>();
+                        Map<UUID, Boolean> infectedPlayers = new HashMap<>();
                         for (Map.Entry<String, com.google.gson.JsonElement> entry : infectedPlayersJson.entrySet()) {
-                            infectedPlayers.put(entry.getKey(), entry.getValue().getAsBoolean());
+                            infectedPlayers.put(UUID.fromString(entry.getKey()), entry.getValue().getAsBoolean());
                         }
                         undeadWeek.loadInfectedPlayers(infectedPlayers);
                     }
                     
                     if (eventData.has("infectedPlayersTime")) {
                         JsonObject infectedPlayersTimeJson = eventData.getAsJsonObject("infectedPlayersTime");
-                        Map<String, Object> infectedPlayersTime = new HashMap<>();
+                        Map<UUID, Long> infectedPlayersTime = new HashMap<>();
                         for (Map.Entry<String, com.google.gson.JsonElement> entry : infectedPlayersTimeJson.entrySet()) {
-                            infectedPlayersTime.put(entry.getKey(), entry.getValue().getAsLong());
+                            infectedPlayersTime.put(UUID.fromString(entry.getKey()), entry.getValue().getAsLong());
                         }
                         undeadWeek.loadInfectedPlayersTime(infectedPlayersTime);
                     }
                         
                     if (eventData.has("curedInfections")) {
                         JsonObject curedInfectionsJson = eventData.getAsJsonObject("curedInfections");
-                        Map<String, Object> curedInfections = new HashMap<>();
+                        Map<UUID, Integer> curedInfections = new HashMap<>();
                         for (Map.Entry<String, com.google.gson.JsonElement> entry : curedInfectionsJson.entrySet()) {
-                            curedInfections.put(entry.getKey(), entry.getValue().getAsInt());
+                            curedInfections.put(UUID.fromString(entry.getKey()), entry.getValue().getAsInt());
                         }
                         undeadWeek.loadCuredInfectionsCount(curedInfections);
                     }
@@ -507,9 +507,9 @@ public class StorageManager {
                     // Cargar contador de eliminaciones en Luna Roja
                     if (eventData.has("redMoonKills")) {
                         JsonObject redMoonKillsJson = eventData.getAsJsonObject("redMoonKills");
-                        Map<String, Object> redMoonKills = new HashMap<>();
+                        Map<UUID, Integer> redMoonKills = new HashMap<>();
                         for (Map.Entry<String, com.google.gson.JsonElement> entry : redMoonKillsJson.entrySet()) {
-                            redMoonKills.put(entry.getKey(), entry.getValue().getAsInt());
+                            redMoonKills.put(UUID.fromString(entry.getKey()), entry.getValue().getAsInt());
                         }
                         undeadWeek.loadRedMoonKillsCount(redMoonKills);
                     }
@@ -529,9 +529,9 @@ public class StorageManager {
                     // Cargar contador de aldeanos curados
                     if (eventData.has("curedVillagersCount")) {
                         JsonObject curedVillagersCountJson = eventData.getAsJsonObject("curedVillagersCount");
-                        Map<String, Object> curedVillagersCount = new HashMap<>();
+                        Map<UUID, Integer> curedVillagersCount = new HashMap<>();
                         for (Map.Entry<String, com.google.gson.JsonElement> entry : curedVillagersCountJson.entrySet()) {
-                            curedVillagersCount.put(entry.getKey(), entry.getValue().getAsInt());
+                            curedVillagersCount.put(UUID.fromString(entry.getKey()), entry.getValue().getAsInt());
                         }
                         undeadWeek.loadCuredVillagersCount(curedVillagersCount);
                     }
