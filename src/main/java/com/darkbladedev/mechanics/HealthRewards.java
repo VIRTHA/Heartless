@@ -16,11 +16,7 @@ import com.darkbladedev.utils.MM;
 
 public class HealthRewards implements Listener {
     
-    @SuppressWarnings("unused")
-    private final HeartlessMain plugin;
-    
     public HealthRewards(HeartlessMain plugin) {
-        this.plugin = plugin;
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
     

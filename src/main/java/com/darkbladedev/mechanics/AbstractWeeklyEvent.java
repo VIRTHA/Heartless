@@ -1,8 +1,11 @@
 package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.managers.PlayerStatisticsReportManager;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -57,12 +60,15 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     protected final AtomicBoolean dataDirty = new AtomicBoolean(false);
     protected final AtomicLong lastDataSave = new AtomicLong(0);
     
-    // === TAREAS DEL SISTEMA ===
+    // === GESTIÓN DE TAREAS ===
     private BukkitTask challengeTask;
     private BukkitTask statisticsTask;
     private BukkitTask persistenceTask;
     
-    // === CONTROL DE ESTADO ===
+    // === SISTEMA DE REPORTES ===
+    protected final PlayerStatisticsReportManager reportManager;
+    
+    // === CONFIGURACIÓN DEL SISTEMA ===
     protected final AtomicBoolean challengeSystemEnabled = new AtomicBoolean(true);
     protected final AtomicBoolean statisticsEnabled = new AtomicBoolean(true);
     protected final AtomicBoolean autoSaveEnabled = new AtomicBoolean(true);
@@ -75,6 +81,7 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
      */
     public AbstractWeeklyEvent(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
+        this.reportManager = new PlayerStatisticsReportManager(plugin);
         initializeEventSystems();
     }
     
@@ -500,6 +507,10 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     /**
      * Procesa las estadísticas finales del evento.
      */
+    /**
+     * Procesa las estadísticas finales del evento y genera reportes individuales.
+     * Se ejecuta al finalizar el evento para mostrar estadísticas a cada jugador.
+     */
     private void processFinalStatistics() {
         totalParticipants.set(getActivePlayers().size());
         
@@ -509,18 +520,53 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
                 completeChallengeForPlayer(playerId, "survivor");
             }
         }
+        
+        // Generar y enviar reportes individuales de estadísticas
+        generateAndSendPlayerReports();
     }
     
     /**
-     * Notifica a un jugador que ha completado un desafío.
+     * Genera y envía reportes individuales de estadísticas a todos los jugadores participantes.
+     * Utiliza el PlayerStatisticsReportManager para crear reportes personalizados.
+     */
+    private void generateAndSendPlayerReports() {
+        if (reportManager == null) {
+            plugin.getLogger().warning("ReportManager no está inicializado para el evento " + getId());
+            return;
+        }
+
+        // Usar el método público generateAndSendFinalReports que maneja todo el proceso
+        reportManager.generateAndSendFinalReports(this);
+    }
+    
+    /**
+     * Notifica a un jugador que ha completado un desafío con formato MiniMessage y hover text.
      * 
      * @param player El jugador
      * @param challenge El desafío completado
      */
     private void notifyPlayerChallengeCompleted(Player player, ChallengeDefinition challenge) {
-        String message = prefix + " <green>¡Desafío completado!</green> " +
-                        "<yellow>" + challenge.getDisplayName() + "</yellow>";
-        player.sendMessage(MM.toComponent(message));
+        UUID playerId = player.getUniqueId();
+        
+        // Obtener progreso actual y objetivo
+        Map<String, Object> progress = challengeProgress.getOrDefault(playerId, new HashMap<>());
+        Object currentProgress = progress.getOrDefault(challenge.getId(), 0);
+        int targetProgress = challenge.getRequiredProgress();
+        
+        // Crear el texto del hover con el progreso
+        String hoverText = "<gray>Progreso: <white>" + currentProgress + "/" + targetProgress + "</white></gray>";
+        Component hoverComponent = MM.toComponent(hoverText);
+        
+        // Crear el mensaje principal con hover en el nombre del desafío
+        Component challengeNameWithHover = MM.toComponent("<yellow>" + challenge.getDisplayName() + "</yellow>")
+                .hoverEvent(HoverEvent.showText(hoverComponent));
+        
+        // Mensaje completo
+        Component fullMessage = MM.toComponent(prefix + " <green>Has completado el desafío </green>")
+                .append(challengeNameWithHover)
+                .append(MM.toComponent("<green>!</green>"));
+        
+        player.sendMessage(fullMessage);
     }
     
     /**
@@ -621,6 +667,15 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
      */
     public final long getTotalChallengesCompleted() {
         return totalChallengesCompleted.get();
+    }
+    
+    /**
+     * Obtiene todos los jugadores que tienen estadísticas registradas.
+     * 
+     * @return Set con los UUIDs de todos los jugadores con estadísticas
+     */
+    public final Set<UUID> getAllPlayersWithStatistics() {
+        return new HashSet<>(playerStatistics.keySet());
     }
     
     // === CONFIGURACIÓN DEL SISTEMA ===

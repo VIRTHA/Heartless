@@ -1,6 +1,8 @@
 package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.managers.CustomEffectsManager;
+import com.darkbladedev.content.semi_custom.effects.ZombieInfection;
 import com.darkbladedev.utils.TimeExpression;
 import com.darkbladedev.utils.MM;
 import org.bukkit.Bukkit;
@@ -39,7 +41,8 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     // === CONSTANTES DEL EVENTO ===
     private static final String EVENT_ID = "undead_week";
     private static final int POISON_DURATION = 30 * 20; // 30 segundos en ticks
-    private static final int RED_MOON_DURATION = 10 * 60 * 1000; // 10 minutos en ms
+    private static final int RED_MOON_DURATION = 7 * 60 * 1000; // 7 minutos en ms
+    private static final int RED_MOON_DURATION_TICKS = 8400; // 7 minutos en ticks
     private static final double INFECTION_CHANCE = 0.3; // 30% de probabilidad
     private static final int ZOMBIE_SPAWN_RADIUS = 50;
     private static final int MAX_ZOMBIES_PER_PLAYER = 5;
@@ -68,6 +71,10 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     private BukkitTask zombieSpawnTask;
     private BukkitTask infectionTask;
     
+    // === MANAGERS ===
+    private CustomEffectsManager effectsManager;
+    private ZombieInfection zombieInfectionEffect;
+    
     /**
      * Constructor del evento UndeadWeek.
      * 
@@ -76,6 +83,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
      */
     public UndeadWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
+        this.zombieInfectionEffect = (ZombieInfection) effectsManager.getEffect("zombie_infection");
         logger.info("[UndeadWeek] Evento inicializado con duración: " + duration.toString());
     }
     
@@ -237,8 +245,17 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             // Actualizar estadísticas de jugadores
             for (UUID playerId : playerStatistics.keySet()) {
                 Map<String, Object> stats = playerStatistics.get(playerId);
+                Player player = Bukkit.getPlayer(playerId);
+                
                 stats.put("zombie_kills", getPlayerZombieKills(playerId));
-                stats.put("is_infected", infectedPlayers.getOrDefault(playerId, false));
+                
+                // Verificar infección usando el efecto personalizado
+                boolean isInfected = false;
+                if (player != null && player.isOnline() && zombieInfectionEffect != null) {
+                    isInfected = zombieInfectionEffect.isAffected(player);
+                }
+                stats.put("is_infected", isInfected);
+                
                 stats.put("cured_infections", curedInfectionsCountMap.getOrDefault(playerId, 0));
                 stats.put("red_moon_kills", redMoonKillsCount.getOrDefault(playerId, 0));
             }
@@ -277,8 +294,8 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         
         Player player = (Player) event.getEntity();
         
-        // Aplicar infección si no está ya infectado
-        if (!infectedPlayers.getOrDefault(player.getUniqueId(), false)) {
+        // Aplicar infección si no está ya infectado usando el efecto personalizado
+        if (zombieInfectionEffect == null || !zombieInfectionEffect.isAffected(player)) {
             if (ThreadLocalRandom.current().nextDouble() < INFECTION_CHANCE) {
                 infectPlayer(player);
             }
@@ -326,7 +343,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         
         // Anunciar luna roja
         Bukkit.broadcast(MM.toComponent("<dark_red><bold>¡LA LUNA ROJA SE ALZA!</bold></dark_red>"));
-        Bukkit.broadcast(MM.toComponent("<red>Los monstruos son más fuertes y dan más recompensas...</red>"));
+        Bukkit.broadcast(MM.toComponent("<red>Los monstruos son más fuertes y peligrosos...</red>"));
         
         // Programar fin de luna roja
         new BukkitRunnable() {
@@ -334,7 +351,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             public void run() {
                 deactivateRedMoon();
             }
-        }.runTaskLater(plugin, RED_MOON_DURATION / 50); // Convertir ms a ticks
+        }.runTaskLater(plugin, RED_MOON_DURATION_TICKS); // Convertir ms a ticks
         
         logger.info("[UndeadWeek] Luna Roja activada");
     }
@@ -354,41 +371,42 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     }
     
     private void infectPlayer(Player player) {
-        UUID playerId = player.getUniqueId();
         
-        if (infectedPlayers.getOrDefault(playerId, false)) return;
+        // Verificar si ya está infectado usando el efecto personalizado
+        if (zombieInfectionEffect != null && zombieInfectionEffect.isAffected(player)) {
+            return;
+        }
         
-        infectedPlayers.put(playerId, true);
-        infectedPlayersTime.put(playerId, System.currentTimeMillis());
+        // Aplicar el efecto de infección zombie usando el método de sincronización
+        if (zombieInfectionEffect != null) {
+            zombieInfectionEffect.applyInfectionFromEvent(player, "zombie_attack");
+        }
+        
+        // Actualizar contadores
         infectedPlayersCount.incrementAndGet();
         
-        player.sendMessage(MM.toComponent("<red><bold>¡Has sido infectado por un zombie!</bold></red>"));
-        player.sendMessage(MM.toComponent("<gray>Busca una cura antes de que sea demasiado tarde...</gray>"));
-        
-        // Aplicar efectos de infección
-        player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, Integer.MAX_VALUE, 0));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 0));
-        
-        logger.info("[UndeadWeek] Jugador " + player.getName() + " infectado");
+        logger.info("[UndeadWeek] Jugador " + player.getName() + " infectado usando ZombieInfection");
     }
     
-    private void curePlayer(Player player) {
-        UUID playerId = player.getUniqueId();
+    /**
+     * Cura a un jugador de la infección zombie
+     * @param player El jugador a curar
+     */
+    public void curePlayer(Player player) {
         
-        if (!infectedPlayers.getOrDefault(playerId, false)) return;
+        // Verificar si está infectado usando el efecto personalizado
+        if (zombieInfectionEffect == null || !zombieInfectionEffect.isAffected(player)) {
+            return;
+        }
         
-        infectedPlayers.put(playerId, false);
-        infectedPlayersTime.remove(playerId);
-        curedInfectionsCountMap.merge(playerId, 1, Integer::sum);
+        // Curar usando el método de sincronización
+        zombieInfectionEffect.cureInfectionFromEvent(player, "medicine");
+        
+        // Actualizar contadores
         curedInfectionsCount.incrementAndGet();
+        curedInfectionsCountMap.merge(player.getUniqueId(), 1, Integer::sum);
         
-        // Remover efectos de infección
-        player.removePotionEffect(PotionEffectType.WEAKNESS);
-        player.removePotionEffect(PotionEffectType.SLOWNESS);
-        
-        player.sendMessage(MM.toComponent("<green><bold>¡Has sido curado de la infección!</bold></green>"));
-        
-        logger.info("[UndeadWeek] Jugador " + player.getName() + " curado");
+        logger.info("[UndeadWeek] Jugador " + player.getName() + " curado usando ZombieInfection");
     }
     
     private void spawnRandomZombies() {
@@ -422,25 +440,23 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     }
     
     private void processInfections() {
-        long currentTime = System.currentTimeMillis();
         
-        for (Map.Entry<UUID, Long> entry : infectedPlayersTime.entrySet()) {
-            UUID playerId = entry.getKey();
-            long infectionTime = entry.getValue();
-            
-            // Si han pasado más de 5 minutos, aplicar efectos más severos
-            if (currentTime - infectionTime > 5 * 60 * 1000) {
-                Player player = Bukkit.getPlayer(playerId);
-                if (player != null && player.isOnline()) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 20 * 30, 1));
-                    
-                    if (currentTime - infectionTime > 10 * 60 * 1000) {
-                        // Después de 10 minutos, daño gradual
-                        player.damage(1.0);
-                        player.sendMessage(MM.toComponent("<red>La infección se está extendiendo...</red>"));
-                    }
-                }
+        // Iterar sobre todos los jugadores online para verificar infecciones
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player == null || !player.isOnline()) {
+                continue;
             }
+            
+            // Verificar que el jugador esté infectado usando el efecto personalizado
+            if (zombieInfectionEffect == null || !zombieInfectionEffect.isAffected(player)) {
+                continue;
+            }
+            
+            // El efecto ZombieInfection ya maneja los efectos progresivos
+            // Solo necesitamos verificar si necesitamos aplicar efectos adicionales del evento
+            
+            // Aplicar efectos adicionales específicos del evento UndeadWeek si es necesario
+            // (Los efectos principales ya los maneja ZombieInfection automáticamente)
         }
     }
     
@@ -562,9 +578,12 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     
     private void cleanupPlayerEffects() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            // Remover efectos de infección
-            player.removePotionEffect(PotionEffectType.WEAKNESS);
-            player.removePotionEffect(PotionEffectType.SLOWNESS);
+            // Remover el efecto de infección zombie usando el método de sincronización
+            if (zombieInfectionEffect != null && zombieInfectionEffect.isAffected(player)) {
+                zombieInfectionEffect.cureInfectionFromEvent(player, "event_end");
+            }
+            
+            // Remover efectos adicionales del evento
             player.removePotionEffect(PotionEffectType.HUNGER);
         }
     }

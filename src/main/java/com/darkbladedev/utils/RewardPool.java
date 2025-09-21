@@ -6,9 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.darkbladedev.utils.EventType;
-
-@SuppressWarnings("unused")
 public class RewardPool {
 
     private static final Map<EventType, List<String>> EVENT_REWARDS = new HashMap<>();

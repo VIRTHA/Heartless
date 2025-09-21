@@ -368,4 +368,64 @@ public class ZombieInfection extends CustomEffectsBase {
     public String getPrefix() {
         return prefix;
     }
+    
+    /**
+     * Método para sincronización con UndeadWeek - aplica infección con notificación
+     * @param player El jugador a infectar
+     * @param source El origen de la infección (ej: "zombie_attack", "red_moon")
+     */
+    public void applyInfectionFromEvent(Player player, String source) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        
+        // Aplicar el efecto usando el método base
+        applyEffect(player);
+        
+        // Enviar mensaje específico según la fuente
+        switch (source) {
+            case "zombie_attack":
+                player.sendMessage(MM.toComponent("<red><bold>¡Has sido infectado por un zombie!</bold></red>"));
+                player.sendMessage(MM.toComponent("<gray>Busca una cura antes de que sea demasiado tarde..."));
+                break;
+            case "red_moon":
+                player.sendMessage(MM.toComponent("<dark_red><bold>¡La Luna Roja ha intensificado tu infección!</bold></dark_red>"));
+                break;
+            default:
+                player.sendMessage(MM.toComponent("<red>¡Has contraído la infección zombie!"));
+                break;
+        }
+    }
+    
+    /**
+     * Método para sincronización con UndeadWeek - cura infección con notificación
+     * @param player El jugador a curar
+     * @param source El origen de la curación (ej: "medicine", "event_end")
+     */
+    public void cureInfectionFromEvent(Player player, String source) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        
+        // Solo curar si está infectado
+        if (!isAffected(player)) {
+            return;
+        }
+        
+        // Remover el efecto usando el método base
+        removeEffect(player);
+        
+        // Enviar mensaje específico según la fuente
+        switch (source) {
+            case "medicine":
+                player.sendMessage(MM.toComponent("<green><bold>¡La medicina ha curado tu infección!</bold></green>"));
+                break;
+            case "event_end":
+                player.sendMessage(MM.toComponent("<yellow>El evento ha terminado y tu infección se ha curado."));
+                break;
+            default:
+                player.sendMessage(MM.toComponent("<green>¡Te has curado de la infección zombie!"));
+                break;
+        }
+    }
 }
