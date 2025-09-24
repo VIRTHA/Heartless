@@ -561,8 +561,8 @@ public class ExplosiveWeek extends WeeklyEvent {
         player.sendMessage(MM.toComponent("<yellow>Has matado a un jugador con una explosión.</yellow>"));
         player.sendMessage(MM.toComponent("<gold>Recompensa: Tag \"TNTómano\"</gold>"));
         
-        // Award the tag using EternalTags
-        //eternalAPI.setTag(player, new Tag("tntomano", "tntomano", "&x&f&f&f&f&f&fT&x&f&a&d&b&d&bN&x&f&5&b&8&b&8T&x&f&0&9&4&9&4o&x&e&c&7&1&7&1m&x&e&7&4&d&4&da&x&e&2&2&a&2&an&x&d&d&0&6&0&6o")); //&#10dd00T&#2bc205N&#45a80aT&#608d0fo&#7a7213m&#955718a&#af3d1dn&#ca2222o
+        // Award the tag
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tags set tntomano" + player.getName());
         
         playerExplosionKillers.add(player.getUniqueId());
         

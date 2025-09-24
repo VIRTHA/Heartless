@@ -812,6 +812,8 @@ public class BloodAndIronWeek extends WeeklyEvent {
                     if (!pentaKillers.contains(playerId)) {
                         pentaKillers.add(playerId);
                         player.sendMessage(MM.toComponent("<green>¡Desafío completado: Pentakill!"));
+                        // Award the tag
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tags set pentakill" + player.getName());
                     }
                     break;
                 case "survivor":

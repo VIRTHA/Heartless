@@ -579,9 +579,116 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
         if (rewards == null || rewards.isEmpty()) return;
         
         for (String reward : rewards) {
-            // Aquí se integraría con el sistema de recompensas del plugin
-            // Por ahora, solo registramos la recompensa
-            logger.info("[" + getId() + "] Recompensa otorgada a " + player.getName() + ": " + reward);
+            giveReward(player, reward);
+        }
+    }
+    
+    /**
+     * Otorga una recompensa específica a un jugador.
+     * 
+     * @param player El jugador
+     * @param reward La recompensa en formato "tipo:valor" o "tipo:item:cantidad"
+     */
+    private void giveReward(Player player, String reward) {
+        if (player == null || reward == null || reward.trim().isEmpty()) {
+            return;
+        }
+        
+        try {
+            String[] parts = reward.split(":");
+            logger.info("[" + getId() + "] Procesando recompensa: " + reward + " (partes: " + parts.length + ")");
+            
+            if (parts.length < 2) {
+                logger.warning("[" + getId() + "] Formato de recompensa inválido: " + reward);
+                return;
+            }
+            
+            String type = parts[0].toLowerCase();
+            
+            switch (type) {
+                case "experience":
+                case "exp":
+                    try {
+                        int amount = Integer.parseInt(parts[1]);
+                        player.giveExp(amount);
+                        logger.info("[" + getId() + "] Experiencia otorgada: " + amount + " a " + player.getName());
+                    } catch (NumberFormatException e) {
+                        logger.warning("[" + getId() + "] Cantidad de experiencia inválida: " + parts[1]);
+                    }
+                    break;
+                    
+                case "item":
+                    if (parts.length >= 3) {
+                        try {
+                            String itemName = parts[1].toUpperCase();
+                            int quantity = Integer.parseInt(parts[2]);
+                            
+                            org.bukkit.Material material = org.bukkit.Material.valueOf(itemName);
+                            org.bukkit.inventory.ItemStack item = new org.bukkit.inventory.ItemStack(material, quantity);
+                            
+                            // Intentar agregar al inventario
+                            java.util.HashMap<Integer, org.bukkit.inventory.ItemStack> leftover = player.getInventory().addItem(item);
+                            
+                            // Si hay items sobrantes, tirarlos al suelo
+                            if (!leftover.isEmpty()) {
+                                for (org.bukkit.inventory.ItemStack leftoverItem : leftover.values()) {
+                                    player.getWorld().dropItemNaturally(player.getLocation(), leftoverItem);
+                                }
+                            }
+                            
+                            logger.info("[" + getId() + "] Item otorgado: " + quantity + "x " + itemName + " a " + player.getName());
+                        } catch (IllegalArgumentException e) {
+                            if (e instanceof NumberFormatException) {
+                                logger.warning("[" + getId() + "] Cantidad de item inválida: " + parts[2]);
+                            } else {
+                                logger.warning("[" + getId() + "] Material inválido: " + parts[1]);
+                            }
+                        }
+                    } else {
+                        logger.warning("[" + getId() + "] Formato de item inválido: " + reward);
+                    }
+                    break;
+                    
+                case "tag":
+                    if (parts.length >= 2) {
+                        String tagName = parts[1];
+                        // Aquí se integraría con el sistema de tags del plugin
+                        logger.info("[" + getId() + "] Tag otorgado: " + tagName + " a " + player.getName());
+                    }
+                    break;
+                    
+                case "enchant":
+                    if (parts.length >= 3) {
+                        try {
+                            String enchantName = parts[1].toUpperCase();
+                            int level = Integer.parseInt(parts[2]);
+                            
+                            org.bukkit.enchantments.Enchantment enchantment = HeartlessMain.getContentManager().getEnchantment(enchantName);
+                            if (enchantment != null) {
+                                org.bukkit.inventory.ItemStack mainHand = player.getInventory().getItemInMainHand();
+                                if (mainHand != null && mainHand.getType() != org.bukkit.Material.AIR) {
+                                    mainHand.addUnsafeEnchantment(enchantment, level);
+                                    logger.info("[" + getId() + "] Encantamiento otorgado: " + enchantName + " " + level + " a " + player.getName());
+                                } else {
+                                    logger.warning("[" + getId() + "] No hay item en la mano para encantar para " + player.getName());
+                                }
+                            } else {
+                                logger.warning("[" + getId() + "] Encantamiento inválido: " + enchantName);
+                            }
+                        } catch (NumberFormatException e) {
+                            logger.warning("[" + getId() + "] Nivel de encantamiento inválido: " + parts[2]);
+                        }
+                    } else {
+                        logger.warning("[" + getId() + "] Formato de encantamiento inválido: " + reward);
+                    }
+                    break;
+                    
+                default:
+                    logger.warning("[" + getId() + "] Tipo de recompensa desconocido: " + type);
+                    break;
+            }
+        } catch (Exception e) {
+            logger.warning("[" + getId() + "] Error procesando recompensa '" + reward + "' para " + player.getName() + ": " + e.getMessage());
         }
     }
     
@@ -649,6 +756,34 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     public final Map<String, Object> getChallengeProgress(UUID playerId) {
         Map<String, Object> progress = challengeProgress.get(playerId);
         return progress != null ? new HashMap<>(progress) : new HashMap<>();
+    }
+    
+    /**
+     * Obtiene todos los desafíos disponibles en el evento.
+     * 
+     * @return Mapa con los desafíos disponibles (ID -> ChallengeDefinition)
+     */
+    public final Map<String, ChallengeDefinition> getAvailableChallenges() {
+        return new HashMap<>(availableChallenges);
+    }
+    
+    /**
+     * Obtiene una lista de IDs de desafíos disponibles.
+     * 
+     * @return Lista con los IDs de desafíos disponibles
+     */
+    public final List<String> getAvailableChallengeIds() {
+        return new ArrayList<>(availableChallenges.keySet());
+    }
+    
+    /**
+     * Obtiene un desafío específico por su ID.
+     * 
+     * @param challengeId ID del desafío
+     * @return ChallengeDefinition del desafío o null si no existe
+     */
+    public final ChallengeDefinition getChallenge(String challengeId) {
+        return availableChallenges.get(challengeId);
     }
     
     /**

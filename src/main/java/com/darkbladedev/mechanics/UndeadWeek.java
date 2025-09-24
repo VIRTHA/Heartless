@@ -4,11 +4,13 @@ import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.managers.CustomEffectsManager;
 import com.darkbladedev.content.semi_custom.effects.ZombieInfection;
 import com.darkbladedev.utils.TimeExpression;
+
 import com.darkbladedev.utils.MM;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -28,6 +30,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.Arrays;
 
 /**
  * Evento semanal de No-Muertos que introduce mecánicas de infección zombie,
@@ -83,6 +86,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
      */
     public UndeadWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
+        this.effectsManager = HeartlessMain.getCustomEffectsManager();
         this.zombieInfectionEffect = (ZombieInfection) effectsManager.getEffect("zombie_infection");
         logger.info("[UndeadWeek] Evento inicializado con duración: " + duration.toString());
     }
@@ -382,6 +386,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             zombieInfectionEffect.applyInfectionFromEvent(player, "zombie_attack");
         }
         
+        // Registrar el tiempo de infección para el desafío infection_survivor
+        infectedPlayersTime.put(player.getUniqueId(), System.currentTimeMillis());
+        
         // Actualizar contadores
         infectedPlayersCount.incrementAndGet();
         
@@ -402,9 +409,15 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         // Curar usando el método de sincronización
         zombieInfectionEffect.cureInfectionFromEvent(player, "medicine");
         
+        // Remover el tiempo de infección al curarse
+        infectedPlayersTime.remove(player.getUniqueId());
+        
         // Actualizar contadores
         curedInfectionsCount.incrementAndGet();
         curedInfectionsCountMap.merge(player.getUniqueId(), 1, Integer::sum);
+        
+        // Verificar desafíos después de curar
+        checkZombieKillChallenges(player);
         
         logger.info("[UndeadWeek] Jugador " + player.getName() + " curado usando ZombieInfection");
     }
@@ -452,6 +465,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
                 continue;
             }
             
+            // Verificar el desafío infection_survivor
+            checkInfectionSurvivorChallenge(player);
+            
             // El efecto ZombieInfection ya maneja los efectos progresivos
             // Solo necesitamos verificar si necesitamos aplicar efectos adicionales del evento
             
@@ -467,7 +483,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             "Asesino de Zombies",
             "Mata 50 zombies durante el evento",
             50,
-            Arrays.asList("experience:500", "item:diamond_sword:1")
+            Arrays.asList("experience:500")
         ));
         
         // Desafío: Sobrevivir infectado por 30 minutos
@@ -483,9 +499,18 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         availableChallenges.put("red_moon_hunter", new ChallengeDefinition(
             "red_moon_hunter",
             "Cazador de Luna Roja",
-            "Mata 10 zombies durante la luna roja",
+            "Mata 15 zombies durante la luna roja",
+            15,
+            Arrays.asList("experience:750")
+        ));
+        
+        // Desafío: Dr.Zomboss - Curar 25 infecciones
+        availableChallenges.put("dr_zomboss", new ChallengeDefinition(
+            "dr_zomboss",
+            "Dr.Zomboss",
+            "Cura 10 aldeanos de la zombificación",
             10,
-            Arrays.asList("experience:750", "item:enchanted_book:1")
+            Arrays.asList("tag:dr_zomboss")
         ));
     }
     
@@ -501,9 +526,45 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         // Verificar desafío de cazador de luna roja
         if (redMoonActive.get()) {
             int redMoonKills = redMoonKillsCount.getOrDefault(playerId, 0);
-            if (redMoonKills >= 10 && !hasChallengeCompleted(playerId, "red_moon_hunter")) {
+            if (redMoonKills >= 15 && !hasChallengeCompleted(playerId, "red_moon_hunter")) {
                 completeChallenge(player, "red_moon_hunter");
             }
+        }
+        
+        // Verificar desafío Dr.Zomboss - Curar 25 infecciones
+        int curedInfections = curedInfectionsCountMap.getOrDefault(playerId, 0);
+        if (curedInfections >= 10 && !hasChallengeCompleted(playerId, "dr_zomboss")) {
+            completeChallenge(player, "dr_zomboss");
+        }
+    }
+    
+    /**
+     * Verifica si el jugador ha completado el desafío infection_survivor
+     * @param player El jugador a verificar
+     */
+    private void checkInfectionSurvivorChallenge(Player player) {
+        UUID playerId = player.getUniqueId();
+        
+        // Verificar si ya completó el desafío
+        if (hasChallengeCompleted(playerId, "infection_survivor")) {
+            return;
+        }
+        
+        // Verificar si tiene tiempo de infección registrado
+        Long infectionStartTime = infectedPlayersTime.get(playerId);
+        if (infectionStartTime == null) {
+            return;
+        }
+        
+        // Calcular tiempo infectado en minutos
+        long currentTime = System.currentTimeMillis();
+        long infectedTimeMs = currentTime - infectionStartTime;
+        long infectedTimeMinutes = infectedTimeMs / (1000 * 60); // Convertir a minutos
+        
+        // Verificar si ha sobrevivido 30 minutos infectado
+        if (infectedTimeMinutes >= 30) {
+            completeChallenge(player, "infection_survivor");
+            logger.info("[UndeadWeek] Jugador " + player.getName() + " completó infection_survivor después de " + infectedTimeMinutes + " minutos");
         }
     }
     
@@ -532,20 +593,72 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     }
     
     private void giveReward(Player player, String reward) {
+        logger.info("[UndeadWeek] [DEBUG] Intentando dar recompensa: " + reward + " a jugador: " + player.getName());
+        
         String[] parts = reward.split(":");
-        if (parts.length < 2) return;
+        if (parts.length < 2) {
+            logger.warning("[UndeadWeek] [DEBUG] Recompensa mal formateada: " + reward + " - partes: " + parts.length);
+            return;
+        }
+        
+        logger.info("[UndeadWeek] [DEBUG] Partes de recompensa: " + Arrays.toString(parts));
         
         switch (parts[0].toLowerCase()) {
             case "experience":
-                int exp = Integer.parseInt(parts[1]);
-                player.giveExp(exp);
+                try {
+                    int exp = Integer.parseInt(parts[1]);
+                    player.giveExp(exp);
+                    logger.info("[UndeadWeek] [DEBUG] Experiencia otorgada: " + exp + " a " + player.getName());
+                    player.sendMessage(MM.toComponent("<gold>¡Has recibido <yellow>" + exp + "</yellow> puntos de experiencia!</gold>"));
+                } catch (NumberFormatException e) {
+                    logger.severe("[UndeadWeek] [DEBUG] Error parseando experiencia: " + parts[1] + " - " + e.getMessage());
+                }
                 break;
             case "item":
                 if (parts.length >= 3) {
-                    Material material = Material.valueOf(parts[1].toUpperCase());
-                    int amount = Integer.parseInt(parts[2]);
-                    player.getInventory().addItem(new ItemStack(material, amount));
+                    try {
+                        Material material = Material.valueOf(parts[1].toUpperCase());
+                        int amount = Integer.parseInt(parts[2]);
+                        ItemStack item = new ItemStack(material, amount);
+                        player.getInventory().addItem(item);
+                        logger.info("[UndeadWeek] [DEBUG] Item otorgado: " + material + " x" + amount + " a " + player.getName());
+                        player.sendMessage(MM.toComponent("<gold>¡Has recibido <yellow>" + amount + "x " + material.name().toLowerCase() + "</yellow>!</gold>"));
+                    } catch (IllegalArgumentException e) {
+                        logger.severe("[UndeadWeek] [DEBUG] Error procesando item: " + reward + " - " + e.getMessage());
+                    }
+                } else {
+                    logger.warning("[UndeadWeek] [DEBUG] Item mal formateado: " + reward + " - necesita 3 partes");
                 }
+                break;
+            case "tag":
+                // Asignar tag usando el comando del plugin de tags
+                String tagName = parts[1];
+                logger.info("[UndeadWeek] [DEBUG] Asignando tag: " + tagName + " a " + player.getName());
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tags set " + tagName + " " + player.getName());
+                player.sendMessage(MM.toComponent("<gold>¡Has obtenido el tag: <yellow>" + tagName + "</yellow>!</gold>"));
+                break;
+            case "enchant":
+                if (parts.length >= 3) {
+                    try {
+                        Enchantment enchant = HeartlessMain.getContentManager().getEnchantment("heartless", parts[1].toUpperCase());
+                        if (enchant != null) {
+                            int level = Integer.parseInt(parts[2]);
+                            ItemStack enchantItem = HeartlessMain.getContentManager().getEnchantmentItem(enchant, level);
+                            player.getInventory().addItem(enchantItem);
+                            logger.info("[UndeadWeek] [DEBUG] Encantamiento otorgado: " + parts[1] + " nivel " + level + " a " + player.getName());
+                            player.sendMessage(MM.toComponent("<gold>¡Has recibido el encantamiento <yellow>" + parts[1] + " nivel " + level + "</yellow>!</gold>"));
+                        } else {
+                            logger.warning("[UndeadWeek] [DEBUG] Encantamiento no encontrado: " + parts[1]);
+                        }
+                    } catch (NumberFormatException e) {
+                        logger.severe("[UndeadWeek] [DEBUG] Error parseando nivel de encantamiento: " + parts[2] + " - " + e.getMessage());
+                    }
+                } else {
+                    logger.warning("[UndeadWeek] [DEBUG] Encantamiento mal formateado: " + reward + " - necesita 3 partes");
+                }
+                break;
+            default:
+                logger.warning("[UndeadWeek] [DEBUG] Tipo de recompensa desconocido: " + parts[0]);
                 break;
         }
     }
@@ -580,7 +693,8 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         for (Player player : Bukkit.getOnlinePlayers()) {
             // Remover el efecto de infección zombie usando el método de sincronización
             if (zombieInfectionEffect != null && zombieInfectionEffect.isAffected(player)) {
-                zombieInfectionEffect.cureInfectionFromEvent(player, "event_end");
+                // Por ahora se desactiva porque la idea es que el efecto siga activo en los jugadores luego del evento.
+                // zombieInfectionEffect.cureInfectionFromEvent(player, "event_end");
             }
             
             // Remover efectos adicionales del evento
@@ -593,7 +707,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         Bukkit.broadcast(MM.toComponent("<yellow>Zombies eliminados: " + globalStatistics.get("total_zombies_killed").get() + "</yellow>"));
         Bukkit.broadcast(MM.toComponent("<yellow>Jugadores infectados: " + globalStatistics.get("total_infections").get() + "</yellow>"));
         Bukkit.broadcast(MM.toComponent("<yellow>Infecciones curadas: " + globalStatistics.get("total_cures").get() + "</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>Lunas rojas activadas: " + globalStatistics.get("red_moon_activations").get() + "</yellow>"));
+       // Bukkit.broadcast(MM.toComponent("<yellow>Lunas rojas activadas: " + globalStatistics.get("red_moon_activations").get() + "</yellow>"));
         Bukkit.broadcast(MM.toComponent("<gold>=======================================</gold>"));
     }
     
@@ -722,6 +836,4 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         AtomicInteger kills = playerZombieKills.get(playerId);
         return kills != null ? kills.get() : 0;
     }
-    
-    // Eliminar la clase ChallengeDefinition duplicada ya que usamos la de AbstractWeeklyEvent
 }

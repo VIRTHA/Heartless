@@ -131,6 +131,6 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
         sender.sendMessage(MM.toComponent("<yellow>3. Construye una base completamente resistente al ácido</yellow>"));
         sender.sendMessage(MM.toComponent("<gray>   Recompensa: Kit de construcción especial</gray>"));
         sender.sendMessage(MM.toComponent("<yellow>4. Ayuda a 5 jugadores a sobrevivir al ácido</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: Tag \"Químico\"</gray>"));
+        sender.sendMessage(MM.toComponent("<gray>   Recompensa: Tag \"Asesino quimico\"</gray>"));
     }
 }

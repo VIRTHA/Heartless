@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
  */
 public class EventStatisticsManager {
     
+    @SuppressWarnings("unused")
     private final HeartlessMain plugin;
     private final Logger logger;
     
