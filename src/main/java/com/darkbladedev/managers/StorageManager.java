@@ -14,7 +14,10 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -548,6 +551,53 @@ public class StorageManager {
                         undeadWeek.loadWitherKilledInRedMoon(witherKilled);
                     }
                     
+                    // *** NUEVO: Cargar datos de desafíos ***
+                    // Cargar progreso de desafíos
+                    if (eventData.has("challengeProgress")) {
+                        JsonObject challengeProgressJson = eventData.getAsJsonObject("challengeProgress");
+                        Map<String, Map<String, Object>> challengeProgressData = new HashMap<>();
+                        for (Map.Entry<String, com.google.gson.JsonElement> playerEntry : challengeProgressJson.entrySet()) {
+                            String playerId = playerEntry.getKey();
+                            JsonObject playerProgressJson = playerEntry.getValue().getAsJsonObject();
+                            Map<String, Object> playerProgress = new HashMap<>();
+                            for (Map.Entry<String, com.google.gson.JsonElement> progressEntry : playerProgressJson.entrySet()) {
+                                String challengeId = progressEntry.getKey();
+                                com.google.gson.JsonElement progressValue = progressEntry.getValue();
+                                
+                                // Convertir el valor JSON al tipo apropiado
+                                if (progressValue.isJsonPrimitive()) {
+                                    if (progressValue.getAsJsonPrimitive().isNumber()) {
+                                        playerProgress.put(challengeId, progressValue.getAsInt());
+                                    } else if (progressValue.getAsJsonPrimitive().isBoolean()) {
+                                        playerProgress.put(challengeId, progressValue.getAsBoolean());
+                                    } else {
+                                        playerProgress.put(challengeId, progressValue.getAsString());
+                                    }
+                                } else {
+                                    playerProgress.put(challengeId, progressValue.toString());
+                                }
+                            }
+                            challengeProgressData.put(playerId, playerProgress);
+                        }
+                        undeadWeek.loadChallengeProgress(challengeProgressData);
+                    }
+                    
+                    // Cargar desafíos completados
+                    if (eventData.has("completedChallenges")) {
+                        JsonObject completedChallengesJson = eventData.getAsJsonObject("completedChallenges");
+                        Map<String, Set<String>> completedChallengesData = new HashMap<>();
+                        for (Map.Entry<String, com.google.gson.JsonElement> playerEntry : completedChallengesJson.entrySet()) {
+                            String playerId = playerEntry.getKey();
+                            JsonArray challengesArray = playerEntry.getValue().getAsJsonArray();
+                            Set<String> playerCompletedChallenges = new HashSet<>();
+                            for (com.google.gson.JsonElement challengeElement : challengesArray) {
+                                playerCompletedChallenges.add(challengeElement.getAsString());
+                            }
+                            completedChallengesData.put(playerId, playerCompletedChallenges);
+                        }
+                        undeadWeek.loadCompletedChallenges(completedChallengesData);
+                    }
+                    
                     plugin.getLogger().info("Datos específicos de UndeadWeek cargados correctamente");
                 }
                 
@@ -573,7 +623,74 @@ public class StorageManager {
                         acidWeek.loadPlayersInRain(playersInRain);
                     }
                     
-                    plugin.getLogger().info("Datos específicos de AcidWeek cargados correctamente");
+                    // *** NUEVO: Cargar datos de desafíos ***
+                    // Cargar progreso de desafíos
+                    if (eventData.has("challengeProgress")) {
+                        JsonElement challengeProgressElement = eventData.get("challengeProgress");
+                        Map<String, Map<String, Object>> challengeProgressData = new HashMap<>();
+                        
+                        if (challengeProgressElement.isJsonObject()) {
+                            JsonObject challengeProgressJson = challengeProgressElement.getAsJsonObject();
+                            for (Map.Entry<String, JsonElement> playerEntry : challengeProgressJson.entrySet()) {
+                                String playerId = playerEntry.getKey();
+                                JsonElement playerProgressElement = playerEntry.getValue();
+                                
+                                if (playerProgressElement.isJsonObject()) {
+                                    JsonObject playerProgressJson = playerProgressElement.getAsJsonObject();
+                                    Map<String, Object> playerProgress = new HashMap<>();
+                                    
+                                    for (Map.Entry<String, JsonElement> progressEntry : playerProgressJson.entrySet()) {
+                                        String challengeId = progressEntry.getKey();
+                                        JsonElement progressValue = progressEntry.getValue();
+                                        
+                                        // Convertir diferentes tipos de JSON a Object
+                                        if (progressValue.isJsonPrimitive()) {
+                                            JsonPrimitive primitive = progressValue.getAsJsonPrimitive();
+                                            if (primitive.isNumber()) {
+                                                playerProgress.put(challengeId, primitive.getAsNumber());
+                                            } else if (primitive.isBoolean()) {
+                                                playerProgress.put(challengeId, primitive.getAsBoolean());
+                                            } else if (primitive.isString()) {
+                                                playerProgress.put(challengeId, primitive.getAsString());
+                                            }
+                                        } else {
+                                            playerProgress.put(challengeId, progressValue.toString());
+                                        }
+                                    }
+                                    challengeProgressData.put(playerId, playerProgress);
+                                }
+                            }
+                        }
+                        acidWeek.loadChallengeProgress(challengeProgressData);
+                    }
+                    
+                    // Cargar desafíos completados
+                    if (eventData.has("completedChallenges")) {
+                        JsonElement completedChallengesElement = eventData.get("completedChallenges");
+                        Map<String, Set<String>> completedChallengesData = new HashMap<>();
+                        
+                        if (completedChallengesElement.isJsonObject()) {
+                            JsonObject completedChallengesJson = completedChallengesElement.getAsJsonObject();
+                            for (Map.Entry<String, JsonElement> playerEntry : completedChallengesJson.entrySet()) {
+                                String playerId = playerEntry.getKey();
+                                JsonElement playerChallengesElement = playerEntry.getValue();
+                                
+                                Set<String> playerCompletedChallenges = new HashSet<>();
+                                if (playerChallengesElement.isJsonArray()) {
+                                    JsonArray challengesArray = playerChallengesElement.getAsJsonArray();
+                                    for (JsonElement challengeElement : challengesArray) {
+                                        if (challengeElement.isJsonPrimitive()) {
+                                            playerCompletedChallenges.add(challengeElement.getAsString());
+                                        }
+                                    }
+                                }
+                                completedChallengesData.put(playerId, playerCompletedChallenges);
+                            }
+                        }
+                        acidWeek.loadCompletedChallenges(completedChallengesData);
+                    }
+                    
+                    plugin.getLogger().info("Datos específicos de AcidWeek cargados correctamente (incluyendo progreso de desafíos)");
                 }
                 
                 // ExplosiveWeek

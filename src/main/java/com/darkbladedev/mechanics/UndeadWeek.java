@@ -223,6 +223,21 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             playerZombieKills.forEach((uuid, atomic) -> zombieKillsMap.put(uuid, atomic.get()));
             eventSpecificData.put("playerZombieKills", zombieKillsMap);
             
+            // *** NUEVO: Guardar datos de desafíos ***
+            // Guardar progreso de desafíos
+            Map<String, Map<String, Object>> challengeProgressSerialized = new HashMap<>();
+            challengeProgress.forEach((playerId, progressMap) -> {
+                challengeProgressSerialized.put(playerId.toString(), new HashMap<>(progressMap));
+            });
+            eventSpecificData.put("challengeProgress", challengeProgressSerialized);
+            
+            // Guardar desafíos completados
+            Map<String, Set<String>> completedChallengesSerialized = new HashMap<>();
+            completedChallenges.forEach((playerId, challengeSet) -> {
+                completedChallengesSerialized.put(playerId.toString(), new HashSet<>(challengeSet));
+            });
+            eventSpecificData.put("completedChallenges", completedChallengesSerialized);
+            
             dataDirty.set(true);
             lastDataSave.set(System.currentTimeMillis());
             
@@ -812,8 +827,53 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     }
     
     public void loadWitherKilledInRedMoon(Set<UUID> data) {
-        witherKilledInRedMoon.clear();
-        witherKilledInRedMoon.addAll(data);
+        if (data != null) {
+            witherKilledInRedMoon.clear();
+            witherKilledInRedMoon.addAll(data);
+        }
+    }
+    
+    // *** NUEVOS MÉTODOS: Cargar datos de desafíos ***
+    
+    /**
+     * Carga el progreso de desafíos desde los datos persistentes.
+     * 
+     * @param data Mapa con el progreso de desafíos serializado
+     */
+    public void loadChallengeProgress(Map<String, Map<String, Object>> data) {
+        if (data != null) {
+            challengeProgress.clear();
+            data.forEach((playerIdStr, progressMap) -> {
+                try {
+                    UUID playerId = UUID.fromString(playerIdStr);
+                    challengeProgress.put(playerId, new ConcurrentHashMap<>(progressMap));
+                } catch (IllegalArgumentException e) {
+                    logger.warning("[UndeadWeek] UUID inválido en challengeProgress: " + playerIdStr);
+                }
+            });
+            logger.info("[UndeadWeek] Progreso de desafíos cargado para " + challengeProgress.size() + " jugadores");
+        }
+    }
+    
+    /**
+     * Carga los desafíos completados desde los datos persistentes.
+     * 
+     * @param data Mapa con los desafíos completados serializados
+     */
+    public void loadCompletedChallenges(Map<String, Set<String>> data) {
+        if (data != null) {
+            completedChallenges.clear();
+            data.forEach((playerIdStr, challengeSet) -> {
+                try {
+                    UUID playerId = UUID.fromString(playerIdStr);
+                    completedChallenges.put(playerId, ConcurrentHashMap.newKeySet());
+                    completedChallenges.get(playerId).addAll(challengeSet);
+                } catch (IllegalArgumentException e) {
+                    logger.warning("[UndeadWeek] UUID inválido en completedChallenges: " + playerIdStr);
+                }
+            });
+            logger.info("[UndeadWeek] Desafíos completados cargados para " + completedChallenges.size() + " jugadores");
+        }
     }
     
     // Método removido - hasChallengeCompleted es final en AbstractWeeklyEvent

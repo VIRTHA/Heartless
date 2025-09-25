@@ -26,12 +26,17 @@ import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 
 import java.util.Collections;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
+import java.util.UUID;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Evento semanal de lluvia ácida con mejoras de thread-safety y prevención de memory leaks
@@ -48,7 +53,7 @@ import java.util.logging.Level;
  * - Manejo robusto de errores
  * - Validaciones de nulidad mejoradas
  */
-public class AcidWeek extends WeeklyEvent {
+public class AcidWeek extends AbstractWeeklyEvent {
     
     // Thread-safe collections para evitar condiciones de carrera
     private final Set<UUID> playersInWater = ConcurrentHashMap.newKeySet();
@@ -58,6 +63,10 @@ public class AcidWeek extends WeeklyEvent {
     private final Set<UUID> acidSwimmers = ConcurrentHashMap.newKeySet();
     private final Set<UUID> acidRainSurvivors = ConcurrentHashMap.newKeySet();
     private final Set<UUID> acidResistants = ConcurrentHashMap.newKeySet();
+    
+    // Estadísticas del evento
+    private final AtomicInteger totalAcidDamageDealt = new AtomicInteger(0);
+    private final ConcurrentHashMap<UUID, AtomicInteger> playerAcidDamage = new ConcurrentHashMap<>();
     
     // Referencias atómicas para las tareas para thread-safety
     private final AtomicReference<BukkitTask> acidTask = new AtomicReference<>();
@@ -78,18 +87,6 @@ public class AcidWeek extends WeeklyEvent {
         this.prefix = "<b><gradient:#befd58:#c4fb54:#caf950:#d1f64b:#d7f447:#ddf243:#e3f03f:#e9ee3b:#f0eb36:#f6e932:#fce72e>Semana acida</gradient></b>";
     }
 
-    @Override
-    public void start() {
-        try {
-            super.start();
-            plugin.getLogger().info("[AcidWeek] Evento iniciado correctamente");
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al iniciar el evento", e);
-            // Intentar limpieza en caso de error
-            forceCleanup();
-        }
-    }
-    
     @Override
     protected void startEventTasks() {
         try {
@@ -270,6 +267,7 @@ public class AcidWeek extends WeeklyEvent {
     /**
      * Limpieza forzada en caso de errores críticos
      */
+    @SuppressWarnings("unused")
     private void forceCleanup() {
         try {
             plugin.getLogger().warning("[AcidWeek] Ejecutando limpieza forzada");
@@ -826,64 +824,179 @@ public class AcidWeek extends WeeklyEvent {
      * @param challengeId The ID of the challenge
      * @return true if the challenge is completed, false otherwise
      */
-    public boolean hasChallengeCompleted(UUID playerId, String challengeId) {
-        if (playerId == null || challengeId == null || challengeId.isEmpty()) {
-            return false;
-        }
-        
-        try {
-            switch (challengeId) {
-                case "acid_swimmer":
-                    // Player has survived swimming in acid water
-                    return acidSwimmers.contains(playerId);
-                case "acid_rain_survivor":
-                    // Player has survived acid rain
-                    return acidRainSurvivors.contains(playerId);
-                case "acid_resistant":
-                    // Player has shown resistance to acid
-                    return acidResistants.contains(playerId);
-                default:
-                    return false;
-            }
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, 
-                "[AcidWeek] Error al verificar desafío " + challengeId + " para jugador " + playerId, e);
-            return false;
-        }
-    }
-    
-    /**
-     * Completes a challenge for a player
-     * @param playerId The UUID of the player
-     * @param challengeId The ID of the challenge to complete
-     */
-    public void completeChallengeForPlayer(UUID playerId, String challengeId) {
-        if (playerId == null || challengeId == null || challengeId.isEmpty()) {
-            return;
-        }
-        
-        try {
-            switch (challengeId) {
-                case "acid_swimmer":
-                    acidSwimmers.add(playerId);
-                    break;
-                case "acid_rain_survivor":
-                    acidRainSurvivors.add(playerId);
-                    break;
-                case "acid_resistant":
-                    acidResistants.add(playerId);
-                    break;
-                default:
-                    plugin.getLogger().warning("[AcidWeek] Desafío desconocido: " + challengeId);
-                    break;
-            }
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, 
-                "[AcidWeek] Error al completar desafío " + challengeId + " para jugador " + playerId, e);
-        }
+     // ========== MÉTODOS DE PERSISTENCIA ==========
+     
+     @Override
+     protected void initializeEventSpecificData() {
+         // Inicializar estadísticas globales
+         globalStatistics.put("total_acid_damage", new AtomicLong(0));
+         globalStatistics.put("players_in_water", new AtomicLong(0));
+         globalStatistics.put("players_in_rain", new AtomicLong(0));
+         globalStatistics.put("acid_swimmers", new AtomicLong(0));
+         globalStatistics.put("acid_rain_survivors", new AtomicLong(0));
+         globalStatistics.put("acid_resistants", new AtomicLong(0));
+         
+         // Configurar desafíos específicos del evento
+         setupAcidWeekChallenges();
+         
+         plugin.getLogger().info("[AcidWeek] Datos específicos del evento inicializados");
      }
      
-     // ========== MÉTODOS DE PERSISTENCIA ==========
+     /**
+      * Configura los desafíos específicos de la semana ácida
+      */
+     private void setupAcidWeekChallenges() {
+          try {
+              // Configurar desafíos disponibles para este evento
+              availableChallenges.put("acid_swimmer", new ChallengeDefinition(
+                  "acid_swimmer", 
+                  "Nadador Ácido", 
+                  "Sobrevivir nadando en agua ácida",
+                  10,
+                  Collections.singletonList("experience:100")
+              ));
+              
+              availableChallenges.put("acid_rain_survivor", new ChallengeDefinition(
+                  "acid_rain_survivor",
+                  "Superviviente de Lluvia Ácida",
+                  "Sobrevivir bajo la lluvia ácida",
+                  5,
+                  Collections.singletonList("experience:200")
+              ));
+              
+              availableChallenges.put("acid_resistant", new ChallengeDefinition(
+                  "acid_resistant",
+                  "Resistente al Ácido",
+                  "Mostrar resistencia al ácido",
+                  20,
+                  Collections.singletonList("experience:300")
+              ));
+              
+              plugin.getLogger().info("[AcidWeek] Desafíos configurados: " + availableChallenges.size());
+          } catch (Exception e) {
+              plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al configurar desafíos", e);
+          }
+      }
+     
+     @Override
+     protected void onEventStart() {
+         plugin.getLogger().info("[AcidWeek] Iniciando evento de Semana Ácida...");
+         
+         // Inicializar datos del evento
+          initializeEventSpecificData();
+          
+          // Iniciar tareas del evento
+         startEventTasks();
+         
+         // Anunciar inicio del evento
+         Bukkit.broadcast(MM.toComponent("<green><bold>¡La Semana Ácida ha comenzado!</bold></green>"));
+         Bukkit.broadcast(MM.toComponent("<gray>El agua y la lluvia se han vuelto ácidas...</gray>"));
+         
+         plugin.getLogger().info("[AcidWeek] Evento iniciado correctamente");
+     }
+     
+     @Override
+     protected void onEventStop() {
+         plugin.getLogger().info("[AcidWeek] Deteniendo evento de Semana Ácida...");
+         
+         // Detener tareas
+         stopEventTasks();
+         
+         // Limpiar efectos de jugadores
+         cleanupPlayerEffects();
+         
+         // Guardar datos finales
+         saveEventSpecificData();
+         
+         // Anunciar fin del evento
+         Bukkit.broadcast(MM.toComponent("<green><bold>¡La Semana Ácida ha terminado!</bold></green>"));
+         showEventSummary();
+         
+         plugin.getLogger().info("[AcidWeek] Evento detenido correctamente");
+     }
+     
+     /**
+      * Limpia los efectos de los jugadores
+      */
+     private void cleanupPlayerEffects() {
+         try {
+             for (Player player : Bukkit.getOnlinePlayers()) {
+                 // Remover efectos de ácido si los tienen
+                 player.removePotionEffect(PotionEffectType.POISON);
+                 player.removePotionEffect(PotionEffectType.HUNGER);
+                 player.removePotionEffect(PotionEffectType.WEAKNESS);
+             }
+             
+             // Limpiar conjuntos de jugadores
+             playersInWater.clear();
+             playersInRain.clear();
+             acidSwimmers.clear();
+             acidRainSurvivors.clear();
+             acidResistants.clear();
+             
+             plugin.getLogger().info("[AcidWeek] Efectos de jugadores limpiados");
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al limpiar efectos", e);
+         }
+     }
+     
+     /**
+      * Muestra un resumen del evento
+      */
+     private void showEventSummary() {
+         try {
+             long totalDamage = globalStatistics.get("total_acid_damage").get();
+             long playersInWaterCount = globalStatistics.get("players_in_water").get();
+             long playersInRainCount = globalStatistics.get("players_in_rain").get();
+             
+             Bukkit.broadcast(MM.toComponent("<yellow>═══════════════════════════════════════</yellow>"));
+             Bukkit.broadcast(MM.toComponent("<gold><bold>RESUMEN DE LA SEMANA ÁCIDA</bold></gold>"));
+             Bukkit.broadcast(MM.toComponent("<yellow>═══════════════════════════════════════</yellow>"));
+             Bukkit.broadcast(MM.toComponent("<green>Daño total por ácido: <white>" + totalDamage + "</white></green>"));
+             Bukkit.broadcast(MM.toComponent("<green>Jugadores en agua ácida: <white>" + playersInWaterCount + "</white></green>"));
+             Bukkit.broadcast(MM.toComponent("<green>Jugadores en lluvia ácida: <white>" + playersInRainCount + "</white></green>"));
+             Bukkit.broadcast(MM.toComponent("<yellow>═══════════════════════════════════════</yellow>"));
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al mostrar resumen", e);
+         }
+     }
+     
+     @Override
+     protected void processEventStatistics() {
+         try {
+             // Actualizar estadísticas globales
+             globalStatistics.get("total_acid_damage").set(totalAcidDamageDealt.get());
+             globalStatistics.get("players_in_water").set(playersInWater.size());
+             globalStatistics.get("players_in_rain").set(playersInRain.size());
+             
+             // Actualizar estadísticas de jugadores
+             for (UUID playerId : playerStatistics.keySet()) {
+                 Map<String, Object> stats = playerStatistics.get(playerId);
+                 @SuppressWarnings("unused")
+                 Player player = Bukkit.getPlayer(playerId);
+                 
+                 stats.put("acid_damage_taken", getPlayerAcidDamage(playerId));
+                 stats.put("in_acid_water", playersInWater.contains(playerId));
+                 stats.put("in_acid_rain", playersInRain.contains(playerId));
+                 stats.put("acid_swimmer", acidSwimmers.contains(playerId));
+                 stats.put("acid_rain_survivor", acidRainSurvivors.contains(playerId));
+                 stats.put("acid_resistant", acidResistants.contains(playerId));
+             }
+             
+             plugin.getLogger().fine("[AcidWeek] Estadísticas del evento procesadas correctamente");
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al procesar estadísticas del evento", e);
+         }
+     }
+     
+     /**
+      * Obtiene el daño por ácido de un jugador
+      * @param playerId UUID del jugador
+      * @return Cantidad de daño por ácido recibido
+      */
+     private int getPlayerAcidDamage(UUID playerId) {
+         return playerAcidDamage.getOrDefault(playerId, new AtomicInteger(0)).get();
+     }
      
      /**
       * Obtiene el conjunto de jugadores en agua ácida
@@ -945,5 +1058,80 @@ public class AcidWeek extends WeeklyEvent {
       */
      public Set<UUID> getAcidResistants() {
          return Collections.unmodifiableSet(acidResistants);
+     }
+     
+     /**
+      * Carga el progreso de desafíos desde los datos persistentes.
+      * 
+      * @param data Mapa con el progreso de desafíos serializado
+      */
+     public void loadChallengeProgress(Map<String, Map<String, Object>> data) {
+         if (data != null) {
+             challengeProgress.clear();
+             data.forEach((playerIdStr, progressMap) -> {
+                 try {
+                     UUID playerId = UUID.fromString(playerIdStr);
+                     challengeProgress.put(playerId, new ConcurrentHashMap<>(progressMap));
+                 } catch (IllegalArgumentException e) {
+                     plugin.getLogger().warning("[AcidWeek] UUID inválido en challengeProgress: " + playerIdStr);
+                 }
+             });
+             plugin.getLogger().info("[AcidWeek] Progreso de desafíos cargado para " + challengeProgress.size() + " jugadores");
+         }
+     }
+     
+     /**
+      * Carga los desafíos completados desde los datos persistentes.
+      * 
+      * @param data Mapa con los desafíos completados serializados
+      */
+     public void loadCompletedChallenges(Map<String, Set<String>> data) {
+         if (data != null) {
+             completedChallenges.clear();
+             data.forEach((playerIdStr, challengeSet) -> {
+                 try {
+                     UUID playerId = UUID.fromString(playerIdStr);
+                     completedChallenges.put(playerId, ConcurrentHashMap.newKeySet());
+                     completedChallenges.get(playerId).addAll(challengeSet);
+                 } catch (IllegalArgumentException e) {
+                     plugin.getLogger().warning("[AcidWeek] UUID inválido en completedChallenges: " + playerIdStr);
+                 }
+             });
+             plugin.getLogger().info("[AcidWeek] Desafíos completados cargados para " + completedChallenges.size() + " jugadores");
+         }
+     }
+     
+     @Override
+     protected void saveEventSpecificData() {
+         try {
+             Map<String, Object> eventSpecificData = new HashMap<>();
+             
+             // Guardar jugadores en agua y lluvia
+             eventSpecificData.put("playersInWater", new HashSet<>(playersInWater));
+             eventSpecificData.put("playersInRain", new HashSet<>(playersInRain));
+             
+             // Guardar progreso de desafíos
+             Map<String, Map<String, Object>> challengeProgressSerialized = new HashMap<>();
+             challengeProgress.forEach((playerId, progressMap) -> {
+                 challengeProgressSerialized.put(playerId.toString(), new HashMap<>(progressMap));
+             });
+             eventSpecificData.put("challengeProgress", challengeProgressSerialized);
+             
+             // Guardar desafíos completados
+             Map<String, Set<String>> completedChallengesSerialized = new HashMap<>();
+             completedChallenges.forEach((playerId, challengeSet) -> {
+                 completedChallengesSerialized.put(playerId.toString(), new HashSet<>(challengeSet));
+             });
+             eventSpecificData.put("completedChallenges", completedChallengesSerialized);
+             
+             // Marcar datos como modificados y actualizar timestamp
+             dataDirty.set(true);
+             lastDataSave.set(System.currentTimeMillis());
+             
+             plugin.getLogger().info("[AcidWeek] Datos específicos del evento guardados");
+         } catch (Exception e) {
+             plugin.getLogger().severe("[AcidWeek] Error al guardar datos específicos: " + e.getMessage());
+             e.printStackTrace();
+         }
      }
 }
