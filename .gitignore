@@ -17,3 +17,4 @@ logs/*
 test-data
 
 src/test/*
+.docs/Heartless.md

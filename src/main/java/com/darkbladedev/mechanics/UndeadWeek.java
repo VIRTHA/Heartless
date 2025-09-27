@@ -10,6 +10,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -30,7 +32,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.Arrays;
 
 /**
  * Evento semanal de No-Muertos que introduce mecánicas de infección zombie,
@@ -326,27 +327,48 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityDeath(EntityDeathEvent event) {
-        if (!(event.getEntity() instanceof Zombie)) return;
-        
         Player killer = event.getEntity().getKiller();
         if (killer == null) return;
         
         UUID killerId = killer.getUniqueId();
         
-        // Incrementar contador de zombies matados
-        playerZombieKills.computeIfAbsent(killerId, k -> new AtomicInteger(0)).incrementAndGet();
-        currentZombieCount.decrementAndGet();
-        
-        // Bonus durante luna roja
-        if (redMoonActive.get()) {
-            redMoonKillsCount.merge(killerId, 1, Integer::sum);
+        // Manejo específico para zombies
+        if (event.getEntity() instanceof Zombie) {
+            // Incrementar contador de zombies matados
+            playerZombieKills.computeIfAbsent(killerId, k -> new AtomicInteger(0)).incrementAndGet();
+            currentZombieCount.decrementAndGet();
             
-            // Bonus de experiencia durante luna roja
-            event.setDroppedExp(event.getDroppedExp() * 2);
+            // Bonus durante luna roja
+            if (redMoonActive.get()) {
+                redMoonKillsCount.merge(killerId, 1, Integer::sum);
+                
+                // Bonus de experiencia durante luna roja
+                event.setDroppedExp(event.getDroppedExp() * 2);
+            }
+            
+            // Verificar desafíos de zombies
+            checkZombieKillChallenges(killer);
         }
         
-        // Verificar desafíos
-        checkZombieKillChallenges(killer);
+        // Manejo específico para Wither
+        if (event.getEntity() instanceof Wither) {
+            // Verificar desafío del Wither
+            if (!hasChallengeCompleted(killerId, "wither_slayer")) {
+                completeChallenge(killer, "wither_slayer");
+                
+                // Otorgar corazón permanente
+                killer.sendMessage(MM.toComponent("<gold><bold>¡Has completado el desafío Wither Slayer!</bold></gold>"));
+                killer.sendMessage(MM.toComponent("<green>Has ganado un corazón permanente por derrotar al Wither.</green>"));
+                
+                // Incrementar vida máxima permanentemente
+                AttributeInstance healthAttribute = killer.getAttribute(Attribute.MAX_HEALTH);
+                if (healthAttribute != null) {
+                    double currentMaxHealth = healthAttribute.getBaseValue();
+                    healthAttribute.setBaseValue(currentMaxHealth + 2.0); // +1 corazón = +2 HP
+                    killer.setHealth(killer.getHealth() + 2.0); // Curar también
+                }
+            }
+        }
     }
     
     // === MECÁNICAS DEL EVENTO ===
@@ -492,40 +514,40 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     }
     
     private void setupUndeadWeekChallenges() {
-        // Desafío: Matar 50 zombies
-        availableChallenges.put("zombie_slayer", new ChallengeDefinition(
-            "zombie_slayer",
-            "Asesino de Zombies",
-            "Mata 50 zombies durante el evento",
-            50,
-            Arrays.asList("experience:500")
-        ));
-        
-        // Desafío: Sobrevivir infectado por 30 minutos
-        availableChallenges.put("infection_survivor", new ChallengeDefinition(
-            "infection_survivor",
-            "Superviviente Infectado",
-            "Sobrevive infectado por 30 minutos",
-            30, // 30 minutos
-            Arrays.asList("experience:1000", "item:golden_apple:5")
-        ));
-        
-        // Desafío: Matar 10 zombies durante luna roja
-        availableChallenges.put("red_moon_hunter", new ChallengeDefinition(
-            "red_moon_hunter",
-            "Cazador de Luna Roja",
-            "Mata 15 zombies durante la luna roja",
-            15,
-            Arrays.asList("experience:750")
-        ));
-        
-        // Desafío: Dr.Zomboss - Curar 25 infecciones
-        availableChallenges.put("dr_zomboss", new ChallengeDefinition(
+        // Desafío 1: Curar a 5 aldeanos zombificados (Intermedio)
+        availableChallenges.put("dr_zomboss", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
             "dr_zomboss",
-            "Dr.Zomboss",
-            "Cura 10 aldeanos de la zombificación",
+            "Dr. Zomboss",
+            "Curar a 5 aldeanos zombificados",
+            5,
+            Arrays.asList("tag:DrZomboss")
+        ));
+        
+        // Desafío 2: Curarse infección zombie 10 veces (Intermedio)
+        availableChallenges.put("infection_survivor", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
+            "infection_survivor",
+            "Superviviente de Infección",
+            "Curarse infección zombie 10 veces",
             10,
-            Arrays.asList("tag:dr_zomboss")
+            Arrays.asList("enchant:first_strike:1")
+        ));
+        
+        // Desafío 3: Matar 50 no-muertos en Noche Roja (Difícil)
+        availableChallenges.put("red_moon_hunter", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
+            "red_moon_hunter",
+            "Cazador de Noche Roja",
+            "Matar 50 no-muertos en Noche Roja",
+            50,
+            Arrays.asList("health:1")
+        ));
+        
+        // Desafío 4: Derrotar Wither en Noche Roja (Leyenda)
+        availableChallenges.put("wither_slayer", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
+            "wither_slayer",
+            "Wither Slayer",
+            "Derrotar Wither en Noche Roja",
+            1,
+            Arrays.asList("health:1")
         ));
     }
     
@@ -607,7 +629,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         logger.info("[UndeadWeek] Jugador " + player.getName() + " completó desafío: " + challengeId);
     }
     
-    private void giveReward(Player player, String reward) {
+    protected void giveReward(Player player, String reward) {
         logger.info("[UndeadWeek] [DEBUG] Intentando dar recompensa: " + reward + " a jugador: " + player.getName());
         
         String[] parts = reward.split(":");
@@ -649,7 +671,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
                 // Asignar tag usando el comando del plugin de tags
                 String tagName = parts[1];
                 logger.info("[UndeadWeek] [DEBUG] Asignando tag: " + tagName + " a " + player.getName());
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tags set " + tagName + " " + player.getName());
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission set htl.tag." + tagName);
                 player.sendMessage(MM.toComponent("<gold>¡Has obtenido el tag: <yellow>" + tagName + "</yellow>!</gold>"));
                 break;
             case "enchant":

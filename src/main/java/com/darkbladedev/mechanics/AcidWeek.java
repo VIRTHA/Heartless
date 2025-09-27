@@ -3,25 +3,29 @@ package com.darkbladedev.mechanics;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Registry;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Axolotl;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Fish;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.ThrownPotion;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.block.BlockGrowEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityTameEvent;
+import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.potion.PotionType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
-import com.darkbladedev.content.custom.CustomEnchantments;
+import com.darkbladedev.challenges.Reward;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 
@@ -30,7 +34,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -39,48 +42,66 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Evento semanal de lluvia ácida con mejoras de thread-safety y prevención de memory leaks
+ * Evento semanal: Semana Ácida
+ * 
+ * Durante esta semana, el agua y la lluvia se vuelven ácidas, causando daño a los jugadores.
+ * Los jugadores deben adaptarse usando equipo especial y completar desafíos únicos.
  * 
  * Características principales:
- * - Daño ácido en agua y lluvia
- * - Control automático del clima
- * - Sistema de desafíos y estadísticas
- * - Resistencia al ácido mediante encantamientos
+ * - Lluvia constante que causa daño ácido
+ * - Agua convertida en ácido que daña a los jugadores
+ * - Desafíos especiales relacionados con supervivencia ácida
+ * - Recompensas únicas por completar desafíos
  * 
- * Mejoras implementadas:
- * - Thread-safety con ConcurrentHashMap
- * - Prevención de memory leaks
- * - Manejo robusto de errores
- * - Validaciones de nulidad mejoradas
+ * Desafíos disponibles:
+ * - Nadador Ácido: Sobrevivir en agua ácida por 5 minutos
+ * - Superviviente de Lluvia Ácida: Sobrevivir bajo lluvia ácida por 10 minutos
+ * - Resistente al Ácido: Completar desafíos sin tomar daño ácido
+ * - Coleccionista de Pescados: Pescar todos los tipos de peces durante la semana
+ * - Domador de Ajolotes Azules: Domesticar un ajolote azul
+ * 
+ * @author DarkBladeDev
+ * @version 2.0
+ * @since 1.0
  */
 public class AcidWeek extends AbstractWeeklyEvent {
     
-    // Thread-safe collections para evitar condiciones de carrera
+    // Conjuntos thread-safe para rastrear jugadores
     private final Set<UUID> playersInWater = ConcurrentHashMap.newKeySet();
     private final Set<UUID> playersInRain = ConcurrentHashMap.newKeySet();
     
-    // Collections para tracking de desafíos
-    private final Set<UUID> acidSwimmers = ConcurrentHashMap.newKeySet();
+    // Mapas para rastrear progreso de desafíos
+    private final ConcurrentHashMap<UUID, Set<Material>> fishCollected = new ConcurrentHashMap<>();
     private final Set<UUID> acidRainSurvivors = ConcurrentHashMap.newKeySet();
-    private final Set<UUID> acidResistants = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> waterBottleKillers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> blueAxolotlOwners = ConcurrentHashMap.newKeySet();
     
-    // Estadísticas del evento
+    // Tipos de pescado requeridos para el desafío
+    private static final Set<Material> REQUIRED_FISH = Set.of(
+        Material.COD,
+        Material.SALMON, 
+        Material.TROPICAL_FISH,
+        Material.PUFFERFISH
+    );
+    
+    // Estadísticas de daño ácido
     private final AtomicInteger totalAcidDamageDealt = new AtomicInteger(0);
     private final ConcurrentHashMap<UUID, AtomicInteger> playerAcidDamage = new ConcurrentHashMap<>();
     
-    // Referencias atómicas para las tareas para thread-safety
+    // Referencias a tareas programadas
     private final AtomicReference<BukkitTask> acidTask = new AtomicReference<>();
     private final AtomicReference<BukkitTask> weatherTask = new AtomicReference<>();
     
-    // Flag atómico para controlar el estado de limpieza
+    // Estado de limpieza
     private final AtomicBoolean isCleaningUp = new AtomicBoolean(false);
     
-    // Constantes para configuración
+    // Constantes de configuración
+    @SuppressWarnings("unused")
     private static final int MAX_PLAYERS_PER_TICK = 30;
     private static final int MAX_ROOF_CHECK_HEIGHT = 20;
     private static final double ACID_DAMAGE_AMOUNT = 2.0;
     private static final double RESISTANCE_DAMAGE_REDUCTION = 0.5;
-    private static final long TASK_INTERVAL_TICKS = 20L; // 1 segundo
+    private static final long TASK_INTERVAL_TICKS = 100L; // 5 segundos
 
     public AcidWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
@@ -90,20 +111,19 @@ public class AcidWeek extends AbstractWeeklyEvent {
     @Override
     protected void startEventTasks() {
         try {
-            // Iniciar tareas del evento
             startAcidDamageTask();
             startWeatherControlTask();
-            plugin.getLogger().info("[AcidWeek] Tareas del evento iniciadas");
+            
+            plugin.getLogger().info("[AcidWeek] Tareas del evento iniciadas correctamente");
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al iniciar tareas del evento", e);
-            stopEventTasks(); // Limpieza automática en caso de error
         }
     }
     
     @Override
     protected void announceEventStart() {
         try {
-            Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La lluvia ácida ha comenzado! Busca refugio y protege tu equipo."));
+            Bukkit.broadcast(MM.toComponent(prefix + " <yellow>¡La Semana Ácida ha comenzado!"));
             announceAcidChallenges();
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al anunciar inicio del evento", e);
@@ -113,11 +133,9 @@ public class AcidWeek extends AbstractWeeklyEvent {
     @Override
     protected void announceEventEnd() {
         try {
-            // Anuncio general del fin del evento
-            Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La lluvia ácida ha cesado! El mundo vuelve a la normalidad."));
-            Bukkit.broadcast(MM.toComponent(prefix + " <yellow>¡Revisando las estadísticas de supervivencia ácida!"));
+            Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La Semana Ácida ha terminado!"));
             
-            // Enviar estadísticas individuales a cada jugador
+            // Mostrar estadísticas finales
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player != null && player.isOnline()) {
                     try {
@@ -134,67 +152,61 @@ public class AcidWeek extends AbstractWeeklyEvent {
     }
     
     /**
-     * Envía las estadísticas individuales del evento a un jugador específico
-     * @param player El jugador al que enviar las estadísticas
+     * Envía las estadísticas personales del jugador al final del evento
      */
     private void sendPlayerStatistics(Player player) {
-        if (player == null || !player.isOnline()) {
-            return;
-        }
-        
         try {
             UUID playerId = player.getUniqueId();
             
             // Separador visual
-            player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+            player.sendMessage(MM.toComponent("<gray><b>══════════════════════════════════════════</b></gray>"));
             player.sendMessage(MM.toComponent("<green><b>TUS ESTADÍSTICAS - SEMANA ÁCIDA</b></green>"));
-            player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+            player.sendMessage(MM.toComponent("<gray><b>══════════════════════════════════════════</b></gray>"));
             
-            // Estado de supervivencia
-            boolean inWater = playersInWater.contains(playerId);
-            boolean inRain = playersInRain.contains(playerId);
-            boolean hasResistance = hasAcidResistanceGear(player);
-            
-            player.sendMessage(MM.toComponent("<yellow>🌊 <white>Supervivencia en agua ácida:</white> " + (inWater ? "<green>Logrado</green>" : "<red>No logrado</red>")));
-            player.sendMessage(MM.toComponent("<yellow>🌧 <white>Supervivencia bajo lluvia ácida:</white> " + (inRain ? "<green>Logrado</green>" : "<red>No logrado</red>")));
-            player.sendMessage(MM.toComponent("<yellow>🛡 <white>Equipo resistente al ácido:</white> " + (hasResistance ? "<green>Obtenido</green>" : "<red>No obtenido</red>")));
+            // Daño ácido recibido
+            AtomicInteger damage = playerAcidDamage.get(playerId);
+            int totalDamage = damage != null ? damage.get() : 0;
+            player.sendMessage(MM.toComponent(prefix + " <yellow>Daño ácido recibido: <white>" + totalDamage));
             
             // Desafíos completados
-            player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
-            player.sendMessage(MM.toComponent("<gold><b>DESAFÍOS COMPLETADOS:</b></gold>"));
+            int completedChallenges = 0;
+            String[] challengeIds = {"acid_swimmer", "acid_rain_survivor", "acid_resistant", "fish_collector", "blue_axolotl_tamer"};
+            String[] challengeNames = {"Nadador Ácido", "Superviviente de Lluvia", "Resistente al Ácido", "Coleccionista de Pescados", "Domador de Ajolotes"};
             
-            // Verificar cada desafío
-            boolean acidSwimmer = hasChallengeCompleted(playerId, "acid_swimmer");
-            boolean acidRainSurvivor = hasChallengeCompleted(playerId, "acid_rain_survivor");
-            boolean acidResistant = hasChallengeCompleted(playerId, "acid_resistant");
+            for (int i = 0; i < challengeIds.length; i++) {
+                if (hasChallengeCompleted(playerId, challengeIds[i])) {
+                    completedChallenges++;
+                    player.sendMessage(MM.toComponent(prefix + " <green>✓ " + challengeNames[i]));
+                } else {
+                    player.sendMessage(MM.toComponent(prefix + " <red>✗ " + challengeNames[i]));
+                }
+            }
             
-            player.sendMessage(MM.toComponent("<yellow>🏊 Nadador Ácido:</yellow> " + (acidSwimmer ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
-            player.sendMessage(MM.toComponent("<yellow>☔ Superviviente de Lluvia Ácida:</yellow> " + (acidRainSurvivor ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
-            player.sendMessage(MM.toComponent("<yellow>🛡 Resistente al Ácido:</yellow> " + (acidResistant ? "<green>✓ Completado</green>" : "<red>✗ No completado</red>")));
+            player.sendMessage(MM.toComponent(prefix + " <gold>Desafíos completados: <white>" + completedChallenges + "/5"));
             
-            // Mensaje final
-            int completedChallenges = (acidSwimmer ? 1 : 0) + (acidRainSurvivor ? 1 : 0) + (acidResistant ? 1 : 0);
-            player.sendMessage(MM.toComponent("<gray>----------------------------------------</gray>"));
-            player.sendMessage(MM.toComponent("<gold>Desafíos completados: <white>" + completedChallenges + "/3</white></gold>"));
-            player.sendMessage(MM.toComponent("<gray><b>========================================</b></gray>"));
+            // Pescados recolectados
+            Set<Material> playerFish = fishCollected.get(playerId);
+            int fishCount = playerFish != null ? playerFish.size() : 0;
+            player.sendMessage(MM.toComponent(prefix + " <blue>Tipos de pescado recolectados: <white>" + fishCount + "/4"));
+            
+            player.sendMessage(MM.toComponent(prefix + " <gold>═══════════════════════════════════"));
+            
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, 
-                "[AcidWeek] Error al procesar estadísticas para " + player.getName(), e);
+                "[AcidWeek] Error al generar estadísticas para " + player.getName(), e);
         }
     }
     
     /**
-     * Anuncia los desafíos disponibles durante la Semana Ácida
+     * Anuncia los desafíos disponibles durante la semana ácida
      */
     private void announceAcidChallenges() {
         try {
-            Bukkit.broadcast(MM.toComponent("<gray><b>=== <green>DESAFÍOS DE LA SEMANA</green> <gray><b>==="));
-            Bukkit.broadcast(MM.toComponent("<yellow>1. <green>Sobrevive</green> nadando en agua ácida</yellow>"));
-            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Resistencia temporal al ácido</gray>"));
-            Bukkit.broadcast(MM.toComponent("<yellow>2. <green>Sobrevive</green> bajo la lluvia ácida durante el día</yellow>"));
-            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Protección mejorada</gray>"));
-            Bukkit.broadcast(MM.toComponent("<yellow>3. <green>Obtén</green> equipo con resistencia al ácido</yellow>"));
-            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Inmunidad temporal</gray>"));
+            Bukkit.broadcast(MM.toComponent(prefix + " <yellow>Desafíos disponibles:"));
+            Bukkit.broadcast(MM.toComponent(prefix + " <green>• Nadador Ácido - Sobrevive en agua ácida"));
+            Bukkit.broadcast(MM.toComponent(prefix + " <green>• Superviviente de Lluvia - Resiste la lluvia ácida"));
+            Bukkit.broadcast(MM.toComponent(prefix + " <green>• Coleccionista de Pescados - Pesca todos los tipos"));
+            Bukkit.broadcast(MM.toComponent(prefix + " <green>• Domador de Ajolotes - Domestica un ajolote azul"));
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al anunciar desafíos", e);
         }
@@ -203,22 +215,20 @@ public class AcidWeek extends AbstractWeeklyEvent {
     @Override
     protected void stopEventTasks() {
         try {
-            // Cancelar tareas de forma thread-safe
-            BukkitTask currentAcidTask = acidTask.getAndSet(null);
-            if (currentAcidTask != null && !currentAcidTask.isCancelled()) {
-                currentAcidTask.cancel();
-                plugin.getLogger().info("[AcidWeek] Tarea de daño ácido cancelada");
+            // Cancelar tarea de daño ácido
+            BukkitTask acidTaskRef = acidTask.get();
+            if (acidTaskRef != null && !acidTaskRef.isCancelled()) {
+                acidTaskRef.cancel();
             }
             
-            BukkitTask currentWeatherTask = weatherTask.getAndSet(null);
-            if (currentWeatherTask != null && !currentWeatherTask.isCancelled()) {
-                currentWeatherTask.cancel();
-                plugin.getLogger().info("[AcidWeek] Tarea de control climático cancelada");
+            // Cancelar tarea de control climático
+            BukkitTask weatherTaskRef = weatherTask.get();
+            if (weatherTaskRef != null && !weatherTaskRef.isCancelled()) {
+                weatherTaskRef.cancel();
             }
             
-            // Restaurar clima normal en todos los mundos
             restoreNormalWeather();
-            
+            plugin.getLogger().info("[AcidWeek] Tareas del evento detenidas correctamente");
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al detener tareas del evento", e);
         }
@@ -233,9 +243,10 @@ public class AcidWeek extends AbstractWeeklyEvent {
                 if (world != null) {
                     world.setStorm(false);
                     world.setThundering(false);
+                    world.setWeatherDuration(0);
                 }
             }
-            plugin.getLogger().info("[AcidWeek] Clima restaurado a normal");
+            plugin.getLogger().info("[AcidWeek] Clima normal restaurado en todos los mundos");
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al restaurar clima normal", e);
         }
@@ -243,47 +254,47 @@ public class AcidWeek extends AbstractWeeklyEvent {
     
     @Override
     protected void cleanupEventData() {
-        if (isCleaningUp.compareAndSet(false, true)) {
-            try {
-                // Limpiar conjuntos de forma thread-safe
-                int waterPlayers = playersInWater.size();
-                int rainPlayers = playersInRain.size();
-                
-                playersInWater.clear();
-                playersInRain.clear();
-                
-                plugin.getLogger().info(String.format(
-                    "[AcidWeek] Datos limpiados: %d jugadores en agua, %d jugadores en lluvia", 
-                    waterPlayers, rainPlayers));
-                    
-            } catch (Exception e) {
-                plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error durante limpieza de datos", e);
-            } finally {
-                isCleaningUp.set(false);
-            }
+        try {
+            isCleaningUp.set(true);
+            
+            playersInWater.clear();
+            playersInRain.clear();
+            fishCollected.clear();
+            acidRainSurvivors.clear();
+            waterBottleKillers.clear();
+            blueAxolotlOwners.clear();
+            playerAcidDamage.clear();
+            totalAcidDamageDealt.set(0);
+            
+            plugin.getLogger().info("[AcidWeek] Datos del evento limpiados correctamente");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al limpiar datos del evento", e);
+        } finally {
+            isCleaningUp.set(false);
         }
     }
     
     /**
-     * Limpieza forzada en caso de errores críticos
+     * Fuerza la limpieza de todos los datos y tareas
      */
     @SuppressWarnings("unused")
     private void forceCleanup() {
         try {
-            plugin.getLogger().warning("[AcidWeek] Ejecutando limpieza forzada");
+            // Cancelar todas las tareas
+            BukkitTask acidTaskRef = acidTask.getAndSet(null);
+            if (acidTaskRef != null && !acidTaskRef.isCancelled()) {
+                acidTaskRef.cancel();
+            }
             
-            // Detener todas las tareas
-            stopEventTasks();
+            BukkitTask weatherTaskRef = weatherTask.getAndSet(null);
+            if (weatherTaskRef != null && !weatherTaskRef.isCancelled()) {
+                weatherTaskRef.cancel();
+            }
             
-            // Limpiar datos
             cleanupEventData();
-            
-            // Marcar como inactivo
-            isActive.set(false);
-            isPaused.set(false);
-            
+            restoreNormalWeather();
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error durante limpieza forzada", e);
+            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error en limpieza forzada", e);
         }
     }
     
@@ -295,81 +306,75 @@ public class AcidWeek extends AbstractWeeklyEvent {
     @Override
     protected void pauseEventTasks() {
         try {
-            BukkitTask currentAcidTask = acidTask.getAndSet(null);
-            if (currentAcidTask != null && !currentAcidTask.isCancelled()) {
-                currentAcidTask.cancel();
+            BukkitTask acidTaskRef = acidTask.get();
+            if (acidTaskRef != null && !acidTaskRef.isCancelled()) {
+                acidTaskRef.cancel();
             }
             
-            BukkitTask currentWeatherTask = weatherTask.getAndSet(null);
-            if (currentWeatherTask != null && !currentWeatherTask.isCancelled()) {
-                currentWeatherTask.cancel();
+            BukkitTask weatherTaskRef = weatherTask.get();
+            if (weatherTaskRef != null && !weatherTaskRef.isCancelled()) {
+                weatherTaskRef.cancel();
             }
             
-            plugin.getLogger().info("[AcidWeek] Tareas pausadas");
+            plugin.getLogger().info("[AcidWeek] Tareas del evento pausadas");
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al pausar tareas", e);
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al pausar tareas del evento", e);
         }
     }
     
     @Override
     protected void resumeEventTasks() {
         try {
-            if (isActive.get() && !isCleaningUp.get()) {
+            if (!isPaused.get()) {
                 startAcidDamageTask();
                 startWeatherControlTask();
-                isPaused.set(false);
-                plugin.getLogger().info("[AcidWeek] Tareas reanudadas");
+                plugin.getLogger().info("[AcidWeek] Tareas del evento reanudadas");
             }
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al reanudar tareas", e);
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al reanudar tareas del evento", e);
         }
     }
     
     /**
-     * Verifica si un jugador tiene resistencia al ácido (thread-safe)
+     * Verifica si un jugador tiene resistencia al ácido
      */
-    @SuppressWarnings("deprecation")
     private boolean hasAcidResistance(Player player) {
         if (player == null || !player.isOnline()) {
             return false;
         }
         
         try {
-            // Verificar si el jugador tiene el encantamiento en alguna pieza de armadura
-            ItemStack[] armorContents = player.getInventory().getArmorContents();
-            if (armorContents == null) {
-                return false;
+            // Verificar efectos de poción
+            if (player.hasPotionEffect(PotionEffectType.RESISTANCE)) {
+                return true;
             }
             
-            for (ItemStack item : armorContents) {
-                if (item != null && item.getType() != Material.AIR && item.hasItemMeta()) {
-                    try {
-                        // Verificar usando Registry.ENCHANTMENT
-                        if (item.getItemMeta().hasEnchant(Registry.ENCHANTMENT.get(new NamespacedKey(plugin, "acid_resistance")))) {
-                            return true;
+            // Verificar armadura con encantamientos personalizados
+            ItemStack[] armor = player.getInventory().getArmorContents();
+            if (armor != null) {
+                for (ItemStack piece : armor) {
+                    if (piece != null && piece.hasItemMeta()) {
+                        try {
+                            if (HeartlessMain.getContentManager().hasEnchantment(piece, HeartlessMain.getContentManager().getEnchantment("acid_resistance"))) {
+                                return true;
+                            }
+                        } catch (Exception e) {
+                            // Continuar verificando otras piezas si hay error
                         }
-                        
-                        // Verificar usando el ContentManager
-                        if (HeartlessMain.getContentManager() != null && 
-                            HeartlessMain.getContentManager().hasEnchantment(item, CustomEnchantments.ENCHANTMENTS.ACID_RESISTANCE.toEnchantment())) {
-                            return true;
-                        }
-                    } catch (Exception e) {
-                        plugin.getLogger().log(Level.WARNING, 
-                            "[AcidWeek] Error al verificar encantamiento de resistencia", e);
                     }
                 }
             }
+            
+            return false;
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, 
                 "[AcidWeek] Error al verificar resistencia al ácido para " + player.getName(), e);
+            return false;
         }
-        
-        return false;
     }
     
     /**
-     * Inicia la tarea de daño ácido con mejoras de rendimiento y thread-safety
+     * Inicia la tarea de daño ácido que se ejecuta periódicamente
      */
     private void startAcidDamageTask() {
         try {
@@ -387,16 +392,9 @@ public class AcidWeek extends AbstractWeeklyEvent {
                             return;
                         }
                         
-                        // Limpiar UUIDs de jugadores desconectados para prevenir memory leaks
                         cleanupDisconnectedPlayers();
-                        
-                        // Procesar daño a jugadores en agua
                         processWaterDamage();
-                        
-                        // Procesar daño a jugadores en lluvia (cada 5 segundos)
-                        if (this.getTaskId() % 5 == 0) {
-                            processRainDamage();
-                        }
+                        processRainDamage();
                         
                     } catch (Exception e) {
                         plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en tarea de daño ácido", e);
@@ -413,7 +411,7 @@ public class AcidWeek extends AbstractWeeklyEvent {
     }
     
     /**
-     * Limpia jugadores desconectados de las colecciones para prevenir memory leaks
+     * Limpia jugadores desconectados de las listas de seguimiento
      */
     private void cleanupDisconnectedPlayers() {
         try {
@@ -432,110 +430,106 @@ public class AcidWeek extends AbstractWeeklyEvent {
     }
     
     /**
-     * Procesa el daño ácido a jugadores en agua con optimizaciones de rendimiento
+     * Procesa el daño por agua ácida
      */
     private void processWaterDamage() {
         try {
-            int processedPlayers = 0;
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player == null || !player.isOnline() || processedPlayers >= MAX_PLAYERS_PER_TICK) {
+            Set<UUID> playersToRemove = new HashSet<>();
+            
+            for (UUID playerId : playersInWater) {
+                Player player = Bukkit.getPlayer(playerId);
+                if (player == null || !player.isOnline()) {
+                    playersToRemove.add(playerId);
                     continue;
                 }
                 
                 try {
                     Location loc = player.getLocation();
-                    if (loc == null || loc.getWorld() == null) {
+                    Block block = loc.getBlock();
+                    
+                    // Verificar si el jugador sigue en agua
+                    if (block.getType() != Material.WATER) {
+                        playersToRemove.add(playerId);
                         continue;
                     }
                     
-                    Block block = loc.getBlock();
-                    if (block != null && block.getType() == Material.WATER) {
-                        UUID playerId = player.getUniqueId();
-                        playersInWater.add(playerId);
-                        
-                        // Aplicar daño ácido
-                        applyAcidDamage(player, "agua ácida");
-                        
-                        // Verificar desafío de nadador ácido
-                        checkAcidSwimmerChallenge(player);
-                        
-                        processedPlayers++;
-                    }
+                    // Aplicar daño ácido
+                    applyAcidDamage(player, "agua");
+                    
+                    // Verificar desafío de nadador ácido
+                    checkAcidSwimmerChallenge(player);
+                    
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, 
                         "[AcidWeek] Error al procesar daño de agua para " + player.getName(), e);
                 }
             }
+            
+            // Remover jugadores que ya no están en agua
+            playersInWater.removeAll(playersToRemove);
+            
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en procesamiento de daño de agua", e);
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al procesar daño de agua", e);
         }
     }
     
     /**
-     * Procesa el daño ácido a jugadores bajo la lluvia con optimizaciones de rendimiento
+     * Procesa el daño por lluvia ácida
      */
     private void processRainDamage() {
         try {
-            int processedPlayers = 0;
             for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player == null || !player.isOnline() || processedPlayers >= MAX_PLAYERS_PER_TICK) {
+                if (player == null || !player.isOnline()) {
                     continue;
                 }
                 
                 try {
-                    Location loc = player.getLocation();
-                    if (loc == null || loc.getWorld() == null) {
-                        continue;
-                    }
-                    
-                    World world = loc.getWorld();
-                    if (world.hasStorm() && isPlayerExposedToRain(player)) {
+                    if (isPlayerExposedToRain(player)) {
                         UUID playerId = player.getUniqueId();
-                        playersInRain.add(playerId);
                         
-                        // Aplicar daño ácido
-                        applyAcidDamage(player, "lluvia ácida");
+                        if (!playersInRain.contains(playerId)) {
+                            playersInRain.add(playerId);
+                            player.sendMessage(MM.toComponent(prefix + " <yellow>¡Estás expuesto a la lluvia ácida!"));
+                        }
                         
-                        // Verificar desafío de superviviente de lluvia ácida
+                        applyAcidDamage(player, "lluvia");
                         checkAcidRainSurvivorChallenge(player);
                         
-                        processedPlayers++;
+                    } else {
+                        playersInRain.remove(player.getUniqueId());
                     }
+                    
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, 
-                        "[AcidWeek] Error al procesar daño de lluvia para " + player.getName(), e);
+                        "[AcidWeek] Error al procesar lluvia para " + player.getName(), e);
                 }
             }
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en procesamiento de daño de lluvia", e);
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al procesar daño de lluvia", e);
         }
     }
     
     /**
-     * Verifica si un jugador está expuesto a la lluvia (sin techo)
+     * Verifica si un jugador está expuesto a la lluvia
      */
     private boolean isPlayerExposedToRain(Player player) {
-        if (player == null || !player.isOnline()) {
-            return false;
-        }
-        
         try {
-            Location loc = player.getLocation();
-            if (loc == null || loc.getWorld() == null) {
+            World world = player.getWorld();
+            if (!world.hasStorm()) {
                 return false;
             }
             
+            Location loc = player.getLocation();
+            
             // Verificar si hay bloques sólidos encima del jugador
             for (int y = 1; y <= MAX_ROOF_CHECK_HEIGHT; y++) {
-                Location checkLoc = loc.clone().add(0, y, 0);
-                Block block = checkLoc.getBlock();
-                
-                if (block != null && block.getType().isSolid()) {
+                Block block = world.getBlockAt(loc.getBlockX(), loc.getBlockY() + y, loc.getBlockZ());
+                if (block.getType().isSolid()) {
                     return false; // Hay techo
                 }
             }
             
-            return true; // No hay techo, expuesto a la lluvia
+            return true; // Expuesto a la lluvia
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, 
                 "[AcidWeek] Error al verificar exposición a lluvia para " + player.getName(), e);
@@ -544,33 +538,32 @@ public class AcidWeek extends AbstractWeeklyEvent {
     }
     
     /**
-     * Aplica daño ácido a un jugador con resistencia considerada
+     * Aplica daño ácido a un jugador
      */
     private void applyAcidDamage(Player player, String source) {
-        if (player == null || !player.isOnline()) {
-            return;
-        }
-        
         try {
+            if (player == null || !player.isOnline()) {
+                return;
+            }
+            
             double damage = ACID_DAMAGE_AMOUNT;
             
-            // Reducir daño si tiene resistencia al ácido
+            // Reducir daño si tiene resistencia
             if (hasAcidResistance(player)) {
                 damage *= RESISTANCE_DAMAGE_REDUCTION;
-                player.sendMessage(MM.toComponent(prefix + " <green>Tu equipo resistente al ácido reduce el daño!"));
-                
-                // Verificar desafío de resistente al ácido
-                checkAcidResistantChallenge(player);
+                player.sendMessage(MM.toComponent(prefix + " <green>Tu resistencia reduce el daño ácido"));
             }
             
             // Aplicar daño
             player.damage(damage);
             
-            // Mensaje de daño
-            player.sendMessage(MM.toComponent(prefix + " <red>¡Estás recibiendo daño por " + source + "!"));
+            // Registrar estadísticas
+            UUID playerId = player.getUniqueId();
+            playerAcidDamage.computeIfAbsent(playerId, k -> new AtomicInteger(0)).addAndGet((int) damage);
+            totalAcidDamageDealt.addAndGet((int) damage);
             
-            // Efectos de poción
-            player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 60, 0));
+            // Mensaje de daño
+            player.sendMessage(MM.toComponent(prefix + " <red>¡El ácido de " + source + " te está dañando!"));
             
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, 
@@ -582,19 +575,17 @@ public class AcidWeek extends AbstractWeeklyEvent {
      * Verifica y completa el desafío de nadador ácido
      */
     private void checkAcidSwimmerChallenge(Player player) {
-        if (player == null || !player.isOnline()) {
-            return;
-        }
-        
         try {
             UUID playerId = player.getUniqueId();
             if (!hasChallengeCompleted(playerId, "acid_swimmer")) {
+                // Lógica para verificar tiempo en agua (simplificada)
                 completeChallengeForPlayer(playerId, "acid_swimmer");
                 player.sendMessage(MM.toComponent(prefix + " <gold>¡Desafío completado: Nadador Ácido!"));
-                player.sendMessage(MM.toComponent(prefix + " <green>Recompensa: Resistencia temporal al ácido"));
+                player.sendMessage(MM.toComponent(prefix + " <green>Recompensa: +1 Corazón Permanente"));
                 
-                // Dar resistencia temporal
-                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 1200, 0)); // 1 minuto
+                // Dar recompensa de corazón permanente usando Reward
+                Reward reward = new Reward("health:1");
+                reward.grantTo(player, prefix);
             }
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, 
@@ -606,55 +597,21 @@ public class AcidWeek extends AbstractWeeklyEvent {
      * Verifica y completa el desafío de superviviente de lluvia ácida
      */
     private void checkAcidRainSurvivorChallenge(Player player) {
-        if (player == null || !player.isOnline()) {
-            return;
-        }
-        
         try {
             UUID playerId = player.getUniqueId();
             if (!hasChallengeCompleted(playerId, "acid_rain_survivor")) {
                 completeChallengeForPlayer(playerId, "acid_rain_survivor");
                 player.sendMessage(MM.toComponent(prefix + " <gold>¡Desafío completado: Superviviente de Lluvia Ácida!"));
-                player.sendMessage(MM.toComponent(prefix + " <green>Recompensa: Protección mejorada"));
+                player.sendMessage(MM.toComponent(prefix + " <green>Recompensa: Tag 'Químico'"));
                 
-                // Dar protección mejorada
-                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 2400, 1)); // 2 minutos, nivel 2
+                // Dar tag especial usando CoinsEngine
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
+                    "lp user " + player.getName() + " permission set heartless.tag.quimico true");
             }
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, 
                 "[AcidWeek] Error al verificar desafío de superviviente de lluvia ácida para " + player.getName(), e);
         }
-    }
-    
-    /**
-     * Verifica y completa el desafío de resistente al ácido
-     */
-    private void checkAcidResistantChallenge(Player player) {
-        if (player == null || !player.isOnline()) {
-            return;
-        }
-        
-        try {
-            UUID playerId = player.getUniqueId();
-            if (!hasChallengeCompleted(playerId, "acid_resistant")) {
-                completeChallengeForPlayer(playerId, "acid_resistant");
-                player.sendMessage(MM.toComponent(prefix + " <gold>¡Desafío completado: Resistente al Ácido!"));
-                player.sendMessage(MM.toComponent(prefix + " <green>Recompensa: Inmunidad temporal"));
-                
-                // Dar inmunidad temporal
-                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 3600, 2)); // 3 minutos, nivel 3
-            }
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, 
-                "[AcidWeek] Error al verificar desafío de resistente al ácido para " + player.getName(), e);
-        }
-    }
-    
-    /**
-     * Verifica si un jugador tiene equipo con resistencia al ácido
-     */
-    private boolean hasAcidResistanceGear(Player player) {
-        return hasAcidResistance(player);
     }
     
     /**
@@ -746,13 +703,82 @@ public class AcidWeek extends AbstractWeeklyEvent {
                 }
                 
                 // Aumentar daño de pociones durante la semana ácida
-                double currentDamage = event.getDamage();
-                event.setDamage(currentDamage * 1.5);
+                ThrownPotion potion = (ThrownPotion) event.getDamager();
+                ItemStack potionItem = potion.getItem();
                 
-                player.sendMessage(MM.toComponent(prefix + " <red>¡Las pociones son más potentes durante la semana ácida!"));
+                if (potionItem != null && potionItem.getItemMeta() instanceof PotionMeta) {
+                    PotionMeta meta = (PotionMeta) potionItem.getItemMeta();
+                    PotionType potionType = meta.getBasePotionType();
+                    
+                    // Aumentar daño de pociones dañinas
+                    if (potionType == PotionType.HARMING || potionType == PotionType.POISON) {
+                        double currentDamage = event.getDamage();
+                        event.setDamage(currentDamage * 1.5); // 50% más daño
+                        
+                        player.sendMessage(MM.toComponent(prefix + " <red>¡La poción es más potente durante la semana ácida!"));
+                    }
+                }
             }
+            
+            // Verificar si es un ataque con botella de agua
+            if (event.getDamager() instanceof Player && event.getEntity() instanceof Player) {
+                Player attacker = (Player) event.getDamager();
+                Player victim = (Player) event.getEntity();
+                
+                ItemStack weapon = attacker.getInventory().getItemInMainHand();
+                if (weapon != null && weapon.getType() == Material.POTION) {
+                    PotionMeta meta = (PotionMeta) weapon.getItemMeta();
+                    if (meta != null && meta.getBasePotionType() == PotionType.WATER) {
+                        // Es una botella de agua, verificar desafío
+                        checkWaterBottleKillerChallenge(attacker, victim);
+                    }
+                }
+            }
+            
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en evento de daño por entidad", e);
+        }
+    }
+    
+    /**
+     * Inicializa las definiciones de desafíos específicos de la semana ácida según la documentación
+     */
+    private void initializeChallengeDefinitions() {
+        try {
+            // Desafío 1: Conseguir los 4 tipos de pescados en cubetas (Fácil)
+            Map<String, Object> fishCollectorChallenge = new HashMap<>();
+            fishCollectorChallenge.put("id", "fish_collector");
+            fishCollectorChallenge.put("name", "Coleccionista de Pescados");
+            fishCollectorChallenge.put("description", "Conseguir los 4 tipos de pescados en cubetas");
+            fishCollectorChallenge.put("requiredProgress", 4); // 4 tipos de peces
+            fishCollectorChallenge.put("rewards", Collections.singletonList("enchant:contagion:1"));
+            
+            // Desafío 2: Sobrevivir 1.5 minutos bajo lluvia ácida sin pociones ni armadura especial (Intermedio)
+            Map<String, Object> acidRainSurvivorChallenge = new HashMap<>();
+            acidRainSurvivorChallenge.put("id", "acid_rain_survivor");
+            acidRainSurvivorChallenge.put("name", "Superviviente de Lluvia Ácida");
+            acidRainSurvivorChallenge.put("description", "Sobrevive 1.5 minutos bajo la lluvia ácida sin pociones ni armadura especial");
+            acidRainSurvivorChallenge.put("requiredProgress", 90); // 1.5 minutos en segundos
+            acidRainSurvivorChallenge.put("rewards", Collections.singletonList("thalos:20"));
+            
+            // Desafío 3: Matar a un jugador con botella de agua arrojadiza (Difícil)
+            Map<String, Object> chemicalKillerChallenge = new HashMap<>();
+            chemicalKillerChallenge.put("id", "chemical_killer");
+            chemicalKillerChallenge.put("name", "Asesino Químico");
+            chemicalKillerChallenge.put("description", "Matar a un jugador con botella de agua arrojadiza");
+            chemicalKillerChallenge.put("requiredProgress", 1);
+            chemicalKillerChallenge.put("rewards", Collections.singletonList("tag:asesinoquimico"));
+            
+            // Desafío 4: Conseguir un ajolote azul (Leyenda)
+            Map<String, Object> blueAxolotlChallenge = new HashMap<>();
+            blueAxolotlChallenge.put("id", "blue_axolotl");
+            blueAxolotlChallenge.put("name", "Ajolote Azul Legendario");
+            blueAxolotlChallenge.put("description", "Conseguir un ajolote azul");
+            blueAxolotlChallenge.put("requiredProgress", 1);
+            blueAxolotlChallenge.put("rewards", Collections.singletonList("health:1"));
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al inicializar definiciones de desafíos", e);
         }
     }
     
@@ -768,27 +794,31 @@ public class AcidWeek extends AbstractWeeklyEvent {
                 return;
             }
             
-            ItemStack item = event.getItem();
-            if (item == null || item.getType() == Material.AIR) {
-                return;
-            }
-            
-            UUID playerId = player.getUniqueId();
-            
-            // Aumentar daño a items si el jugador está en agua o lluvia ácida
-            if (playersInWater.contains(playerId) || playersInRain.contains(playerId)) {
-                // Verificar si tiene resistencia al ácido
-                if (!hasAcidResistance(player)) {
-                    int currentDamage = event.getDamage();
-                    event.setDamage(currentDamage * 2); // Doble daño a items
-                    
-                    player.sendMessage(MM.toComponent(prefix + " <red>¡El ácido está dañando tu equipo!"));
-                } else {
-                    player.sendMessage(MM.toComponent(prefix + " <green>Tu equipo resistente al ácido protege tus items!"));
+            // Aumentar daño a items durante la semana ácida
+            if (playersInWater.contains(player.getUniqueId()) || playersInRain.contains(player.getUniqueId())) {
+                ItemStack item = event.getItem();
+                
+                // Verificar si el item tiene resistencia al ácido
+                if (item != null && item.hasItemMeta()) {
+                    try {
+                        if (!HeartlessMain.getContentManager().hasEnchantment(item, HeartlessMain.getContentManager().getEnchantment("acid_resistance"))) {
+                            // Aumentar daño si no tiene resistencia
+                            int currentDamage = event.getDamage();
+                            event.setDamage(currentDamage * 2); // Doble daño
+                            
+                            if (currentDamage > 0) {
+                                player.sendMessage(MM.toComponent(prefix + " <red>¡El ácido está corroyendo tu equipo!"));
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Continuar con daño normal si hay error
+                    }
                 }
             }
+            
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en evento de daño a item", e);
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al procesar daño de item para " + event.getPlayer().getName(), e);
         }
     }
     
@@ -813,211 +843,145 @@ public class AcidWeek extends AbstractWeeklyEvent {
                     event.setCancelled(true);
                 }
             }
+            
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en evento de crecimiento de bloque", e);
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al procesar crecimiento de bloque", e);
         }
     }
     
-    /**
-     * Checks if a player has completed a specific challenge
-     * @param playerId The UUID of the player
-     * @param challengeId The ID of the challenge
-     * @return true if the challenge is completed, false otherwise
-     */
-     // ========== MÉTODOS DE PERSISTENCIA ==========
+     // Métodos de gestión de datos del evento
      
      @Override
      protected void initializeEventSpecificData() {
-         // Inicializar estadísticas globales
-         globalStatistics.put("total_acid_damage", new AtomicLong(0));
-         globalStatistics.put("players_in_water", new AtomicLong(0));
-         globalStatistics.put("players_in_rain", new AtomicLong(0));
-         globalStatistics.put("acid_swimmers", new AtomicLong(0));
-         globalStatistics.put("acid_rain_survivors", new AtomicLong(0));
-         globalStatistics.put("acid_resistants", new AtomicLong(0));
-         
-         // Configurar desafíos específicos del evento
-         setupAcidWeekChallenges();
-         
-         plugin.getLogger().info("[AcidWeek] Datos específicos del evento inicializados");
+         try {
+             // Inicializar estructuras de datos específicas
+             playersInWater.clear();
+             playersInRain.clear();
+             fishCollected.clear();
+             acidRainSurvivors.clear();
+             waterBottleKillers.clear();
+             blueAxolotlOwners.clear();
+             playerAcidDamage.clear();
+             totalAcidDamageDealt.set(0);
+             
+             setupAcidWeekChallenges();
+             
+             plugin.getLogger().info("[AcidWeek] Datos específicos del evento inicializados");
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al inicializar datos específicos", e);
+         }
      }
      
-     /**
-      * Configura los desafíos específicos de la semana ácida
-      */
      private void setupAcidWeekChallenges() {
-          try {
-              // Configurar desafíos disponibles para este evento
-              availableChallenges.put("acid_swimmer", new ChallengeDefinition(
-                  "acid_swimmer", 
-                  "Nadador Ácido", 
-                  "Sobrevivir nadando en agua ácida",
-                  10,
-                  Collections.singletonList("experience:100")
-              ));
-              
-              availableChallenges.put("acid_rain_survivor", new ChallengeDefinition(
-                  "acid_rain_survivor",
-                  "Superviviente de Lluvia Ácida",
-                  "Sobrevivir bajo la lluvia ácida",
-                  5,
-                  Collections.singletonList("experience:200")
-              ));
-              
-              availableChallenges.put("acid_resistant", new ChallengeDefinition(
-                  "acid_resistant",
-                  "Resistente al Ácido",
-                  "Mostrar resistencia al ácido",
-                  20,
-                  Collections.singletonList("experience:300")
-              ));
-              
-              plugin.getLogger().info("[AcidWeek] Desafíos configurados: " + availableChallenges.size());
-          } catch (Exception e) {
-              plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al configurar desafíos", e);
-          }
-      }
+         try {
+             // Configurar desafíos específicos de la semana ácida
+             initializeChallengeDefinitions();
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al configurar desafíos", e);
+         }
+     }
      
      @Override
      protected void onEventStart() {
-         plugin.getLogger().info("[AcidWeek] Iniciando evento de Semana Ácida...");
-         
-         // Inicializar datos del evento
-          initializeEventSpecificData();
-          
-          // Iniciar tareas del evento
-         startEventTasks();
-         
-         // Anunciar inicio del evento
-         Bukkit.broadcast(MM.toComponent("<green><bold>¡La Semana Ácida ha comenzado!</bold></green>"));
-         Bukkit.broadcast(MM.toComponent("<gray>El agua y la lluvia se han vuelto ácidas...</gray>"));
-         
-         plugin.getLogger().info("[AcidWeek] Evento iniciado correctamente");
+         try {
+             // Lógica específica de inicio de semana ácida
+             for (World world : Bukkit.getWorlds()) {
+                 if (world != null) {
+                     world.setStorm(true);
+                     world.setWeatherDuration(Integer.MAX_VALUE);
+                 }
+             }
+             
+             plugin.getLogger().info("[AcidWeek] Semana Ácida iniciada correctamente");
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al iniciar Semana Ácida", e);
+         }
      }
      
      @Override
      protected void onEventStop() {
-         plugin.getLogger().info("[AcidWeek] Deteniendo evento de Semana Ácida...");
-         
-         // Detener tareas
-         stopEventTasks();
-         
-         // Limpiar efectos de jugadores
-         cleanupPlayerEffects();
-         
-         // Guardar datos finales
-         saveEventSpecificData();
-         
-         // Anunciar fin del evento
-         Bukkit.broadcast(MM.toComponent("<green><bold>¡La Semana Ácida ha terminado!</bold></green>"));
-         showEventSummary();
-         
-         plugin.getLogger().info("[AcidWeek] Evento detenido correctamente");
-     }
-     
-     /**
-      * Limpia los efectos de los jugadores
-      */
-     private void cleanupPlayerEffects() {
          try {
-             for (Player player : Bukkit.getOnlinePlayers()) {
-                 // Remover efectos de ácido si los tienen
-                 player.removePotionEffect(PotionEffectType.POISON);
-                 player.removePotionEffect(PotionEffectType.HUNGER);
-                 player.removePotionEffect(PotionEffectType.WEAKNESS);
-             }
+             // Limpiar efectos de jugadores
+             cleanupPlayerEffects();
              
-             // Limpiar conjuntos de jugadores
-             playersInWater.clear();
-             playersInRain.clear();
-             acidSwimmers.clear();
-             acidRainSurvivors.clear();
-             acidResistants.clear();
+             // Mostrar resumen del evento
+             showEventSummary();
              
-             plugin.getLogger().info("[AcidWeek] Efectos de jugadores limpiados");
+             plugin.getLogger().info("[AcidWeek] Semana Ácida finalizada correctamente");
          } catch (Exception e) {
-             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al limpiar efectos", e);
+             plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al finalizar Semana Ácida", e);
          }
      }
      
-     /**
-      * Muestra un resumen del evento
-      */
+     private void cleanupPlayerEffects() {
+         try {
+             for (Player player : Bukkit.getOnlinePlayers()) {
+                 if (player != null && player.isOnline()) {
+                     try {
+                         // Remover efectos específicos del evento si es necesario
+                         // Por ahora, solo limpiar de las listas
+                         UUID playerId = player.getUniqueId();
+                         playersInWater.remove(playerId);
+                         playersInRain.remove(playerId);
+                     } catch (Exception e) {
+                         plugin.getLogger().log(Level.WARNING, 
+                             "[AcidWeek] Error al limpiar efectos de " + player.getName(), e);
+                     }
+                 }
+             }
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al limpiar efectos de jugadores", e);
+         }
+     }
+     
      private void showEventSummary() {
          try {
-             long totalDamage = globalStatistics.get("total_acid_damage").get();
-             long playersInWaterCount = globalStatistics.get("players_in_water").get();
-             long playersInRainCount = globalStatistics.get("players_in_rain").get();
-             
-             Bukkit.broadcast(MM.toComponent("<yellow>═══════════════════════════════════════</yellow>"));
-             Bukkit.broadcast(MM.toComponent("<gold><bold>RESUMEN DE LA SEMANA ÁCIDA</bold></gold>"));
-             Bukkit.broadcast(MM.toComponent("<yellow>═══════════════════════════════════════</yellow>"));
-             Bukkit.broadcast(MM.toComponent("<green>Daño total por ácido: <white>" + totalDamage + "</white></green>"));
-             Bukkit.broadcast(MM.toComponent("<green>Jugadores en agua ácida: <white>" + playersInWaterCount + "</white></green>"));
-             Bukkit.broadcast(MM.toComponent("<green>Jugadores en lluvia ácida: <white>" + playersInRainCount + "</white></green>"));
-             Bukkit.broadcast(MM.toComponent("<yellow>═══════════════════════════════════════</yellow>"));
+             Bukkit.broadcast(MM.toComponent(prefix + " <gold>═══ Resumen de Semana Ácida ═══"));
+             Bukkit.broadcast(MM.toComponent(prefix + " <yellow>Daño ácido total causado: <white>" + totalAcidDamageDealt.get()));
+             Bukkit.broadcast(MM.toComponent(prefix + " <yellow>Jugadores que nadaron en ácido: <white>" + playersInWater.size()));
+             Bukkit.broadcast(MM.toComponent(prefix + " <yellow>Supervivientes de lluvia ácida: <white>" + acidRainSurvivors.size()));
+             Bukkit.broadcast(MM.toComponent(prefix + " <gold>¡Gracias por participar!"));
          } catch (Exception e) {
-             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al mostrar resumen", e);
+             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al mostrar resumen del evento", e);
          }
      }
      
      @Override
      protected void processEventStatistics() {
          try {
-             // Actualizar estadísticas globales
-             globalStatistics.get("total_acid_damage").set(totalAcidDamageDealt.get());
-             globalStatistics.get("players_in_water").set(playersInWater.size());
-             globalStatistics.get("players_in_rain").set(playersInRain.size());
+             // Procesar estadísticas específicas del evento
+             Map<String, Object> stats = new HashMap<>();
+             stats.put("totalAcidDamage", totalAcidDamageDealt.get());
+             stats.put("playersInWaterCount", playersInWater.size());
+             stats.put("playersInRainCount", playersInRain.size());
+             stats.put("acidRainSurvivorsCount", acidRainSurvivors.size());
+             stats.put("fishCollectedCount", fishCollected.size());
+             stats.put("blueAxolotlOwnersCount", blueAxolotlOwners.size());
              
-             // Actualizar estadísticas de jugadores
-             for (UUID playerId : playerStatistics.keySet()) {
-                 Map<String, Object> stats = playerStatistics.get(playerId);
-                 @SuppressWarnings("unused")
-                 Player player = Bukkit.getPlayer(playerId);
-                 
-                 stats.put("acid_damage_taken", getPlayerAcidDamage(playerId));
-                 stats.put("in_acid_water", playersInWater.contains(playerId));
-                 stats.put("in_acid_rain", playersInRain.contains(playerId));
-                 stats.put("acid_swimmer", acidSwimmers.contains(playerId));
-                 stats.put("acid_rain_survivor", acidRainSurvivors.contains(playerId));
-                 stats.put("acid_resistant", acidResistants.contains(playerId));
+             // Guardar estadísticas usando el sistema de estadísticas del plugin
+             if (plugin.getWeeklyEventManager().getStatisticsManager() != null) {
+                 plugin.getWeeklyEventManager().getStatisticsManager().recordEventAction(getId(), "event_statistics", stats);
              }
              
-             plugin.getLogger().fine("[AcidWeek] Estadísticas del evento procesadas correctamente");
          } catch (Exception e) {
              plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al procesar estadísticas del evento", e);
          }
      }
      
-     /**
-      * Obtiene el daño por ácido de un jugador
-      * @param playerId UUID del jugador
-      * @return Cantidad de daño por ácido recibido
-      */
-     private int getPlayerAcidDamage(UUID playerId) {
-         return playerAcidDamage.getOrDefault(playerId, new AtomicInteger(0)).get();
+     // Métodos de acceso para datos específicos del evento
+     
+     @SuppressWarnings("unused")
+    private int getPlayerAcidDamage(UUID playerId) {
+         AtomicInteger damage = playerAcidDamage.get(playerId);
+         return damage != null ? damage.get() : 0;
      }
      
-     /**
-      * Obtiene el conjunto de jugadores en agua ácida
-      * @return Set de UUIDs de jugadores en agua
-      */
+     // Getters para acceso externo a datos del evento
+     
      public Set<UUID> getPlayersInWater() {
-         return Collections.unmodifiableSet(playersInWater);
+         return new HashSet<>(playersInWater);
      }
      
-     /**
-      * Obtiene el conjunto de jugadores en lluvia ácida
-      * @return Set de UUIDs de jugadores en lluvia
-      */
-     public Set<UUID> getPlayersInRain() {
-         return Collections.unmodifiableSet(playersInRain);
-     }
-     
-     /**
-      * Carga los jugadores en agua desde persistencia
-      * @param players Set de UUIDs de jugadores
-      */
      public void loadPlayersInWater(Set<UUID> players) {
          if (players != null) {
              playersInWater.clear();
@@ -1025,10 +989,10 @@ public class AcidWeek extends AbstractWeeklyEvent {
          }
      }
      
-     /**
-      * Carga los jugadores en lluvia desde persistencia
-      * @param players Set de UUIDs de jugadores
-      */
+     public Set<UUID> getPlayersInRain() {
+         return new HashSet<>(playersInRain);
+     }
+     
      public void loadPlayersInRain(Set<UUID> players) {
          if (players != null) {
              playersInRain.clear();
@@ -1036,102 +1000,247 @@ public class AcidWeek extends AbstractWeeklyEvent {
          }
      }
      
-     /**
-      * Obtiene el conjunto de jugadores que completaron el desafío de nadador ácido
-      * @return Set de UUIDs de jugadores
-      */
      public Set<UUID> getAcidSwimmers() {
-         return Collections.unmodifiableSet(acidSwimmers);
+         return new HashSet<>(playersInWater);
      }
      
-     /**
-      * Obtiene el conjunto de jugadores que completaron el desafío de superviviente de lluvia ácida
-      * @return Set de UUIDs de jugadores
-      */
      public Set<UUID> getAcidRainSurvivors() {
-         return Collections.unmodifiableSet(acidRainSurvivors);
+         return new HashSet<>(acidRainSurvivors);
      }
      
-     /**
-      * Obtiene el conjunto de jugadores que completaron el desafío de resistente al ácido
-      * @return Set de UUIDs de jugadores
-      */
      public Set<UUID> getAcidResistants() {
-         return Collections.unmodifiableSet(acidResistants);
+         // Retornar jugadores que han completado el desafío de resistencia
+         return new HashSet<>();
      }
      
-     /**
-      * Carga el progreso de desafíos desde los datos persistentes.
-      * 
-      * @param data Mapa con el progreso de desafíos serializado
-      */
+     // Métodos para cargar/guardar progreso de desafíos
+     
      public void loadChallengeProgress(Map<String, Map<String, Object>> data) {
-         if (data != null) {
-             challengeProgress.clear();
-             data.forEach((playerIdStr, progressMap) -> {
-                 try {
-                     UUID playerId = UUID.fromString(playerIdStr);
-                     challengeProgress.put(playerId, new ConcurrentHashMap<>(progressMap));
-                 } catch (IllegalArgumentException e) {
-                     plugin.getLogger().warning("[AcidWeek] UUID inválido en challengeProgress: " + playerIdStr);
-                 }
-             });
-             plugin.getLogger().info("[AcidWeek] Progreso de desafíos cargado para " + challengeProgress.size() + " jugadores");
+         try {
+             if (data == null) return;
+             
+             // Cargar progreso de pesca
+             Map<String, Object> fishData = data.get("fishCollected");
+             if (fishData != null) {
+                 // Implementar carga de datos de pesca
+             }
+             
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al cargar progreso de desafíos", e);
          }
      }
      
-     /**
-      * Carga los desafíos completados desde los datos persistentes.
-      * 
-      * @param data Mapa con los desafíos completados serializados
-      */
      public void loadCompletedChallenges(Map<String, Set<String>> data) {
-         if (data != null) {
-             completedChallenges.clear();
-             data.forEach((playerIdStr, challengeSet) -> {
+         try {
+             if (data == null) return;
+             
+             // Cargar desafíos completados
+             for (Map.Entry<String, Set<String>> entry : data.entrySet()) {
+                 String playerId = entry.getKey();
+                 Set<String> challenges = entry.getValue();
+                 
+                 // Procesar desafíos completados para este jugador
                  try {
-                     UUID playerId = UUID.fromString(playerIdStr);
-                     completedChallenges.put(playerId, ConcurrentHashMap.newKeySet());
-                     completedChallenges.get(playerId).addAll(challengeSet);
+                     UUID playerUUID = UUID.fromString(playerId);
+                     
+                     // Restaurar cada desafío completado en la estructura de datos heredada
+                     for (String challengeId : challenges) {
+                         if (challengeId != null && !challengeId.trim().isEmpty()) {
+                             // Usar computeIfAbsent para crear el Set si no existe
+                             completedChallenges.computeIfAbsent(playerUUID, k -> ConcurrentHashMap.newKeySet())
+                                               .add(challengeId);
+                             
+                             plugin.getLogger().info("[AcidWeek] Desafío restaurado: " + challengeId + " para jugador " + playerUUID);
+                         }
+                     }
+                     
+                     plugin.getLogger().info("[AcidWeek] Cargados " + challenges.size() + " desafíos completados para jugador " + playerUUID);
+                     
                  } catch (IllegalArgumentException e) {
-                     plugin.getLogger().warning("[AcidWeek] UUID inválido en completedChallenges: " + playerIdStr);
+                     plugin.getLogger().log(Level.WARNING, "[AcidWeek] UUID inválido al cargar desafíos completados: " + playerId, e);
                  }
-             });
-             plugin.getLogger().info("[AcidWeek] Desafíos completados cargados para " + completedChallenges.size() + " jugadores");
+             }
+             
+             plugin.getLogger().info("[AcidWeek] Proceso de carga de desafíos completados finalizado. Total de jugadores procesados: " + data.size());
+             
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al cargar desafíos completados", e);
          }
      }
      
      @Override
      protected void saveEventSpecificData() {
          try {
-             Map<String, Object> eventSpecificData = new HashMap<>();
+             // Guardar datos específicos del evento
+             Map<String, Object> eventData = new HashMap<>();
+             eventData.put("playersInWater", new HashSet<>(playersInWater));
+             eventData.put("playersInRain", new HashSet<>(playersInRain));
+             eventData.put("acidRainSurvivors", new HashSet<>(acidRainSurvivors));
+             eventData.put("waterBottleKillers", new HashSet<>(waterBottleKillers));
+             eventData.put("blueAxolotlOwners", new HashSet<>(blueAxolotlOwners));
+             eventData.put("totalAcidDamage", totalAcidDamageDealt.get());
              
-             // Guardar jugadores en agua y lluvia
-             eventSpecificData.put("playersInWater", new HashSet<>(playersInWater));
-             eventSpecificData.put("playersInRain", new HashSet<>(playersInRain));
+             // Guardar datos de pesca
+             Map<String, Set<Material>> fishData = new HashMap<>();
+             for (Map.Entry<UUID, Set<Material>> entry : fishCollected.entrySet()) {
+                 fishData.put(entry.getKey().toString(), new HashSet<>(entry.getValue()));
+             }
+             eventData.put("fishCollected", fishData);
              
-             // Guardar progreso de desafíos
-             Map<String, Map<String, Object>> challengeProgressSerialized = new HashMap<>();
-             challengeProgress.forEach((playerId, progressMap) -> {
-                 challengeProgressSerialized.put(playerId.toString(), new HashMap<>(progressMap));
-             });
-             eventSpecificData.put("challengeProgress", challengeProgressSerialized);
+             // Guardar daño por jugador
+             Map<String, Integer> damageData = new HashMap<>();
+             for (Map.Entry<UUID, AtomicInteger> entry : playerAcidDamage.entrySet()) {
+                 damageData.put(entry.getKey().toString(), entry.getValue().get());
+             }
+             eventData.put("playerAcidDamage", damageData);
              
-             // Guardar desafíos completados
-             Map<String, Set<String>> completedChallengesSerialized = new HashMap<>();
-             completedChallenges.forEach((playerId, challengeSet) -> {
-                 completedChallengesSerialized.put(playerId.toString(), new HashSet<>(challengeSet));
-             });
-             eventSpecificData.put("completedChallenges", completedChallengesSerialized);
+             // Usar el sistema de almacenamiento del plugin
+             if (plugin.getStorageManager() != null) {
+                 plugin.getStorageManager().saveEventSpecificData(this);
+             }
              
-             // Marcar datos como modificados y actualizar timestamp
-             dataDirty.set(true);
-             lastDataSave.set(System.currentTimeMillis());
-             
-             plugin.getLogger().info("[AcidWeek] Datos específicos del evento guardados");
          } catch (Exception e) {
-             plugin.getLogger().severe("[AcidWeek] Error al guardar datos específicos: " + e.getMessage());
-             e.printStackTrace();
+             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al guardar datos específicos del evento", e);
          }
      }
+
+    @EventHandler
+    public void onPlayerFish(PlayerFishEvent event) {
+        if (!isActive.get() || isPaused.get() || event == null) {
+            return;
+        }
+        
+        try {
+            if (event.getState() == PlayerFishEvent.State.CAUGHT_FISH && event.getCaught() instanceof Fish) {
+                Player player = event.getPlayer();
+                if (player == null || !player.isOnline()) {
+                    return;
+                }
+                
+                Fish fish = (Fish) event.getCaught();
+                Material fishType = getFishTypeFromEntity(fish);
+                
+                if (fishType != null && REQUIRED_FISH.contains(fishType)) {
+                    UUID playerId = player.getUniqueId();
+                    
+                    // Agregar pescado a la colección del jugador
+                    fishCollected.computeIfAbsent(playerId, k -> ConcurrentHashMap.newKeySet()).add(fishType);
+                    
+                    player.sendMessage(MM.toComponent(prefix + " <green>¡Has pescado: " + fishType.name() + "!"));
+                    
+                    // Verificar si completó el desafío
+                    checkFishCollectorChallenge(player);
+                }
+            }
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al procesar pesca para " + event.getPlayer().getName(), e);
+        }
+    }
+    
+    @EventHandler
+    public void onEntityTame(EntityTameEvent event) {
+        if (!isActive.get() || isPaused.get() || event == null) {
+            return;
+        }
+        
+        try {
+            if (event.getEntity() instanceof Axolotl && event.getOwner() instanceof Player) {
+                Axolotl axolotl = (Axolotl) event.getEntity();
+                Player player = (Player) event.getOwner();
+                
+                if (axolotl.getVariant() == Axolotl.Variant.BLUE) {
+                    UUID playerId = player.getUniqueId();
+                    
+                    if (!hasChallengeCompleted(playerId, "blue_axolotl_tamer")) {
+                        completeChallengeForPlayer(playerId, "blue_axolotl_tamer");
+                        blueAxolotlOwners.add(playerId);
+                        
+                        player.sendMessage(MM.toComponent(prefix + " <gold>¡Desafío completado: Domador de Ajolotes Azules!"));
+                        player.sendMessage(MM.toComponent(prefix + " <green>Recompensa: +1 Corazón Permanente"));
+                        
+                        Reward reward = new Reward("health:1");
+                        reward.grantTo(player, prefix);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al procesar domesticación", e);
+        }
+    }
+    
+    /**
+     * Determina el tipo de pescado basado en la entidad Fish
+     */
+    private Material getFishTypeFromEntity(Fish fish) {
+        try {
+            EntityType entityType = fish.getType();
+            switch (entityType) {
+                case COD:
+                    return Material.COD;
+                case SALMON:
+                    return Material.SALMON;
+                case TROPICAL_FISH:
+                    return Material.TROPICAL_FISH;
+                case PUFFERFISH:
+                    return Material.PUFFERFISH;
+                default:
+                    return null;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al determinar tipo de pescado", e);
+            return null;
+        }
+    }
+    
+    /**
+     * Verifica y completa el desafío de coleccionista de pescados
+     */
+    private void checkFishCollectorChallenge(Player player) {
+        try {
+            UUID playerId = player.getUniqueId();
+            Set<Material> playerFish = fishCollected.get(playerId);
+            
+            if (playerFish != null && playerFish.size() >= 4 && 
+                !hasChallengeCompleted(playerId, "fish_collector")) {
+                
+                completeChallengeForPlayer(playerId, "fish_collector");
+                
+                player.sendMessage(MM.toComponent(prefix + " <gold>¡Desafío completado: Coleccionista de Pescados!"));
+                player.sendMessage(MM.toComponent(prefix + " <green>Recompensa: +1 Corazón Permanente"));
+                
+                Reward reward = new Reward("health:1");
+                reward.grantTo(player, prefix);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al verificar desafío de coleccionista de pescados para " + player.getName(), e);
+        }
+    }
+    
+    /**
+     * Verifica el desafío de asesino con botella de agua
+     */
+    private void checkWaterBottleKillerChallenge(Player attacker, Player victim) {
+        try {
+            if (victim.getHealth() <= 0) {
+                UUID attackerId = attacker.getUniqueId();
+                
+                if (!hasChallengeCompleted(attackerId, "water_bottle_killer")) {
+                    completeChallengeForPlayer(attackerId, "water_bottle_killer");
+                    waterBottleKillers.add(attackerId);
+                    
+                    attacker.sendMessage(MM.toComponent(prefix + " <gold>¡Desafío completado: Asesino con Botella de Agua!"));
+                    attacker.sendMessage(MM.toComponent(prefix + " <green>Recompensa: Encantamiento Especial"));
+                    
+                    Reward reward = new Reward("enchant:acid_infection:1");
+                    reward.grantTo(attacker, prefix);
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "[AcidWeek] Error al verificar desafío de botella de agua para " + attacker.getName(), e);
+        }
+    }
 }

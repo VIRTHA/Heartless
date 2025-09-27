@@ -3,7 +3,6 @@ package com.darkbladedev.challenges;
 import com.darkbladedev.challenges.types.ChallengeDifficulty;
 import com.darkbladedev.challenges.types.ChallengeType;
 import com.darkbladedev.challenges.validation.ChallengeValidator;
-
 import java.util.*;
 import java.util.function.Predicate;
 

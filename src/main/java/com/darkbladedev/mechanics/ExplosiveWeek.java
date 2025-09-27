@@ -41,6 +41,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 
@@ -523,10 +524,10 @@ public class ExplosiveWeek extends WeeklyEvent {
         
         player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
         player.sendMessage(MM.toComponent("<yellow>Has matado a un ghast en el Overworld.</yellow>"));
-        player.sendMessage(MM.toComponent("<gold>Recompensa: Encantamiento Carve</gold>"));
-        
-        // TOD0: Add Carve enchantment to player's held item
-        // This would require implementing the Carve enchantment
+        player.sendMessage(MM.toComponent("<gold>Recompensa: Encantamiento Tic Tac</gold>"));
+
+        ItemStack tictacBook = HeartlessMain.getContentManager().getEnchantmentItem(CustomEnchantments.ENCHANTMENTS.TICTAC.toEnchantment(), 1);
+        player.getInventory().addItem(tictacBook);
         
         ghastKillers.add(player.getUniqueId());
         
@@ -562,7 +563,7 @@ public class ExplosiveWeek extends WeeklyEvent {
         player.sendMessage(MM.toComponent("<gold>Recompensa: Tag \"TNTómano\"</gold>"));
         
         // Award the tag
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tags set tntomano" + player.getName());
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission set htl.tag.tntomano");
         
         playerExplosionKillers.add(player.getUniqueId());
         

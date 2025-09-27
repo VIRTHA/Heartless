@@ -180,7 +180,7 @@ public class ExampleAbstractEvent extends AbstractWeeklyEvent {
      */
     private void setupEventSpecificChallenges() {
         // Desafío de conexión temprana
-        registerChallenge("early_bird", new ChallengeDefinition(
+        registerChallenge("early_bird", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
             "early_bird",
             "Madrugador",
             "Únete al evento en los primeros 10 minutos",
@@ -189,7 +189,7 @@ public class ExampleAbstractEvent extends AbstractWeeklyEvent {
         ));
         
         // Desafío de permanencia
-        registerChallenge("long_stay", new ChallengeDefinition(
+        registerChallenge("long_stay", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
             "long_stay",
             "Resistencia",
             "Permanece conectado durante 2 horas",
@@ -198,7 +198,7 @@ public class ExampleAbstractEvent extends AbstractWeeklyEvent {
         ));
         
         // Desafío social
-        registerChallenge("social_butterfly", new ChallengeDefinition(
+        registerChallenge("social_butterfly", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
             "social_butterfly",
             "Mariposa Social",
             "Interactúa con 5 jugadores diferentes",

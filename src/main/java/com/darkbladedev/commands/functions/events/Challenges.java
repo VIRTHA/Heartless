@@ -12,6 +12,8 @@ import com.darkbladedev.mechanics.BloodAndIronWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
 import com.darkbladedev.mechanics.UndeadWeek;
 import com.darkbladedev.mechanics.AcidWeek;
+import com.darkbladedev.utils.EventType;
+import com.darkbladedev.utils.RewardPool;
 import com.darkbladedev.utils.MM;
 
 /**
@@ -59,19 +61,29 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
      */
     private void showEventChallenges(CommandSender sender, WeeklyEvent event) {
         String eventName = event.getId();
+        EventType eventType = EventType.getByName(eventName);
         
         // Encabezado común
         sender.sendMessage(MM.toComponent("<gray><b>=== <gold>DESAFÍOS DE " + eventName.toUpperCase() + "</gold> <gray><b>==="));
         
+        // Verificar si el evento tiene recompensas definidas
+        if (eventType == null || !RewardPool.hasRewards(eventType)) {
+            sender.sendMessage(MM.toComponent("<yellow>Este evento no tiene desafíos específicos definidos."));
+            return;
+        }
+        
+        // Obtener las recompensas del pool
+        List<String> rewards = RewardPool.getRewardsForEvent(eventType);
+        
         // Mostrar desafíos específicos según el tipo de evento
         if (event instanceof BloodAndIronWeek) {
-            showBloodAndIronChallenges(sender);
+            showBloodAndIronChallenges(sender, rewards);
         } else if (event instanceof ExplosiveWeek) {
-            showExplosiveWeekChallenges(sender);
+            showExplosiveWeekChallenges(sender, rewards);
         } else if (event instanceof UndeadWeek) {
-            showUndeadWeekChallenges(sender);
+            showUndeadWeekChallenges(sender, rewards);
         } else if (event instanceof AcidWeek) {
-            showAcidWeekChallenges(sender);
+            showAcidWeekChallenges(sender, rewards);
         } else {
             sender.sendMessage(MM.toComponent("<yellow>Este evento no tiene desafíos específicos definidos."));
         }
@@ -80,57 +92,69 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
     /**
      * Muestra los desafíos de la Semana de Sangre y Hierro
      */
-    private void showBloodAndIronChallenges(CommandSender sender) {
+    private void showBloodAndIronChallenges(CommandSender sender, List<String> rewards) {
         sender.sendMessage(MM.toComponent("<yellow>1. <red>Mata</red> a <white>3</white> jugadores</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> Encantamiento <gold><u>Adrenaline</u></gold><gray>"));
-        sender.sendMessage(MM.toComponent("<yellow>2. <red>Mata</red> a un jugador con poción de daño instantáneo</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón permanente</gray>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(0) + "<gray>"));
+        
+        sender.sendMessage(MM.toComponent("<yellow>2. <green>No mueras</green> en toda la semana</yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(1) + "</gray>"));
+        
         sender.sendMessage(MM.toComponent("<yellow>3. <red>Mata</red> a 5 jugadores seguidos sin morir</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> <u>Tag</u> \"Pentakill\"</gray>"));
-        sender.sendMessage(MM.toComponent("<yellow>4. <green>Sobrevive</green> sin morir en todo el evento (con más de 10 kills)</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón permanente</gray>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(2) + "</gray>"));
+        
+        sender.sendMessage(MM.toComponent("<yellow>4. <red>Haz</red> más de <white>10 kills</white> durante la semana</yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(3) + "</gray>"));
     }
     
     /**
      * Muestra los desafíos de la Semana Explosiva
      */
-    private void showExplosiveWeekChallenges(CommandSender sender) {
-        sender.sendMessage(MM.toComponent("<yellow>1. Mata a un ghast en el overworld</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: Encantamiento Carve</gray>"));
-        sender.sendMessage(MM.toComponent("<yellow>2. Consigue la cabeza de todos los mobs hostiles posibles</yellow>"));
+    private void showExplosiveWeekChallenges(CommandSender sender, List<String> rewards) {
+        sender.sendMessage(MM.toComponent("<yellow>1. Mata a un <red>ghast</red> durante una <blue>tormenta</blue></yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(0) + "</gray>"));
+        
+        sender.sendMessage(MM.toComponent("<yellow>2. Consigue <white>cabezas</white> de mobs clásicos</yellow>"));
         sender.sendMessage(MM.toComponent("<gray>   (Zombie, Esqueleto, Creeper)</gray>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: +1 corazón</gray>"));
-        sender.sendMessage(MM.toComponent("<yellow>3. Mata a un jugador con una explosión</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: Tag \"TNTómano\"</gray>"));
-        sender.sendMessage(MM.toComponent("<yellow>4. Mata a un warden con la explosión de un creeper eléctrico</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: +1 corazón</gray>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(1) + "</gray>"));
+        
+        sender.sendMessage(MM.toComponent("<yellow>3. Mata a un jugador en <red>PvP</red> durante una <blue>tormenta</blue></yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(2) + "</gray>"));
+        
+        sender.sendMessage(MM.toComponent("<yellow>4. Mata a un <dark_red>Warden</dark_red> durante una <blue>tormenta</blue></yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(3) + "</gray>"));
     }
     
     /**
      * Muestra los desafíos de la Semana de No-Muertos
      */
-    private void showUndeadWeekChallenges(CommandSender sender) {
-        sender.sendMessage(MM.toComponent("<yellow>1. Mata a 50 zombies durante el evento</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: Encantamiento First Strike</gray>"));
-        sender.sendMessage(MM.toComponent("<yellow>2. Sobrevive a una horda de 20+ zombies</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: +1 corazón permanente</gray>"));
-        sender.sendMessage(MM.toComponent("<yellow>3. Mata a un jugador usando solo zombies</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: Tag \"Dr. Zomboss\"</gray>"));
-        sender.sendMessage(MM.toComponent("<yellow>4. Convierte a 10 aldeanos en zombies</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: +1 corazón permanente</gray>"));
+    private void showUndeadWeekChallenges(CommandSender sender, List<String> rewards) {
+        sender.sendMessage(MM.toComponent("<yellow>1. <green>Cura</green> a <white>5</white> aldeanos zombificados</yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(0) + "</gray>"));
+        
+        sender.sendMessage(MM.toComponent("<yellow>2. <green>Cúrate</green> la infección zombie <white>10 veces</white></yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(1) + "</gray>"));
+        
+        sender.sendMessage(MM.toComponent("<yellow>3. Mata <white>50 no-muertos</white> en <red>Noche Roja</red></yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(2) + "</gray>"));
+        
+        sender.sendMessage(MM.toComponent("<yellow>4. Derrota al <dark_red>Wither</dark_red> en <red>Noche Roja</red></yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(3) + "</gray>"));
     }
     
     /**
      * Muestra los desafíos de la Semana Ácida
      */
-    private void showAcidWeekChallenges(CommandSender sender) {
-        sender.sendMessage(MM.toComponent("<yellow>1. Sobrevive 10 minutos bajo la lluvia ácida</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: Poción de resistencia permanente</gray>"));
-        sender.sendMessage(MM.toComponent("<yellow>2. Mata a un jugador mientras estás en agua ácida</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: +1 corazón permanente</gray>"));
-        sender.sendMessage(MM.toComponent("<yellow>3. Construye una base completamente resistente al ácido</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: Kit de construcción especial</gray>"));
-        sender.sendMessage(MM.toComponent("<yellow>4. Ayuda a 5 jugadores a sobrevivir al ácido</yellow>"));
-        sender.sendMessage(MM.toComponent("<gray>   Recompensa: Tag \"Asesino quimico\"</gray>"));
+    private void showAcidWeekChallenges(CommandSender sender, List<String> rewards) {
+        sender.sendMessage(MM.toComponent("<yellow>1. Consigue los <white>4 tipos</white> de pescados en <blue>cubetas</blue></yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(0) + "</gray>"));
+        
+        sender.sendMessage(MM.toComponent("<yellow>2. <green>Sobrevive</green> <white>1.5 minutos</white> bajo lluvia ácida sin pociones ni armadura especial</yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(1) + "</gray>"));
+        
+        sender.sendMessage(MM.toComponent("<yellow>3. Mata a un jugador con <blue>botella de agua</blue> arrojadiza</yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(2) + "</gray>"));
+        
+        sender.sendMessage(MM.toComponent("<yellow>4. Consigue un <blue>ajolote azul</blue></yellow>"));
+        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(3) + "</gray>"));
     }
 }

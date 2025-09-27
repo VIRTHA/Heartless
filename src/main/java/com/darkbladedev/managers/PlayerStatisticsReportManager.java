@@ -381,7 +381,6 @@ public class PlayerStatisticsReportManager {
     private String getChallengeDisplayName(String challengeId) {
         // Mapeo de IDs a nombres legibles
         Map<String, String> challengeNames = Map.of(
-            "survivor", "Superviviente",
             "long_stay", "Permanencia Prolongada",
             "ghast_killer", "Cazador de Ghasts",
             "mob_head_collector", "Coleccionista de Cabezas",

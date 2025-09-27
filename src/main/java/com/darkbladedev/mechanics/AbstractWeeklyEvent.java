@@ -105,26 +105,12 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     
     /**
      * Configura los desafíos básicos comunes a todos los eventos.
-     * Los eventos específicos pueden sobrescribir este método para añadir desafíos personalizados.
+     * Los eventos específicos deben sobrescribir este método para añadir sus desafíos personalizados.
+     * Este método base no registra desafíos genéricos.
      */
     protected void setupBasicChallenges() {
-        // Desafío de participación básica
-        registerChallenge("participation", new ChallengeDefinition(
-            "participation",
-            "Participar en el evento",
-            "Únete al evento semanal",
-            1,
-            Collections.singletonList("heartless:participation_reward")
-        ));
-        
-        // Desafío de supervivencia
-        registerChallenge("survivor", new ChallengeDefinition(
-            "survivor",
-            "Superviviente",
-            "Sobrevive durante todo el evento",
-            1,
-            Collections.singletonList("heartless:survivor_reward")
-        ));
+        // Los eventos específicos deben implementar sus propios desafíos
+        // No se registran desafíos genéricos aquí
     }
     
     // === TEMPLATE METHODS ===
@@ -498,10 +484,8 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
      * @param playerId ID del jugador
      */
     protected void checkPlayerChallenges(UUID playerId) {
-        // Verificar desafío de participación
-        if (!hasChallengeCompleted(playerId, "participation")) {
-            completeChallengeForPlayer(playerId, "participation");
-        }
+        // Los eventos específicos deben implementar sus propias verificaciones de desafíos
+        // No se verifican desafíos genéricos aquí
     }
     
     /**
@@ -514,12 +498,8 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     private void processFinalStatistics() {
         totalParticipants.set(getActivePlayers().size());
         
-        // Verificar desafío de supervivencia para jugadores activos
-        for (UUID playerId : getActivePlayers()) {
-            if (!hasChallengeCompleted(playerId, "survivor")) {
-                completeChallengeForPlayer(playerId, "survivor");
-            }
-        }
+        // Los eventos específicos deben manejar sus propios desafíos de finalización
+        // No se verifican desafíos genéricos aquí
         
         // Generar y enviar reportes individuales de estadísticas
         generateAndSendPlayerReports();
@@ -567,14 +547,19 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
                 .append(MM.toComponent("<green>!</green>"));
         
         player.sendMessage(fullMessage);
+        
+        // Otorgar recompensas usando el nuevo sistema
+        challenge.grantRewardsTo(player, getId());
     }
     
     /**
-     * Otorga recompensas a un jugador.
+     * Otorga recompensas a un jugador usando el sistema legacy (compatibilidad hacia atrás).
      * 
      * @param player El jugador
-     * @param rewards Lista de recompensas
+     * @param rewards Lista de recompensas como strings
+     * @deprecated Usar ChallengeDefinition.grantRewardsTo() en su lugar
      */
+    @Deprecated
     private void giveRewards(Player player, List<String> rewards) {
         if (rewards == null || rewards.isEmpty()) return;
         
@@ -584,12 +569,14 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     }
     
     /**
-     * Otorga una recompensa específica a un jugador.
+     * Otorga una recompensa específica a un jugador usando el sistema legacy.
      * 
      * @param player El jugador
      * @param reward La recompensa en formato "tipo:valor" o "tipo:item:cantidad"
+     * @deprecated Usar objetos Reward en su lugar
      */
-    private void giveReward(Player player, String reward) {
+    @Deprecated
+    protected void giveReward(Player player, String reward) {
         if (player == null || reward == null || reward.trim().isEmpty()) {
             return;
         }
@@ -680,6 +667,28 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
                         }
                     } else {
                         logger.warning("[" + getId() + "] Formato de encantamiento inválido: " + reward);
+                    }
+                    break;
+                    
+                case "money":
+                case "coins":
+                    try {
+                        double amount = Double.parseDouble(parts[1]);
+                        
+                        // Integración con CoinsEngine
+                        if (org.bukkit.Bukkit.getPluginManager().getPlugin("CoinsEngine") != null) {
+                            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "thalos give " + player.getName() + " " + amount);
+                            player.sendMessage(MM.toComponent("<gold>¡Has recibido <yellow>" + amount + "</yellow> monedas!</gold>"));
+                            logger.info("[" + getId() + "] Monedas otorgadas: " + amount + " a " + player.getName());
+                        } else {
+                            logger.warning("[" + getId() + "] CoinsEngine no está disponible para otorgar " + amount + " monedas a " + player.getName());
+                            // Fallback: dar experiencia equivalente
+                            int expEquivalent = (int)(amount / 10); // 10 monedas = 1 exp
+                            player.giveExp(expEquivalent);
+                            player.sendMessage(MM.toComponent("<yellow>¡Has recibido <green>" + expEquivalent + "</green> puntos de experiencia! (CoinsEngine no disponible)</yellow>"));
+                        }
+                    } catch (NumberFormatException e) {
+                        logger.warning("[" + getId() + "] Cantidad de monedas inválida: " + parts[1]);
                     }
                     break;
                     
@@ -845,26 +854,94 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     /**
      * Definición de un desafío del evento.
      */
-    protected static class ChallengeDefinition {
+    public static class ChallengeDefinition {
         private final String id;
         private final String displayName;
         private final String description;
         private final int requiredProgress;
-        private final List<String> rewards;
+        private final List<String> rewards; // Mantenido para compatibilidad hacia atrás
+        private final List<com.darkbladedev.challenges.Reward> rewardObjects; // Nueva lista de objetos Reward
         
-        public ChallengeDefinition(String id, String displayName, String description, 
-                                 int requiredProgress, List<String> rewards) {
+        /**
+         * Constructor privado para uso interno
+         */
+        private ChallengeDefinition(String id, String displayName, String description, 
+                                  int requiredProgress, List<String> rewards, 
+                                  List<com.darkbladedev.challenges.Reward> rewardObjects) {
             this.id = id;
             this.displayName = displayName;
             this.description = description;
             this.requiredProgress = requiredProgress;
             this.rewards = rewards != null ? new ArrayList<>(rewards) : new ArrayList<>();
+            this.rewardObjects = rewardObjects != null ? new ArrayList<>(rewardObjects) : new ArrayList<>();
+        }
+        
+        /**
+         * Factory method que acepta recompensas como strings (compatibilidad hacia atrás)
+         */
+        public static ChallengeDefinition fromStringRewards(String id, String displayName, String description, 
+                                                           int requiredProgress, List<String> rewards) {
+            List<String> rewardStrings = rewards != null ? new ArrayList<>(rewards) : new ArrayList<>();
+            List<com.darkbladedev.challenges.Reward> rewardObjects = new ArrayList<>();
+            
+            // Convertir strings a objetos Reward
+            if (rewards != null) {
+                for (String rewardString : rewards) {
+                    try {
+                        rewardObjects.add(new com.darkbladedev.challenges.Reward(rewardString));
+                    } catch (IllegalArgumentException e) {
+                        // Log error pero continúa con las otras recompensas
+                        java.util.logging.Logger.getLogger(ChallengeDefinition.class.getName())
+                            .warning("Error parseando recompensa '" + rewardString + "': " + e.getMessage());
+                    }
+                }
+            }
+            
+            return new ChallengeDefinition(id, displayName, description, requiredProgress, rewardStrings, rewardObjects);
+        }
+        
+        /**
+         * Factory method que acepta objetos Reward directamente
+         */
+        public static ChallengeDefinition fromRewardObjects(String id, String displayName, String description, 
+                                                           int requiredProgress, List<com.darkbladedev.challenges.Reward> rewardObjects) {
+            List<String> rewardStrings = new ArrayList<>();
+            
+            // Convertir objetos Reward a strings para compatibilidad
+            if (rewardObjects != null) {
+                for (com.darkbladedev.challenges.Reward reward : rewardObjects) {
+                    rewardStrings.add(reward.toString());
+                }
+            }
+            
+            return new ChallengeDefinition(id, displayName, description, requiredProgress, rewardStrings, 
+                                         rewardObjects != null ? new ArrayList<>(rewardObjects) : new ArrayList<>());
         }
         
         public String getId() { return id; }
         public String getDisplayName() { return displayName; }
         public String getDescription() { return description; }
         public int getRequiredProgress() { return requiredProgress; }
+        
+        /**
+         * Obtiene las recompensas como strings (compatibilidad hacia atrás)
+         */
         public List<String> getRewards() { return new ArrayList<>(rewards); }
+        
+        /**
+         * Obtiene las recompensas como objetos Reward
+         */
+        public List<com.darkbladedev.challenges.Reward> getRewardObjects() { 
+            return new ArrayList<>(rewardObjects); 
+        }
+        
+        /**
+         * Otorga todas las recompensas al jugador especificado
+         */
+        public void grantRewardsTo(org.bukkit.entity.Player player, String eventId) {
+            for (com.darkbladedev.challenges.Reward reward : rewardObjects) {
+                reward.grantTo(player, eventId);
+            }
+        }
     }
 }
