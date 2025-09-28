@@ -8,6 +8,7 @@ import com.darkbladedev.commands.SubcommandExecutor;
 import com.darkbladedev.commands.functions.common.AutoSave;
 import com.darkbladedev.commands.functions.common.Diagnostic;
 import com.darkbladedev.commands.functions.common.Reload;
+import com.darkbladedev.commands.functions.common.SystemManager;
 import com.darkbladedev.commands.functions.common.TestPersistence;
 
 public class Common implements CommandFunction {
@@ -19,6 +20,7 @@ public class Common implements CommandFunction {
         subcommands.put("diagnostic", new Diagnostic());
         subcommands.put("test-persistence", new TestPersistence());
         subcommands.put("autosave", new AutoSave());
+        subcommands.put("systems", new SystemManager());
     }
 
     @Override

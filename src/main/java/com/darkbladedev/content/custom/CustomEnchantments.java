@@ -14,6 +14,7 @@ public class CustomEnchantments {
     public static final Key ACID_RESISTANCE_KEY = Key.key(namespace, "acid_resistance");
     public static final Key ACID_INFECTION_KEY = Key.key(namespace, "acid_infection");
     public static final Key TICTAC_KEY = Key.key(namespace, "tictac");
+    public static final Key CONDIMENT_KEY = Key.key(namespace, "condiment");
     public static final Key ADRENALINE_KEY = Key.key(namespace, "adrenaline");
     public static final Key FIRST_STRIKE_KEY = Key.key(namespace, "first_strike");
 
@@ -37,6 +38,9 @@ public class CustomEnchantments {
                 return ACID_RESISTANCE_KEY;
             case "tictac":
                 return TICTAC_KEY;
+            case "condiment":
+            case "condimento":
+                return CONDIMENT_KEY;
             case "adrenaline":
             case "adrenalina":
                 return ADRENALINE_KEY;
@@ -51,7 +55,8 @@ public class CustomEnchantments {
     public enum ENCHANTMENTS {
         ACID_RESISTANCE(ACID_RESISTANCE_KEY, "Proteccion contra el acido", 1),
         ACID_INFECTION(ACID_INFECTION_KEY, "Contagion", 1),
-        TICTAC(TICTAC_KEY, "TicTac", 1),
+        TICTAC(TICTAC_KEY, "TicTac", 5),
+        CONDIMENTO(CONDIMENT_KEY, "Condimento", 3),
         ADRENALINE(ADRENALINE_KEY, "Adrenalina", 1),
         FIRST_STRIKE(FIRST_STRIKE_KEY, "Primer Golpe", 1);
 

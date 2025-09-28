@@ -41,7 +41,7 @@ events:
 # Configuración del sistema de salud
 health:
   default-max-health: 20.0
-  minimum-health: 2.0
+  minimum-health: 6.0
   health-steal-enabled: true
   health-rewards-enabled: true
   

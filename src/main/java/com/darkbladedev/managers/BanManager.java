@@ -37,6 +37,7 @@ public class BanManager implements Listener {
     private final static Set<UUID> banList = new HashSet<>();
     private final HeartlessMain plugin;
     private File banDataFile;
+    private boolean enabled = true;
     
     public BanManager(HeartlessMain plugin) {
         this.plugin = plugin;
@@ -45,12 +46,24 @@ public class BanManager implements Listener {
             loadBanData();
         }
     }
+    
+    public boolean isEnabled() {
+        return enabled;
+    }
+    
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     /**
      * Handles player login attempts and provides ban time information
      */
     @EventHandler
     public void onPlayerLogin(PlayerLoginEvent event) {
+        if (!enabled) {
+            return;
+        }
+        
         // Check if the player is banned
         if (event.getResult() == Result.KICK_BANNED) {
             // Get ban entry from the profile ban list
@@ -220,6 +233,11 @@ public class BanManager implements Listener {
      * @param banReason Razón del baneo
      */
     public void ban(Player player, long banHours, String banReason) {
+        if (!enabled) {
+            plugin.getLogger().info("BanManager está deshabilitado, no se puede banear a " + player.getName());
+            return;
+        }
+        
         if (player == null) {
             plugin.getLogger().warning("Intento de banear un jugador nulo");
             return;
@@ -302,6 +320,6 @@ public class BanManager implements Listener {
                 plugin.getLogger().severe("Error al banear al jugador " + player.getName() + ": " + e.getMessage());
                 e.printStackTrace();
             }
-        }, 40L); // 2 segundos de retraso (40 ticks)
+        }, 60L); // 3 segundos de retraso (60 ticks)    
     }
 }

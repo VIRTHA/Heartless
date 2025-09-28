@@ -19,6 +19,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
@@ -35,10 +36,11 @@ import java.util.logging.Logger;
 /**
  * Listener class that handles the logic for custom enchantments.
  * Currently implements:
- * - Carve: Explodes mobs on attack
+ * - TicTac: Explodes mobs on attack
  * - Adrenaline: Grants speed and strength when at low health
  * - Acid Infection: Infects enemies with acid that deals damage over time
  * - Acid Resistance: Provides protection against acid damage
+ * - Condimento: Creates explosion when consuming enchanted food
  */
 public class EnchantmentListeners implements Listener {
 
@@ -462,6 +464,128 @@ public class EnchantmentListeners implements Listener {
             
             // Set cooldown (60 seconds)
             adrenalineCooldowns.put(playerUUID, System.currentTimeMillis() + 60000);
+        }
+    }
+
+    /**
+     * Handles the Condimento enchantment logic when a player consumes food
+     * Condimento: Creates an explosion when consuming enchanted food, with power scaling by level
+     */
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onPlayerItemConsume(PlayerItemConsumeEvent event) {
+        Player player = event.getPlayer();
+        ItemStack consumedItem = event.getItem();
+        
+        // Check if the consumed item has the Condimento enchantment
+        if (!hasEnchantment(consumedItem, CustomEnchantments.CONDIMENT_KEY)) {
+            return;
+        }
+        
+        // Get enchantment level for explosion power scaling
+        org.bukkit.NamespacedKey namespacedKey = org.bukkit.NamespacedKey.fromString(CustomEnchantments.CONDIMENT_KEY.asString());
+        org.bukkit.enchantments.Enchantment condimentoEnchantment = RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT).get(namespacedKey);
+        int enchantmentLevel = consumedItem.getItemMeta().getEnchantLevel(condimentoEnchantment);
+        
+        // Handle the explosion effect
+        handleCondimentoExplosion(player, enchantmentLevel);
+    }
+    
+    /**
+     * Handles the explosion effect for the Condimento enchantment
+     * @param player The player who consumed the enchanted food
+     * @param enchantmentLevel The level of the Condimento enchantment
+     */
+    private void handleCondimentoExplosion(Player player, int enchantmentLevel) {
+        Location playerLocation = player.getLocation().clone();
+        World world = player.getWorld();
+        
+        // Calculate explosion power based on enchantment level
+        // Level 1: 1.0 power, Level 2: 1.5 power, Level 3: 2.0 power
+        float explosionPower = 1.0f + (enchantmentLevel - 1) * 0.5f;
+        
+        // Create pre-explosion warning effects
+        createCondimentoPreExplosionEffects(world, playerLocation, enchantmentLevel);
+        
+        // Schedule explosion after a short delay (1 second)
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            // Create explosion at player's location
+            world.createExplosion(playerLocation, explosionPower, false, false);
+            
+            // Create additional visual effects
+            createCondimentoExplosionEffects(world, playerLocation, enchantmentLevel, explosionPower);
+            
+            // Send feedback to player
+            Component message = MM.toComponent(String.format(
+                "<gold>¡Condimento activado! Explosión de poder %.1f</gold>", 
+                explosionPower
+            ));
+            player.sendActionBar(message);
+            
+            logger.info(String.format("Condimento enchantment activated by %s. Level: %d, Power: %.1f", 
+                player.getName(), enchantmentLevel, explosionPower));
+        }, 20L); // 20 ticks = 1 second
+    }
+    
+    /**
+     * Creates pre-explosion warning effects for Condimento enchantment
+     * @param world The world where effects will be displayed
+     * @param location The location for the effects
+     * @param enchantmentLevel The enchantment level for scaling effects
+     */
+    private void createCondimentoPreExplosionEffects(World world, Location location, int enchantmentLevel) {
+        // Warning particles that scale with enchantment level
+        int particleCount = 8 + (enchantmentLevel * 4);
+        
+        // Orange dust particles to indicate spicy condiment
+        world.spawnParticle(Particle.DUST, location.add(0, 1, 0), particleCount, 
+            0.4, 0.4, 0.4, 0.1, new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.2f));
+        
+        // Flame particles for spicy effect
+        world.spawnParticle(Particle.FLAME, location, particleCount / 2, 0.3, 0.3, 0.3, 0.05);
+        
+        // Sound effect for warning
+        world.playSound(location, Sound.BLOCK_FIRE_AMBIENT, 0.8f, 1.2f);
+    }
+    
+    /**
+     * Creates explosion visual and sound effects for Condimento enchantment
+     * @param world The world where effects will be displayed
+     * @param location The location for the effects
+     * @param enchantmentLevel The enchantment level for scaling effects
+     * @param explosionPower The power of the explosion for effect intensity
+     */
+    private void createCondimentoExplosionEffects(World world, Location location, int enchantmentLevel, float explosionPower) {
+        // Scale particle count based on enchantment level and explosion power
+        int baseParticles = 10 + (enchantmentLevel * 5);
+        double powerMultiplier = Math.min(explosionPower / 1.5, 2.0); // Cap at 2x multiplier
+        int totalParticles = (int) (baseParticles * powerMultiplier);
+        
+        // Spicy explosion particles (orange and red)
+        world.spawnParticle(Particle.DUST, location, totalParticles, 0.8, 0.8, 0.8, 0.2, 
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 140, 0), 1.5f)); // Orange
+        world.spawnParticle(Particle.DUST, location, totalParticles / 2, 0.6, 0.6, 0.6, 0.15, 
+            new Particle.DustOptions(org.bukkit.Color.RED, 1.3f)); // Red
+        
+        // Fire particles for spicy burning effect
+        world.spawnParticle(Particle.FLAME, location, totalParticles, 1.2, 1.2, 1.2, 0.2);
+        
+        // Lava particles for high-level enchantments
+        if (enchantmentLevel >= 2) {
+            world.spawnParticle(Particle.LAVA, location, totalParticles / 3, 0.7, 0.7, 0.7, 0.1);
+        }
+        
+        // Smoke particles for realistic explosion
+        world.spawnParticle(Particle.SMOKE, location, totalParticles / 2, 0.8, 0.8, 0.8, 0.15);
+        
+        // Dynamic sound effects based on explosion power
+        float volume = Math.min(1.0f, 0.7f + (explosionPower / 3.0f));
+        float pitch = Math.max(0.8f, 1.2f - (enchantmentLevel * 0.1f));
+        
+        world.playSound(location, Sound.ENTITY_GENERIC_EXPLODE, volume, pitch);
+        
+        // Additional spicy sound for higher levels
+        if (enchantmentLevel >= 3) {
+            world.playSound(location, Sound.BLOCK_FIRE_EXTINGUISH, volume * 0.6f, pitch + 0.3f);
         }
     }
 

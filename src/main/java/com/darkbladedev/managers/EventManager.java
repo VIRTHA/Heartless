@@ -15,6 +15,7 @@ public class EventManager {
     private final HeartlessMain plugin;
     private WeeklyEventManager weeklyEventManager;
     private HealthSteal healthStealSystem;
+    private HealthRewards healthRewardsSystem;
 
     private AcidWeek acidWeek;
 
@@ -23,7 +24,7 @@ public class EventManager {
         // Usar la instancia de WeeklyEventManager del plugin principal en lugar de crear una nueva
         this.weeklyEventManager = plugin.getWeeklyEventManager();
         this.healthStealSystem = new HealthSteal(plugin);
-        new HealthRewards(plugin);
+        this.healthRewardsSystem = new HealthRewards(plugin);
 
         Bukkit.getPluginManager().registerEvents(healthStealSystem, plugin);
     }
@@ -65,6 +66,14 @@ public class EventManager {
     // GETTERS
     public AcidWeek getAcidWeek() {
         return  acidWeek;
+    }
+    
+    public HealthSteal getHealthStealSystem() {
+        return healthStealSystem;
+    }
+    
+    public HealthRewards getHealthRewardsSystem() {
+        return healthRewardsSystem;
     }
     
     /**

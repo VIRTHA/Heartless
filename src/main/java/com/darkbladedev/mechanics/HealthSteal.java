@@ -36,6 +36,7 @@ public class HealthSteal implements Listener {
     private final Map<UUID, Integer> banCountMap = new HashMap<>();
     private final File banDataFile;
     private final HeartlessMain plugin;
+    private boolean enabled = true;
     
     public HealthSteal(HeartlessMain plugin) {
         this.plugin = plugin;
@@ -48,10 +49,23 @@ public class HealthSteal implements Listener {
         
         // Load ban data from JSON file
         loadBanData();
+        
+        // Register this listener
+        Bukkit.getPluginManager().registerEvents(this, plugin);
+    }
+    
+    public boolean isEnabled() {
+        return enabled;
+    }
+    
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
     
     @EventHandler
     public void onPlayerKill(PlayerDeathEvent event) {
+        if (!enabled) return;
+        
         Player deadPlayer = event.getEntity();
         EntityDamageEvent lastDamage = deadPlayer.getLastDamageCause();
 
@@ -104,6 +118,8 @@ public class HealthSteal implements Listener {
     
     @EventHandler
     public void onPlayerReachMinimunHealth(PlayerDeathEvent event) {
+        if (!enabled) return;
+        
         Player player = event.getEntity();
         double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
         double minHealth = HeartlessMain.getConfigManager().getHealthMinimum();
@@ -119,6 +135,8 @@ public class HealthSteal implements Listener {
      */
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
+        if (!enabled) return;
+        
         Player player = event.getPlayer();
         UUID playerUUID = player.getUniqueId();
         
@@ -159,9 +177,8 @@ public class HealthSteal implements Listener {
         BanManager banManager = plugin.getBanManager();
 
         
-        // Calcular la duración del baneo según los permisos del jugador
-        // Por defecto: 6 horas * número de baneos
-        long defaultBanHours = 6L * banCount;
+        // Duración fija del baneo: 5 horas
+        long defaultBanHours = 5L;
         long banHours = permManager.getBanDurationHours(player, banCount, defaultBanHours);
         
         // Si el jugador está exento de baneo (banHours = 0), solo mostrar advertencia

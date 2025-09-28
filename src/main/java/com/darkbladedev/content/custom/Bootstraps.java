@@ -74,6 +74,36 @@ public class Bootstraps implements PluginBootstrap {
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.AXES))
                 );
                 
+            // Register Condimento Enchantment (derived from TicTac)
+            event.registry().register(
+                EnchantmentKeys.create(CustomEnchantments.CONDIMENT_KEY),
+                b -> b.maxLevel(3)
+                    .anvilCost(20)
+                    .activeSlots(EquipmentSlotGroup.ANY)
+                    .minimumCost(EnchantmentRegistryEntry.EnchantmentCost.of(15, 5))
+                    .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(65, 5))
+                    .weight(2)
+                    
+                    .description(MM.toComponent("<gradient:#ff6b35:#f7931e:#ffd700>Condimento</gradient>"))
+                    
+                    // Use specific animal food tags since FOOD tag doesn't exist
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.CHICKEN_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.COW_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.PIG_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.SHEEP_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.HORSE_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.CAT_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.WOLF_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.PARROT_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.RABBIT_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.BEE_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.AXOLOTL_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.GOAT_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.FROG_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.CAMEL_FOOD))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.ARMADILLO_FOOD))
+                );
+                
             // Register Adrenaline Enchantment
             event.registry().register(
                 EnchantmentKeys.create(CustomEnchantments.ADRENALINE_KEY),

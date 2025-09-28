@@ -16,12 +16,24 @@ import com.darkbladedev.utils.MM;
 
 public class HealthRewards implements Listener {
     
+    private boolean enabled = true;
+    
     public HealthRewards(HeartlessMain plugin) {
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
     
+    public boolean isEnabled() {
+        return enabled;
+    }
+    
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+    
     @EventHandler
     public void onPlayerEatGoldenApple(PlayerItemConsumeEvent event) {
+        if (!enabled) return;
+        
         ItemStack item = event.getItem();
         Player player = event.getPlayer();
         
@@ -43,6 +55,8 @@ public class HealthRewards implements Listener {
     
     @EventHandler
     public void onEnderDragonDeath(EntityDeathEvent event) {
+        if (!enabled) return;
+        
         // Check if the killed entity is an Ender Dragon
         if (event.getEntityType() == EntityType.ENDER_DRAGON) {
             // Get the killer player (if any)
