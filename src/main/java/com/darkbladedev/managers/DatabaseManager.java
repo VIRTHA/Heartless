@@ -1159,7 +1159,7 @@ public class DatabaseManager {
     private boolean verifyEventDataIntegrity() {
         try {
             if (databaseConnected) {
-                // Verificar estructura de tabla de eventos
+                // Verificar estructura de tabla de eventos con manejo robusto de errores
                 try (Connection conn = dataSource.getConnection()) {
                     String checkQuery = "SELECT COUNT(*) FROM weekly_events WHERE event_data IS NOT NULL";
                     try (PreparedStatement stmt = conn.prepareStatement(checkQuery);
@@ -1170,6 +1170,12 @@ public class DatabaseManager {
                             plugin.getLogger().info("Registros válidos de eventos en BD: " + validRecords);
                         }
                     }
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.WARNING, "Error de SQL verificando datos de eventos: " + e.getMessage(), e);
+                    // Continuar con verificación JSON como fallback
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "Error inesperado verificando datos de eventos en BD: " + e.getMessage(), e);
+                    // Continuar con verificación JSON como fallback
                 }
             }
             
@@ -1187,13 +1193,16 @@ public class DatabaseManager {
                         plugin.getLogger().warning("Estructura de datos de eventos JSON inválida");
                         return false;
                     }
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "Error leyendo archivo JSON de eventos: " + e.getMessage(), e);
+                    return false;
                 }
             }
             
             return true;
             
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "Error verificando integridad de datos de eventos", e);
+            plugin.getLogger().log(Level.WARNING, "Error general verificando integridad de datos de eventos", e);
             return false;
         }
     }
@@ -1204,7 +1213,7 @@ public class DatabaseManager {
     private boolean verifyPlayerDataIntegrity() {
         try {
             if (databaseConnected) {
-                // Verificar estructura de tabla de jugadores
+                // Verificar estructura de tabla de jugadores con manejo robusto de errores
                 try (Connection conn = dataSource.getConnection()) {
                     String checkQuery = "SELECT COUNT(*) FROM player_data WHERE uuid IS NOT NULL";
                     try (PreparedStatement stmt = conn.prepareStatement(checkQuery);
@@ -1215,6 +1224,12 @@ public class DatabaseManager {
                             plugin.getLogger().info("Registros válidos de jugadores en BD: " + validRecords);
                         }
                     }
+                } catch (SQLException e) {
+                    plugin.getLogger().log(Level.WARNING, "Error de SQL verificando datos de jugadores: " + e.getMessage(), e);
+                    // Continuar con verificación JSON como fallback
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "Error inesperado verificando datos de jugadores en BD: " + e.getMessage(), e);
+                    // Continuar con verificación JSON como fallback
                 }
             }
             
@@ -1232,13 +1247,16 @@ public class DatabaseManager {
                             return false;
                         }
                     }
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "Error leyendo archivo JSON de jugadores: " + e.getMessage(), e);
+                    return false;
                 }
             }
             
             return true;
             
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "Error verificando integridad de datos de jugadores", e);
+            plugin.getLogger().log(Level.WARNING, "Error general verificando integridad de datos de jugadores", e);
             return false;
         }
     }

@@ -40,7 +40,12 @@ public class Start implements SubcommandExecutor, TabCompletable {
                 return EventType.getEventNames();
             
             case 2: // Segundo argumento del subcomando (duración)
-                return java.util.Arrays.asList(TimeConverter.getTimeCompletions());
+                try {
+                    return java.util.Arrays.asList(TimeConverter.getTimeCompletions());
+                } catch (NoClassDefFoundError e) {
+                    // Fallback en caso de problemas de classloader
+                    return java.util.Arrays.asList("30s", "1m", "5m", "10m", "30m", "1h", "2h", "6h", "12h", "1d", "2d", "3d", "7d", "1w", "2w", "1mo");
+                }
             
             case 3:
                 return java.util.Arrays.asList("--force");

@@ -28,6 +28,7 @@ import com.darkbladedev.managers.StorageManager;
 import com.darkbladedev.managers.WeeklyEventManager;
 import com.darkbladedev.managers.WeeklyEventTaskOptimizer;
 import com.darkbladedev.managers.WeeklyEventMigrationManager;
+import com.darkbladedev.managers.PvPManager;
 import com.darkbladedev.utils.MM;
 
 public class HeartlessMain extends JavaPlugin {
@@ -51,6 +52,7 @@ public class HeartlessMain extends JavaPlugin {
     private static AutoSaveManager autoSaveManager;
     private static PostRestartValidator postRestartValidator;
     private static BackupManager backupManager;
+    private static PvPManager pvpManager;
     
     static {
         gson = new GsonBuilder().setPrettyPrinting().create();
@@ -95,6 +97,10 @@ public class HeartlessMain extends JavaPlugin {
         enchantmentListeners = new EnchantmentListeners(instance);
         taskOptimizer = new WeeklyEventTaskOptimizer(instance);
         migrationManager = new WeeklyEventMigrationManager(instance);
+        
+        // Inicializar PvPManager para características globales de PvP
+        pvpManager = new PvPManager(instance);
+        pvpManager.enable();
 
         initializeSystems();
 
@@ -164,6 +170,11 @@ public class HeartlessMain extends JavaPlugin {
         // Detener optimizador de tareas
         if (taskOptimizer != null) {
             taskOptimizer.stop();
+        }
+        
+        // Limpiar recursos del PvPManager
+        if (pvpManager != null) {
+            pvpManager.disable();
         }
         
         Bukkit.getConsoleSender().sendMessage(MM.toComponent(prefix + " <green>Plugin desactivado correctamente."));
@@ -281,6 +292,10 @@ public class HeartlessMain extends JavaPlugin {
     
     public static BackupManager getBackupManager() {
         return backupManager;
+    }
+    
+    public static PvPManager getPvPManager() {
+        return pvpManager;
     }
     
     public Gson getGson() {

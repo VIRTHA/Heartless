@@ -8,6 +8,7 @@ import com.darkbladedev.commands.SubcommandExecutor;
 import com.darkbladedev.commands.functions.enchantments.Apply;
 import com.darkbladedev.commands.functions.enchantments.Clear;
 import com.darkbladedev.commands.functions.enchantments.Compare;
+import com.darkbladedev.commands.functions.enchantments.Give;
 import com.darkbladedev.commands.functions.enchantments.Info;
 import com.darkbladedev.commands.functions.enchantments.ItemInfo;
 import com.darkbladedev.commands.functions.enchantments.List;
@@ -27,6 +28,7 @@ public class Enchantments implements CommandFunction {
         subcommands.put("iteminfo", new ItemInfo());
         subcommands.put("upgrade", new Upgrade());
         subcommands.put("compare", new Compare());
+        subcommands.put("give-book", new Give());
     }
 
     @Override

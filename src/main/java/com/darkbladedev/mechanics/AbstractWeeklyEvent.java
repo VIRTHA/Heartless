@@ -1,6 +1,7 @@
 package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.challenges.Reward;
 import com.darkbladedev.managers.PlayerStatisticsReportManager;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
@@ -860,14 +861,14 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
         private final String description;
         private final int requiredProgress;
         private final List<String> rewards; // Mantenido para compatibilidad hacia atrás
-        private final List<com.darkbladedev.challenges.Reward> rewardObjects; // Nueva lista de objetos Reward
+        private final List<Reward> rewardObjects; // Nueva lista de objetos Reward
         
         /**
          * Constructor privado para uso interno
          */
         private ChallengeDefinition(String id, String displayName, String description, 
                                   int requiredProgress, List<String> rewards, 
-                                  List<com.darkbladedev.challenges.Reward> rewardObjects) {
+                                  List<Reward> rewardObjects) {
             this.id = id;
             this.displayName = displayName;
             this.description = description;
@@ -882,13 +883,13 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
         public static ChallengeDefinition fromStringRewards(String id, String displayName, String description, 
                                                            int requiredProgress, List<String> rewards) {
             List<String> rewardStrings = rewards != null ? new ArrayList<>(rewards) : new ArrayList<>();
-            List<com.darkbladedev.challenges.Reward> rewardObjects = new ArrayList<>();
+            List<Reward> rewardObjects = new ArrayList<>();
             
             // Convertir strings a objetos Reward
             if (rewards != null) {
                 for (String rewardString : rewards) {
                     try {
-                        rewardObjects.add(new com.darkbladedev.challenges.Reward(rewardString));
+                        rewardObjects.add(new Reward(rewardString));
                     } catch (IllegalArgumentException e) {
                         // Log error pero continúa con las otras recompensas
                         java.util.logging.Logger.getLogger(ChallengeDefinition.class.getName())
@@ -904,12 +905,12 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
          * Factory method que acepta objetos Reward directamente
          */
         public static ChallengeDefinition fromRewardObjects(String id, String displayName, String description, 
-                                                           int requiredProgress, List<com.darkbladedev.challenges.Reward> rewardObjects) {
+                                                           int requiredProgress, List<Reward> rewardObjects) {
             List<String> rewardStrings = new ArrayList<>();
             
             // Convertir objetos Reward a strings para compatibilidad
             if (rewardObjects != null) {
-                for (com.darkbladedev.challenges.Reward reward : rewardObjects) {
+                for (Reward reward : rewardObjects) {
                     rewardStrings.add(reward.toString());
                 }
             }
@@ -931,7 +932,7 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
         /**
          * Obtiene las recompensas como objetos Reward
          */
-        public List<com.darkbladedev.challenges.Reward> getRewardObjects() { 
+        public List<Reward> getRewardObjects() { 
             return new ArrayList<>(rewardObjects); 
         }
         
@@ -939,7 +940,7 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
          * Otorga todas las recompensas al jugador especificado
          */
         public void grantRewardsTo(org.bukkit.entity.Player player, String eventId) {
-            for (com.darkbladedev.challenges.Reward reward : rewardObjects) {
+            for (Reward reward : rewardObjects) {
                 reward.grantTo(player, eventId);
             }
         }

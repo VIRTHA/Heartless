@@ -1,9 +1,12 @@
 package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.challenges.Reward;
 import com.darkbladedev.managers.CustomEffectsManager;
 import com.darkbladedev.content.semi_custom.effects.ZombieInfection;
 import com.darkbladedev.utils.TimeExpression;
+
+import net.kyori.adventure.sound.Sound;
 
 import com.darkbladedev.utils.MM;
 import org.bukkit.Bukkit;
@@ -12,15 +15,14 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -65,6 +67,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     private final Map<UUID, Long> infectedPlayersTime = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> curedInfectionsCountMap = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> redMoonKillsCount = new ConcurrentHashMap<>();
+    private final Map<UUID, AtomicInteger> redMoonDeaths = new ConcurrentHashMap<>();
     private final Map<UUID, AtomicInteger> playerZombieKills = new ConcurrentHashMap<>();
     private final Set<UUID> curedVillagers = ConcurrentHashMap.newKeySet();
     private final Map<UUID, Integer> curedVillagersCount = new ConcurrentHashMap<>();
@@ -74,6 +77,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     private BukkitTask redMoonTask;
     private BukkitTask zombieSpawnTask;
     private BukkitTask infectionTask;
+    private BukkitTask netheriteArmorTask;
     
     // === MANAGERS ===
     private CustomEffectsManager effectsManager;
@@ -87,6 +91,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
      */
     public UndeadWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
+        this.prefix = "<gradient:#4bf15b:#4bec63:#4ce76a:#4ce172:#4cdc79:#4dd781:#4dd289:#4dcc90:#4dc798:#4ec29f:#4ebda7:#4eb7af:#4fb2b6:#4fadbe:#4fa7c5:#50a2cd:#509dd5:#5098dc:#5093e4:#518deb:#5188f3>Semana de los No-Muertos</gradient>";
         this.effectsManager = HeartlessMain.getCustomEffectsManager();
         this.zombieInfectionEffect = (ZombieInfection) effectsManager.getEffect("zombie_infection");
         logger.info("[UndeadWeek] Evento inicializado con duración: " + duration.toString());
@@ -167,6 +172,14 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             }
         }.runTaskTimer(plugin, 20L * 10, 20L * 10); // Cada 10 segundos
         
+        // Tarea de procesamiento de armadura de netherite
+        netheriteArmorTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                processNetheriteArmorEffects();
+            }
+        }.runTaskTimer(plugin, 20L * 5, 20L * 5); // Cada 5 segundos
+        
         logger.info("[UndeadWeek] Tareas del evento iniciadas");
     }
     
@@ -180,6 +193,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         }
         if (infectionTask != null && !infectionTask.isCancelled()) {
             infectionTask.cancel();
+        }
+        if (netheriteArmorTask != null && !netheriteArmorTask.isCancelled()) {
+            netheriteArmorTask.cancel();
         }
         
         logger.info("[UndeadWeek] Tareas del evento detenidas");
@@ -371,6 +387,23 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         }
     }
     
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        UUID playerId = player.getUniqueId();
+        
+        // Si el jugador muere durante la Noche Roja, marcar que falló el desafío
+        if (redMoonActive.get()) {
+            // Marcar que el jugador falló el desafío de supervivencia de la Noche Roja
+            redMoonDeaths.computeIfAbsent(playerId, k -> new AtomicInteger(0)).incrementAndGet();
+            
+            player.sendMessage(MM.toComponent("<red><bold>¡Has muerto durante la Noche Roja!</bold></red>"));
+            player.sendMessage(MM.toComponent("<gray>El desafío 'Dr. Zomboss' ha fallado para esta Noche Roja.</gray>"));
+            
+            logger.info("[UndeadWeek] Jugador " + player.getName() + " murió durante la Noche Roja");
+        }
+    }
+    
     // === MECÁNICAS DEL EVENTO ===
     
     private void activateRedMoon() {
@@ -385,7 +418,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         // Anunciar luna roja
         Bukkit.broadcast(MM.toComponent("<dark_red><bold>¡LA LUNA ROJA SE ALZA!</bold></dark_red>"));
         Bukkit.broadcast(MM.toComponent("<red>Los monstruos son más fuertes y peligrosos...</red>"));
-        
+        Bukkit.getOnlinePlayers().forEach(p -> p.playSound(Sound.sound(org.bukkit.Sound.ENTITY_WITHER_SPAWN, Sound.Source.MASTER, 1.0F, 1.0F)));
         // Programar fin de luna roja
         new BukkitRunnable() {
             @Override
@@ -401,6 +434,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         redMoonActive.set(false);
         redMoonStartTime.set(0);
         redMoonEndTime.set(0);
+        
+        // Verificar jugadores que sobrevivieron la Noche Roja para completar el desafío
+        checkRedMoonSurvivalChallenge();
         
         Bukkit.broadcast(MM.toComponent("<green>La Luna Roja se desvanece...</green>"));
         
@@ -514,13 +550,13 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     }
     
     private void setupUndeadWeekChallenges() {
-        // Desafío 1: Curar a 5 aldeanos zombificados (Intermedio)
+        // Desafío 1: Evitar morir durante la Noche Roja (Intermedio)
         availableChallenges.put("dr_zomboss", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
             "dr_zomboss",
             "Dr. Zomboss",
-            "Curar a 5 aldeanos zombificados",
-            5,
-            Arrays.asList("tag:DrZomboss")
+            "Evita morir en la Noche Roja",
+            1,
+            Arrays.asList("tag:drzomboss")
         ));
         
         // Desafío 2: Curarse infección zombie 10 veces (Intermedio)
@@ -538,7 +574,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             "Cazador de Noche Roja",
             "Matar 50 no-muertos en Noche Roja",
             50,
-            Arrays.asList("health:1")
+            Arrays.asList("health:2")
         ));
         
         // Desafío 4: Derrotar Wither en Noche Roja (Leyenda)
@@ -547,7 +583,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             "Wither Slayer",
             "Derrotar Wither en Noche Roja",
             1,
-            Arrays.asList("health:1")
+            Arrays.asList("health:2")
         ));
     }
     
@@ -617,7 +653,8 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             
             // Otorgar recompensas
             for (String reward : challenge.getRewards()) {
-                giveReward(player, reward);
+                Reward rewardObj = new Reward(reward);
+                rewardObj.grantTo(player, prefix);
             }
             
             player.sendMessage(MM.toComponent("<green>¡Has completado el desafío: <gold>" + 
@@ -627,77 +664,6 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         }
         
         logger.info("[UndeadWeek] Jugador " + player.getName() + " completó desafío: " + challengeId);
-    }
-    
-    protected void giveReward(Player player, String reward) {
-        logger.info("[UndeadWeek] [DEBUG] Intentando dar recompensa: " + reward + " a jugador: " + player.getName());
-        
-        String[] parts = reward.split(":");
-        if (parts.length < 2) {
-            logger.warning("[UndeadWeek] [DEBUG] Recompensa mal formateada: " + reward + " - partes: " + parts.length);
-            return;
-        }
-        
-        logger.info("[UndeadWeek] [DEBUG] Partes de recompensa: " + Arrays.toString(parts));
-        
-        switch (parts[0].toLowerCase()) {
-            case "experience":
-                try {
-                    int exp = Integer.parseInt(parts[1]);
-                    player.giveExp(exp);
-                    logger.info("[UndeadWeek] [DEBUG] Experiencia otorgada: " + exp + " a " + player.getName());
-                    player.sendMessage(MM.toComponent("<gold>¡Has recibido <yellow>" + exp + "</yellow> puntos de experiencia!</gold>"));
-                } catch (NumberFormatException e) {
-                    logger.severe("[UndeadWeek] [DEBUG] Error parseando experiencia: " + parts[1] + " - " + e.getMessage());
-                }
-                break;
-            case "item":
-                if (parts.length >= 3) {
-                    try {
-                        Material material = Material.valueOf(parts[1].toUpperCase());
-                        int amount = Integer.parseInt(parts[2]);
-                        ItemStack item = new ItemStack(material, amount);
-                        player.getInventory().addItem(item);
-                        logger.info("[UndeadWeek] [DEBUG] Item otorgado: " + material + " x" + amount + " a " + player.getName());
-                        player.sendMessage(MM.toComponent("<gold>¡Has recibido <yellow>" + amount + "x " + material.name().toLowerCase() + "</yellow>!</gold>"));
-                    } catch (IllegalArgumentException e) {
-                        logger.severe("[UndeadWeek] [DEBUG] Error procesando item: " + reward + " - " + e.getMessage());
-                    }
-                } else {
-                    logger.warning("[UndeadWeek] [DEBUG] Item mal formateado: " + reward + " - necesita 3 partes");
-                }
-                break;
-            case "tag":
-                // Asignar tag usando el comando del plugin de tags
-                String tagName = parts[1];
-                logger.info("[UndeadWeek] [DEBUG] Asignando tag: " + tagName + " a " + player.getName());
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission set htl.tag." + tagName);
-                player.sendMessage(MM.toComponent("<gold>¡Has obtenido el tag: <yellow>" + tagName + "</yellow>!</gold>"));
-                break;
-            case "enchant":
-                if (parts.length >= 3) {
-                    try {
-                        Enchantment enchant = HeartlessMain.getContentManager().getEnchantment("heartless", parts[1].toUpperCase());
-                        if (enchant != null) {
-                            int level = Integer.parseInt(parts[2]);
-                            ItemStack enchantItem = HeartlessMain.getContentManager().getEnchantmentItem(enchant, level);
-                            player.getInventory().addItem(enchantItem);
-                            logger.info("[UndeadWeek] [DEBUG] Encantamiento otorgado: " + parts[1] + " nivel " + level + " a " + player.getName());
-                            player.sendMessage(MM.toComponent("<gold>¡Has recibido el encantamiento <yellow>" + parts[1] + " nivel " + level + "</yellow>!</gold>"));
-                        } else {
-                            logger.warning("[UndeadWeek] [DEBUG] Encantamiento no encontrado: " + parts[1]);
-                        }
-                    } catch (NumberFormatException e) {
-                        logger.severe("[UndeadWeek] [DEBUG] Error parseando nivel de encantamiento: " + parts[2] + " - " + e.getMessage());
-                    }
-                } else {
-                    logger.warning("[UndeadWeek] [DEBUG] Encantamiento mal formateado: " + reward + " - necesita 3 partes");
-                }
-                break;
-            default:
-                logger.warning("[UndeadWeek] [DEBUG] Tipo de recompensa desconocido: " + parts[0]);
-                break;
-        }
     }
     
     // === MÉTODOS DE UTILIDAD ===
@@ -917,5 +883,65 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     public int getPlayerZombieKills(UUID playerId) {
         AtomicInteger kills = playerZombieKills.get(playerId);
         return kills != null ? kills.get() : 0;
+    }
+    
+    /**
+     * Verifica si un jugador tiene armadura completa de netherite equipada.
+     * 
+     * @param player El jugador a verificar
+     * @return true si tiene armadura completa de netherite, false en caso contrario
+     */
+    private boolean hasFullNetheriteArmor(Player player) {
+        if (player == null || !player.isOnline()) {
+            return false;
+        }
+        
+        // Verificar cada pieza de armadura
+        return player.getInventory().getHelmet() != null && 
+               player.getInventory().getHelmet().getType() == Material.NETHERITE_HELMET ||
+               player.getInventory().getChestplate() != null && 
+               player.getInventory().getChestplate().getType() == Material.NETHERITE_CHESTPLATE ||
+               player.getInventory().getLeggings() != null && 
+               player.getInventory().getLeggings().getType() == Material.NETHERITE_LEGGINGS ||
+               player.getInventory().getBoots() != null && 
+               player.getInventory().getBoots().getType() == Material.NETHERITE_BOOTS;
+    }
+    
+    /**
+     * Aplica el efecto wither a jugadores con armadura completa de netherite.
+     */
+    private void processNetheriteArmorEffects() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (hasFullNetheriteArmor(player)) {
+                // Aplicar efecto wither nivel 1 por 15 segundos
+                player.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 7 * 20, 0, false, true));
+            }
+        }
+    }
+    
+    /**
+     * Verifica y completa el desafío de supervivencia de la Noche Roja para jugadores que no murieron.
+     */
+    private void checkRedMoonSurvivalChallenge() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID playerId = player.getUniqueId();
+            
+            // Verificar si el jugador no murió durante esta Noche Roja
+            AtomicInteger deaths = redMoonDeaths.get(playerId);
+            boolean survivedRedMoon = (deaths == null || deaths.get() == 0);
+            
+            // Si sobrevivió y no ha completado el desafío, completarlo
+            if (survivedRedMoon && !hasChallengeCompleted(playerId, "dr_zomboss")) {
+                completeChallenge(player, "dr_zomboss");
+                
+                player.sendMessage(MM.toComponent("<gold><bold>¡Has completado el desafío Dr. Zomboss!</bold></gold>"));
+                player.sendMessage(MM.toComponent("<green>Has sobrevivido a la Noche Roja sin morir.</green>"));
+                
+                logger.info("[UndeadWeek] Jugador " + player.getName() + " completó el desafío Dr. Zomboss por sobrevivir a la Noche Roja");
+            }
+        }
+        
+        // Limpiar el registro de muertes para la próxima Noche Roja
+        redMoonDeaths.clear();
     }
 }

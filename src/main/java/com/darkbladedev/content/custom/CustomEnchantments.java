@@ -20,6 +20,33 @@ public class CustomEnchantments {
     public Enchantment getEnchantment(Key key) {
         return RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT).get(key);
     }
+    
+    /**
+     * Mapea nombres de display de encantamientos a sus keys reales.
+     * Esto permite usar nombres como "contagion" en lugar de la key técnica.
+     */
+    public static Key getEnchantmentKeyByDisplayName(String displayName) {
+        String lowerName = displayName.toLowerCase();
+        
+        switch (lowerName) {
+            case "contagion":
+            case "acid_infection":
+                return ACID_INFECTION_KEY;
+            case "acid_resistance":
+            case "proteccion_acido":
+                return ACID_RESISTANCE_KEY;
+            case "tictac":
+                return TICTAC_KEY;
+            case "adrenaline":
+            case "adrenalina":
+                return ADRENALINE_KEY;
+            case "first_strike":
+            case "primer_golpe":
+                return FIRST_STRIKE_KEY;
+            default:
+                return null;
+        }
+    }
 
     public enum ENCHANTMENTS {
         ACID_RESISTANCE(ACID_RESISTANCE_KEY, "Proteccion contra el acido", 1),

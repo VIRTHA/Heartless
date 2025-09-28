@@ -33,7 +33,7 @@ public class List implements SubcommandExecutor, TabCompletable {
         sender.sendMessage(MM.toComponent("<gold>Lista de encantamientos disponibles:</gold>"));
         
         // Obtener todos los encantamientos y ordenarlos alfabéticamente
-        java.util.List<ENCHANTMENTS> enchantments = Arrays.stream(CustomEnchantments.ENCHANTMENTS.values())
+        java.util.List<ENCHANTMENTS> enchantments = Arrays.stream(ENCHANTMENTS.values())
                 .sorted(Comparator.comparing(e -> e.getKey()))
                 .collect(Collectors.toList());
         

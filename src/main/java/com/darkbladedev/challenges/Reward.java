@@ -214,10 +214,22 @@ public class Reward {
      */
     private void grantEnchantedBook(Player player, String eventId) {
         try {
-            String enchantName = reward.toUpperCase();
+            String enchantName = reward; // No convertir a mayúsculas
             int level = Integer.parseInt(amount);
             
-            org.bukkit.enchantments.Enchantment enchantment = HeartlessMain.getContentManager().getEnchantment(enchantName);
+            // Primero intentar obtener la key usando el mapeo de nombres de display
+            net.kyori.adventure.key.Key enchantmentKey = com.darkbladedev.content.custom.CustomEnchantments.getEnchantmentKeyByDisplayName(enchantName);
+            
+            org.bukkit.enchantments.Enchantment enchantment = null;
+            
+            if (enchantmentKey != null) {
+                // Si encontramos la key usando el mapeo, usarla
+                enchantment = HeartlessMain.getContentManager().getEnchantment(enchantmentKey);
+            } else {
+                // Si no, intentar con el método original (para encantamientos vanilla)
+                enchantment = HeartlessMain.getContentManager().getEnchantment(enchantName.toLowerCase());
+            }
+            
             if (enchantment != null) {
                 // Crear libro encantado
                 ItemStack enchantedBook = new ItemStack(Material.ENCHANTED_BOOK);
@@ -256,6 +268,7 @@ public class Reward {
     private void grantTag(Player player, String eventId) {
         String tagName = reward;
         // Aquí se integraría con el sistema de tags del plugin
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission set htl.tag." + tagName);
         // Por ahora solo loggeamos la acción
         logger.info("[" + eventId + "] Tag otorgado: " + tagName + " a " + player.getName());
         
@@ -305,7 +318,7 @@ public class Reward {
             player.setHealth(Math.min(player.getHealth() + healthAmount, newMaxHealth));
             
             // Notificar al jugador
-            player.sendMessage(MM.toComponent("<red>¡Tu salud máxima ha aumentado en <yellow>" + healthAmount + "</yellow> corazones!</red>"));
+            player.sendMessage(MM.toComponent("<red>¡Tu salud máxima ha aumentado <yellow>" + healthAmount + "</yellow> puntos!</red>"));
             logger.info("[" + eventId + "] Salud máxima otorgada: +" + healthAmount + " a " + player.getName() + 
                 " (nueva salud máxima: " + newMaxHealth + ")");
         } catch (NumberFormatException e) {

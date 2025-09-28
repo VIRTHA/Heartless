@@ -203,11 +203,19 @@ public class TimeConverter {
      * @return Un array de sugerencias comunes de tiempo
      */
     public static String[] getTimeCompletions() {
+        // Usar un array estático para evitar problemas de inicialización
         return new String[] {
             "30s", "1m", "5m", "10m", "30m", 
             "1h", "2h", "6h", "12h", 
             "1d", "2d", "3d", "7d",
             "1w", "2w", "1mo"
         };
+    }
+    
+    // Método de inicialización estática para asegurar que la clase se carga correctamente
+    static {
+        // Forzar la inicialización de constantes
+        @SuppressWarnings("unused")
+        long init = TICK + SECOND + MINUTE + HOUR + DAY + WEEK + MONTH + YEAR;
     }
 }
