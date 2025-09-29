@@ -202,12 +202,11 @@ public class ExplosiveWeek extends WeeklyEvent {
             public void run() {
                 for (World world : Bukkit.getWorlds()) {
                     if (world.getEnvironment() == Environment.NORMAL && 
-                        world.isThundering() && 
-                        world.getTime() > 12000) { // Only at night
+                        world.isThundering()) {
                         
                         // Spawn ghasts for each player in the world
                         for (Player player : world.getPlayers()) {
-                            if (random.nextInt(100) < 15) { // 15% chance per player
+                            if (random.nextInt(100) < 30) { //30% chance per player
                                 spawnGhastNearPlayer(player);
                             }
                         }
@@ -321,8 +320,9 @@ public class ExplosiveWeek extends WeeklyEvent {
         if (!isActive.get()) return;
         
         if (event.getEntity() instanceof TNTPrimed) {
-            // Double TNT explosion power
-            event.setRadius(event.getRadius() * 1.4f); // Approximately doubles damage
+            // Set TNT explosion power to cause 12 hearts damage at epicenter
+            // Power 6.0f causes approximately 12 hearts (24 HP) damage at epicenter
+            event.setRadius(6.0f);
         }
     }
     
@@ -332,10 +332,25 @@ public class ExplosiveWeek extends WeeklyEvent {
         
         if (event.getCause() == DamageCause.BLOCK_EXPLOSION || 
             event.getCause() == DamageCause.ENTITY_EXPLOSION) {
-            // Double explosion damage
+            // TNT explosions already have increased power, no need to double damage here
+            // Only apply extra damage to non-TNT explosions
             if (event.getEntity() instanceof Player) {
-                double damage = event.getDamage();
-                event.setDamage(damage * 2.0);
+                // Check if this is from TNT by looking at nearby TNT entities
+                boolean isTNTExplosion = false;
+                Location playerLoc = event.getEntity().getLocation();
+                
+                for (Entity entity : playerLoc.getWorld().getNearbyEntities(playerLoc, 10, 10, 10)) {
+                    if (entity instanceof TNTPrimed) {
+                        isTNTExplosion = true;
+                        break;
+                    }
+                }
+                
+                // Only double damage for non-TNT explosions (creepers, etc.)
+                if (!isTNTExplosion) {
+                    double damage = event.getDamage();
+                    event.setDamage(damage * 2.0);
+                }
             }
         }
     }

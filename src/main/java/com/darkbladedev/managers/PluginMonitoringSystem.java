@@ -6,7 +6,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.event.server.ServerCommandEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
@@ -100,24 +99,16 @@ public class PluginMonitoringSystem implements Listener {
      * Inicia la tarea de verificación de salud del plugin.
      */
     private void startHealthCheckTask() {
-        healthCheckTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                performHealthCheck();
-            }
-        }.runTaskTimerAsynchronously(plugin, 0L, HEALTH_CHECK_INTERVAL);
+        healthCheckTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, 
+            this::performHealthCheck, 0L, HEALTH_CHECK_INTERVAL);
     }
     
     /**
      * Inicia la tarea de monitoreo de memoria.
      */
     private void startMemoryMonitorTask() {
-        memoryMonitorTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                checkMemoryUsage();
-            }
-        }.runTaskTimerAsynchronously(plugin, 0L, MEMORY_CHECK_INTERVAL);
+        memoryMonitorTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, 
+            this::checkMemoryUsage, 0L, MEMORY_CHECK_INTERVAL);
     }
     
     /**
@@ -135,21 +126,25 @@ public class PluginMonitoringSystem implements Listener {
             long startTime = System.currentTimeMillis();
             
             // Ejecutar una tarea síncrona simple para verificar respuesta
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    long responseTime = System.currentTimeMillis() - startTime;
-                    if (responseTime > RESPONSE_TIMEOUT_MS) {
-                        handlePluginDisconnection(DisconnectionCause.SERVER_LAG, 
-                                "Tiempo de respuesta excesivo: " + responseTime + "ms");
-                    }
-                }
-            }.runTask(plugin);
+            checkServerResponseTime(startTime);
             
         } catch (Exception e) {
             logger.log(Level.WARNING, "Error en verificación de salud", e);
             handlePluginDisconnection(DisconnectionCause.PLUGIN_ERROR, "Error en health check: " + e.getMessage());
         }
+    }
+    
+    /**
+     * Verifica el tiempo de respuesta del servidor.
+     */
+    private void checkServerResponseTime(long startTime) {
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            long responseTime = System.currentTimeMillis() - startTime;
+            if (responseTime > RESPONSE_TIMEOUT_MS) {
+                handlePluginDisconnection(DisconnectionCause.SERVER_LAG, 
+                        "Tiempo de respuesta excesivo: " + responseTime + "ms");
+            }
+        });
     }
     
     /**
@@ -196,13 +191,15 @@ public class PluginMonitoringSystem implements Listener {
         // Determinar acción basada en la causa
         EventAction action = determineEventAction(cause);
         
-        // Ejecutar acción en el hilo principal
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                executeEventAction(action, cause, details);
-            }
-        }.runTask(plugin);
+        // Ejecutar acción en el hilo principal usando un método separado
+        executeEventActionAsync(action, cause, details);
+    }
+    
+    /**
+     * Ejecuta la acción de evento de forma asíncrona en el hilo principal.
+     */
+    private void executeEventActionAsync(EventAction action, DisconnectionCause cause, String details) {
+        Bukkit.getScheduler().runTask(plugin, () -> executeEventAction(action, cause, details));
     }
     
     /**

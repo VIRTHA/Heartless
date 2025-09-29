@@ -56,7 +56,7 @@ public class CustomEnchantments {
         ACID_RESISTANCE(ACID_RESISTANCE_KEY, "Proteccion contra el acido", 1),
         ACID_INFECTION(ACID_INFECTION_KEY, "Contagion", 1),
         TICTAC(TICTAC_KEY, "TicTac", 5),
-        CONDIMENTO(CONDIMENT_KEY, "Condimento", 3),
+        CONDIMENT(CONDIMENT_KEY, "Condimento", 3),
         ADRENALINE(ADRENALINE_KEY, "Adrenalina", 1),
         FIRST_STRIKE(FIRST_STRIKE_KEY, "Primer Golpe", 1);
 

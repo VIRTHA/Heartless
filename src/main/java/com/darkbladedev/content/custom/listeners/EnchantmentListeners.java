@@ -481,6 +481,15 @@ public class EnchantmentListeners implements Listener {
             return;
         }
         
+        // Verify if the item is valid for Condimento enchantment using custom tag logic
+        if (!com.darkbladedev.utils.TagUtils.isValidCondimentoTarget(consumedItem)) {
+            // Item is not valid for Condimento, but has the enchantment - this shouldn't happen normally
+            // but we'll handle it gracefully by not triggering the effect
+            logger.warning(String.format("Player %s consumed item %s with Condimento enchantment but item is not valid for this enchantment", 
+                player.getName(), consumedItem.getType().name()));
+            return;
+        }
+        
         // Get enchantment level for explosion power scaling
         org.bukkit.NamespacedKey namespacedKey = org.bukkit.NamespacedKey.fromString(CustomEnchantments.CONDIMENT_KEY.asString());
         org.bukkit.enchantments.Enchantment condimentoEnchantment = RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT).get(namespacedKey);

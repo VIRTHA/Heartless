@@ -1,6 +1,8 @@
 package com.darkbladedev.content.custom;
 
 import org.bukkit.inventory.EquipmentSlotGroup;
+import org.bukkit.inventory.ItemType;
+
 import com.darkbladedev.utils.MM;
 import io.papermc.paper.plugin.bootstrap.BootstrapContext;
 import io.papermc.paper.plugin.bootstrap.PluginBootstrap;
@@ -8,16 +10,48 @@ import io.papermc.paper.registry.data.EnchantmentRegistryEntry;
 import io.papermc.paper.registry.event.RegistryEvents;
 import io.papermc.paper.registry.keys.EnchantmentKeys;
 import io.papermc.paper.registry.keys.tags.ItemTypeTagKeys;
-
-
+import io.papermc.paper.registry.tag.TagKey;
+import io.papermc.paper.registry.RegistryKey;
+import net.kyori.adventure.key.Key;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.io.IOException;
+import java.util.Objects;
 
 public class Bootstraps implements PluginBootstrap {
 
     @Override
     public void bootstrap(BootstrapContext context) {
+        
+        // Register automatic datapack loading
+        context.getLifecycleManager().registerEventHandler(LifecycleEvents.DATAPACK_DISCOVERY, event -> {
+            // Discover and register the heartless datapack from resources
+            try {
+                URI uri = Objects.requireNonNull(getClass().getResource("/heartless_datapack")).toURI();
+                event.registrar().discoverPack(uri, "heartless_datapack");
+                context.getLogger().info("Successfully discovered heartless datapack from plugin resources");
+            } catch (URISyntaxException | IOException e) {
+                context.getLogger().error("Failed to discover heartless datapack: " + e.getMessage());
+                throw new RuntimeException("Failed to load heartless datapack", e);
+            }
+        });
+
+        // Register Tags handler BEFORE enchantment registration
+        context.getLifecycleManager().registerEventHandler(LifecycleEvents.TAGS.preFlatten(RegistryKey.ITEM).newHandler(event -> {
+            context.getLogger().info("Tags preFlatten event - custom tags should be available now");
+            // Verificar si el tag personalizado existe
+            try {
+                @SuppressWarnings("unused")
+                TagKey<ItemType> customFoodTag = TagKey.create(RegistryKey.ITEM, Key.key("heartless", "all_food"));
+                context.getLogger().info("Custom tag heartless:all_food is available for use");
+            } catch (Exception e) {
+                context.getLogger().warn("Custom tag heartless:all_food not available: " + e.getMessage());
+            }
+        }));
     
-        // Register Enchantments handler
+        // Register Enchantments handler AFTER tags are processed
         context.getLifecycleManager().registerEventHandler(RegistryEvents.ENCHANTMENT.freeze().newHandler(event -> {
             // Register Acid Resistance Enchantment
             event.registry().register(
@@ -74,35 +108,37 @@ public class Bootstraps implements PluginBootstrap {
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.AXES))
                 );
                 
-            // Register Condimento Enchantment (derived from TicTac)
-            event.registry().register(
-                EnchantmentKeys.create(CustomEnchantments.CONDIMENT_KEY),
-                b -> b.maxLevel(3)
-                    .anvilCost(20)
-                    .activeSlots(EquipmentSlotGroup.ANY)
-                    .minimumCost(EnchantmentRegistryEntry.EnchantmentCost.of(15, 5))
-                    .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(65, 5))
-                    .weight(2)
-                    
-                    .description(MM.toComponent("<gradient:#ff6b35:#f7931e:#ffd700>Condimento</gradient>"))
-                    
-                    // Use specific animal food tags since FOOD tag doesn't exist
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.CHICKEN_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.COW_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.PIG_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.SHEEP_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.HORSE_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.CAT_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.WOLF_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.PARROT_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.RABBIT_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.BEE_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.AXOLOTL_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.GOAT_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.FROG_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.CAMEL_FOOD))
-                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.ARMADILLO_FOOD))
+            // Register Condimento Enchantment with fallback mechanism
+            try {
+                TagKey<ItemType> customFoodTag = TagKey.create(RegistryKey.ITEM, Key.key("heartless", "all_food"));
+                event.registry().register(
+                    EnchantmentKeys.create(CustomEnchantments.CONDIMENT_KEY),
+                    b -> b.maxLevel(1)
+                        .anvilCost(15)
+                        .activeSlots(EquipmentSlotGroup.ANY)
+                        .minimumCost(EnchantmentRegistryEntry.EnchantmentCost.of(15, 5))
+                        .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(65, 5))
+                        .weight(2)
+                        .description(MM.toComponent("<gradient:#ff6b35:#f7931e:#ffd700>Condimento</gradient>"))
+                        .supportedItems(event.getOrCreateTag(customFoodTag))
                 );
+                context.getLogger().info("Successfully registered Condimento enchantment with custom tag");
+            } catch (Exception e) {
+                context.getLogger().warn("Failed to use custom tag heartless:all_food, using fallback: " + e.getMessage());
+                // Fallback to existing animal food tags
+                event.registry().register(
+                    EnchantmentKeys.create(CustomEnchantments.CONDIMENT_KEY),
+                    b -> b.maxLevel(1)
+                        .anvilCost(15)
+                        .activeSlots(EquipmentSlotGroup.ANY)
+                        .minimumCost(EnchantmentRegistryEntry.EnchantmentCost.of(15, 5))
+                        .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(65, 5))
+                        .weight(2)
+                        .description(MM.toComponent("<gradient:#ff6b35:#f7931e:#ffd700>Condimento</gradient>"))
+                        .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.CHICKEN_FOOD))
+                );
+                context.getLogger().info("Successfully registered Condimento enchantment with fallback tag");
+            }
                 
             // Register Adrenaline Enchantment
             event.registry().register(
