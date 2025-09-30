@@ -42,14 +42,25 @@ public class HealthRewards implements Listener {
 
             // Add one heart (2 health points) to max health
             double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+            
+            // Check if player already has maximum health (20 hearts = 40.0 health points)
+            if (currentMaxHealth >= 40.0) {
+                return; // Don't show any message or effects if already at max
+            }
+            
             double newMaxHealth = Math.min(currentMaxHealth + 2.0, 40.0); // Cap at 20 hearts (40 health)
+            double actualHealthGained = newMaxHealth - currentMaxHealth;
             
             player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
-            player.sendMessage(MM.toComponent("<gold>¡Has ganado un corazón extra de vida máxima!</gold>"));
             
-            // Play a special effect
-            player.getWorld().spawnParticle(org.bukkit.Particle.HEART, player.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
-            player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+            // Only show message and effects if health was actually gained
+            if (actualHealthGained > 0) {
+                player.sendMessage(MM.toComponent("<gold>¡Has ganado un corazón extra de vida máxima!</gold>"));
+                
+                // Play a special effect
+                player.getWorld().spawnParticle(org.bukkit.Particle.HEART, player.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+            }
         }
     }
     
@@ -65,10 +76,23 @@ public class HealthRewards implements Listener {
                 
                 // Add two hearts (4 health points) to max health
                 double currentMaxHealth = killer.getAttribute(Attribute.MAX_HEALTH).getValue();
+                
+                // Check if player already has maximum health (20 hearts = 40.0 health points)
+                if (currentMaxHealth >= 40.0) {
+                    return; // Don't show any message if already at max
+                }
+                
                 double newMaxHealth = Math.min(currentMaxHealth + 4.0, 40.0); // Cap at 20 hearts (40 health)
+                double actualHealthGained = newMaxHealth - currentMaxHealth;
                 
                 killer.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
-                killer.sendMessage(MM.toComponent("<dark_purple>¡Has derrotado al Dragón del End! <gold>Ganaste 2 corazones extra de vida máxima.</gold></dark_purple>"));
+                
+                // Only show message if health was actually gained
+                if (actualHealthGained > 0) {
+                    int heartsGained = (int) (actualHealthGained / 2.0);
+                    String heartText = heartsGained == 1 ? "corazón extra" : "corazones extra";
+                    killer.sendMessage(MM.toComponent("<dark_purple>¡Has derrotado al Dragón del End! <gold>Ganaste " + heartsGained + " " + heartText + " de vida máxima.</gold></dark_purple>"));
+                }
                 
                 // Play a special effect
                 killer.getWorld().spawnParticle(org.bukkit.Particle.DRAGON_BREATH, killer.getLocation().add(0, 1, 0), 50, 1.0, 1.0, 1.0, 0.1);

@@ -2,6 +2,8 @@ package com.darkbladedev.content.custom;
 
 import org.bukkit.Registry;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.Material;
 
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
@@ -50,6 +52,76 @@ public class CustomEnchantments {
             default:
                 return null;
         }
+    }
+
+    /**
+     * Verifica si un encantamiento personalizado puede ser aplicado a un item específico.
+     * @param enchantmentKey La key del encantamiento
+     * @param item El item al que se quiere aplicar el encantamiento
+     * @return true si el encantamiento puede ser aplicado, false en caso contrario
+     */
+    public static boolean canApplyEnchantment(Key enchantmentKey, ItemStack item) {
+        if (item == null || item.getType().isAir()) {
+            return false;
+        }
+        
+        Material material = item.getType();
+        
+        // Verificar restricciones específicas para cada encantamiento personalizado
+        if (enchantmentKey.equals(ACID_INFECTION_KEY) || enchantmentKey.equals(TICTAC_KEY) || enchantmentKey.equals(FIRST_STRIKE_KEY)) {
+            // Solo armas (espadas y hachas)
+            return isWeapon(material);
+        } else if (enchantmentKey.equals(ACID_RESISTANCE_KEY) || enchantmentKey.equals(ADRENALINE_KEY)) {
+            // Solo armaduras
+            return isArmor(material);
+        } else if (enchantmentKey.equals(CONDIMENT_KEY)) {
+            // Solo comida
+            return isFood(material);
+        }
+        
+        // Para encantamientos no reconocidos, permitir aplicación
+        return true;
+    }
+    
+    /**
+     * Verifica si un encantamiento puede ser aplicado a un item específico.
+     * Sobrecarga que acepta un objeto Enchantment.
+     * @param enchantment El encantamiento
+     * @param item El item al que se quiere aplicar el encantamiento
+     * @return true si el encantamiento puede ser aplicado, false en caso contrario
+     */
+    public static boolean canApplyEnchantment(Enchantment enchantment, ItemStack item) {
+        if (enchantment == null) {
+            return false;
+        }
+        
+        // Convertir el Enchantment a Key y usar el método principal
+        Key enchantmentKey = enchantment.getKey();
+        return canApplyEnchantment(enchantmentKey, item);
+    }
+    
+    /**
+     * Verifica si un material es un arma (espada o hacha).
+     */
+    private static boolean isWeapon(Material material) {
+        return material.name().endsWith("_SWORD") || material.name().endsWith("_AXE");
+    }
+    
+    /**
+     * Verifica si un material es una armadura.
+     */
+    private static boolean isArmor(Material material) {
+        return material.name().endsWith("_HELMET") || 
+               material.name().endsWith("_CHESTPLATE") || 
+               material.name().endsWith("_LEGGINGS") || 
+               material.name().endsWith("_BOOTS");
+    }
+    
+    /**
+     * Verifica si un material es comida.
+     */
+    private static boolean isFood(Material material) {
+        return material.isEdible();
     }
 
     public enum ENCHANTMENTS {

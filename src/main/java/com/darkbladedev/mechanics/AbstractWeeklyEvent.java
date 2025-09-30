@@ -2,6 +2,7 @@ package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.challenges.Reward;
+import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.managers.PlayerStatisticsReportManager;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
@@ -262,7 +263,8 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
             ChallengeDefinition challenge = availableChallenges.get(challengeId);
             if (challenge != null) {
                 notifyPlayerChallengeCompleted(player, challenge);
-                giveRewards(player, challenge.getRewards());
+                // Las recompensas se otorgan automáticamente por el sistema de desafíos específico del evento
+                // Eliminada la llamada duplicada: giveRewards(player, challenge.getRewards());
             }
         }
         
@@ -560,6 +562,7 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
      * @param rewards Lista de recompensas como strings
      * @deprecated Usar ChallengeDefinition.grantRewardsTo() en su lugar
      */
+    @SuppressWarnings("unused")
     @Deprecated
     private void giveRewards(Player player, List<String> rewards) {
         if (rewards == null || rewards.isEmpty()) return;
@@ -655,8 +658,14 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
                             if (enchantment != null) {
                                 org.bukkit.inventory.ItemStack mainHand = player.getInventory().getItemInMainHand();
                                 if (mainHand != null && mainHand.getType() != org.bukkit.Material.AIR) {
-                                    mainHand.addUnsafeEnchantment(enchantment, level);
-                                    logger.info("[" + getId() + "] Encantamiento otorgado: " + enchantName + " " + level + " a " + player.getName());
+                                    // Validar si el encantamiento puede ser aplicado al item
+                                    if (CustomEnchantments.canApplyEnchantment(enchantment, mainHand)) {
+                                        mainHand.addUnsafeEnchantment(enchantment, level);
+                                        logger.info("[" + getId() + "] Encantamiento otorgado: " + enchantName + " " + level + " a " + player.getName());
+                                    } else {
+                                        logger.warning("[" + getId() + "] El encantamiento " + enchantName + " no puede ser aplicado al item en la mano de " + player.getName());
+                                        player.sendMessage(MM.toComponent("<red>El encantamiento " + enchantName + " no puede ser aplicado a este item.</red>"));
+                                    }
                                 } else {
                                     logger.warning("[" + getId() + "] No hay item en la mano para encantar para " + player.getName());
                                 }

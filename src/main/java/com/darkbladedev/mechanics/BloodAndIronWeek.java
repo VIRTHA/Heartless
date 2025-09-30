@@ -1,6 +1,7 @@
 package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.challenges.Reward;
 import com.darkbladedev.events.WeeklyEventResumeEvent;
 import com.darkbladedev.utils.EventType;
 import com.darkbladedev.utils.MM;
@@ -699,7 +700,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
             Bukkit.broadcast(MM.toComponent("<yellow>3. <red>Mata<red> a 5 jugadores seguidos sin morir</yellow>"));
             Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>Tag</u> \"Pentakill\"</gray>"));
             Bukkit.broadcast(MM.toComponent("<yellow>4. <green>Sobrevive<green> sin morir en todo el evento (con más de 10 kills)</yellow>"));
-            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón extra</gray>"));
+            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+20 Thalos</u></gray>"));
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error al anunciar desafíos", e);
         }
@@ -800,26 +801,37 @@ public class BloodAndIronWeek extends WeeklyEvent {
                     if (!playerKillers.contains(playerId)) {
                         playerKillers.add(playerId);
                         player.sendMessage(MM.toComponent("<green>¡Desafío completado: Asesino de Jugadores!"));
+                        Reward reward = new Reward("enchantment:adrenaline:1");
+                        reward.grantTo(player, prefix);
                     }
                     break;
                 case "potion_killer":
                     if (!potionKillers.contains(playerId)) {
                         potionKillers.add(playerId);
                         player.sendMessage(MM.toComponent("<green>¡Desafío completado: Maestro de Pociones!"));
+                        
+                        // Otorgar +1 corazón máximo por matar con poción de daño instantáneo
+                        double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
+                        player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(currentMaxHealth + 2.0);
+                        player.setHealth(player.getAttribute(Attribute.MAX_HEALTH).getBaseValue());
+                        player.sendMessage(MM.toComponent("<green>¡Has ganado un corazón extra!"));
                     }
                     break;
                 case "pentakill":
                     if (!pentaKillers.contains(playerId)) {
                         pentaKillers.add(playerId);
                         player.sendMessage(MM.toComponent("<green>¡Desafío completado: Pentakill!"));
-                        // Award the tag
-                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission set htl.tag.pentakill");
+                        // Otorgar tag "Pentakill" (htl.tag.pentakill)
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission set htl.tag.pentakill true");
                     }
                     break;
                 case "survivor":
                     if (!survivors.contains(playerId)) {
                         survivors.add(playerId);
                         player.sendMessage(MM.toComponent("<green>¡Desafío completado: Superviviente!"));
+                        // Otorgar +20 Thalos por sobrevivir toda la semana
+                        Reward reward = new Reward("coins:20");
+                        reward.grantTo(player, prefix);
                     }
                     break;
             }
@@ -1159,13 +1171,6 @@ public class BloodAndIronWeek extends WeeklyEvent {
              int kills = playerKillCount.getOrDefault(playerId, 0);
              if (kills >= 10 && !deadPlayers.contains(playerId) && !hasChallengeCompleted(player, "survivor")) {
                  completeChallengeForPlayer(player, "survivor");
-                 
-                 // Otorgar corazón extra
-                 double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
-                 player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(currentMaxHealth + 2.0);
-                 player.setHealth(player.getAttribute(Attribute.MAX_HEALTH).getBaseValue());
-                 
-                 player.sendMessage(MM.toComponent("<green>¡Has ganado un corazón extra por sobrevivir!"));
              }
          } catch (Exception e) {
              plugin.getLogger().log(Level.WARNING, "Error al otorgar desafío de supervivencia", e);

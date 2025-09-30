@@ -100,8 +100,15 @@ public class Reward {
             throw new IllegalArgumentException("Tipo de recompensa desconocido: " + parts[0]);
         }
         
-        this.reward = parts[1];
-        this.amount = parts.length >= 3 ? parts[2] : "1";
+        // Para recompensas de dinero (coins/money), el formato es "coins:cantidad"
+        // Para otras recompensas, el formato es "tipo:item[:cantidad]"
+        if (this.type == RewardType.MONEY) {
+            this.reward = "thalos"; // Nombre por defecto para la moneda
+            this.amount = parts[1]; // La cantidad está en la segunda posición
+        } else {
+            this.reward = parts[1];
+            this.amount = parts.length >= 3 ? parts[2] : "1";
+        }
     }
     
     /**
@@ -286,7 +293,6 @@ public class Reward {
             // Integración con CoinsEngine usando el comando thalos
             if (Bukkit.getPluginManager().getPlugin("CoinsEngine") != null) {
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "thalos give " + player.getName() + " " + moneyAmount);
-                player.sendMessage(MM.toComponent("<gold>¡Has recibido <yellow>" + moneyAmount + "</yellow> thalos!</gold>"));
                 logger.info("[" + eventId + "] Thalos otorgados: " + moneyAmount + " a " + player.getName());
             } else {
                 logger.warning("[" + eventId + "] CoinsEngine no está disponible para otorgar " + moneyAmount + " thalos a " + player.getName());
@@ -311,16 +317,29 @@ public class Reward {
             double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
             double newMaxHealth = currentMaxHealth + healthAmount;
             
+            // Verificar si ya ha alcanzado el límite máximo de corazones (40.0 = 20 corazones)
+            if (currentMaxHealth >= 40.0) {
+                // No mostrar mensaje si ya está en el límite máximo
+                logger.info("[" + eventId + "] Jugador " + player.getName() + " ya tiene la salud máxima (20 corazones). No se otorga recompensa.");
+                return;
+            }
+            
+            // Limitar la nueva salud máxima al límite de 20 corazones (40.0 puntos de salud)
+            newMaxHealth = Math.min(newMaxHealth, 40.0);
+            
             // Establecer la nueva salud máxima
             player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
             
             // Curar al jugador para que aproveche la nueva salud máxima
             player.setHealth(Math.min(player.getHealth() + healthAmount, newMaxHealth));
             
-            // Notificar al jugador
-            player.sendMessage(MM.toComponent("<red>¡Tu salud máxima ha aumentado <yellow>" + healthAmount + "</yellow> puntos!</red>"));
-            logger.info("[" + eventId + "] Salud máxima otorgada: +" + healthAmount + " a " + player.getName() + 
-                " (nueva salud máxima: " + newMaxHealth + ")");
+            // Notificar al jugador solo si realmente ganó corazones
+            double actualHealthGained = newMaxHealth - currentMaxHealth;
+            if (actualHealthGained > 0) {
+                player.sendMessage(MM.toComponent("<red>¡Tu salud máxima ha aumentado <yellow>" + actualHealthGained + "</yellow> puntos!</red>"));
+                logger.info("[" + eventId + "] Salud máxima otorgada: +" + actualHealthGained + " a " + player.getName() + 
+                    " (nueva salud máxima: " + newMaxHealth + ")");
+            }
         } catch (NumberFormatException e) {
             logger.warning("[" + eventId + "] Cantidad de salud inválida: " + amount);
         }
