@@ -331,55 +331,132 @@ public class StorageManager {
                 }
                 eventData.add("lastPlayerKillTime", lastPlayerKillTimeJson);
                 
-                // Guardar mapas de conteos
+                // Validar y guardar mapas de conteos
                 JsonObject playerKillCountJson = new JsonObject();
-                for (Map.Entry<UUID, Integer> entry : bloodAndIronWeek.getPlayerKillCount().entrySet()) {
-                    playerKillCountJson.addProperty(entry.getKey().toString(), entry.getValue());
+                Map<UUID, Integer> killCounts = bloodAndIronWeek.getPlayerKillCount();
+                if (killCounts != null) {
+                    for (Map.Entry<UUID, Integer> entry : killCounts.entrySet()) {
+                        if (entry.getKey() != null && entry.getValue() != null && entry.getValue() >= 0) {
+                            // Validar que el conteo sea razonable (máximo 1000 kills)
+                            if (entry.getValue() <= 1000) {
+                                playerKillCountJson.addProperty(entry.getKey().toString(), entry.getValue());
+                            } else {
+                                plugin.getLogger().warning("Conteo de kills excesivo para jugador " + entry.getKey() + ": " + entry.getValue() + ", limitando a 1000");
+                                playerKillCountJson.addProperty(entry.getKey().toString(), 1000);
+                            }
+                        }
+                    }
                 }
                 eventData.add("playerKillCount", playerKillCountJson);
                 
                 JsonObject consecutiveKillsJson = new JsonObject();
-                for (Map.Entry<UUID, Integer> entry : bloodAndIronWeek.getConsecutiveKills().entrySet()) {
-                    consecutiveKillsJson.addProperty(entry.getKey().toString(), entry.getValue());
+                Map<UUID, Integer> consecutiveKills = bloodAndIronWeek.getConsecutiveKills();
+                if (consecutiveKills != null) {
+                    for (Map.Entry<UUID, Integer> entry : consecutiveKills.entrySet()) {
+                        if (entry.getKey() != null && entry.getValue() != null && entry.getValue() >= 0) {
+                            // Validar que los kills consecutivos sean razonables (máximo 100)
+                            if (entry.getValue() <= 100) {
+                                consecutiveKillsJson.addProperty(entry.getKey().toString(), entry.getValue());
+                            } else {
+                                plugin.getLogger().warning("Kills consecutivos excesivos para jugador " + entry.getKey() + ": " + entry.getValue() + ", limitando a 100");
+                                consecutiveKillsJson.addProperty(entry.getKey().toString(), 100);
+                            }
+                        }
+                    }
                 }
                 eventData.add("consecutiveKills", consecutiveKillsJson);
                 
-                // Guardar conjuntos de jugadores
-                JsonObject instantDamageKillersJson = new JsonObject();
-                for (UUID playerId : bloodAndIronWeek.getInstantDamageKillers()) {
-                    instantDamageKillersJson.addProperty(playerId.toString(), true);
-                }
-                eventData.add("instantDamageKillers", instantDamageKillersJson);
-                
+                // Validar y guardar conjuntos de jugadores
                 JsonObject pentakillPlayersJson = new JsonObject();
-                for (UUID playerId : bloodAndIronWeek.getPentakillPlayers()) {
-                    pentakillPlayersJson.addProperty(playerId.toString(), true);
+                Set<UUID> pentakillPlayers = bloodAndIronWeek.getPentakillPlayers();
+                if (pentakillPlayers != null) {
+                    for (UUID playerId : pentakillPlayers) {
+                        if (playerId != null) {
+                            pentakillPlayersJson.addProperty(playerId.toString(), true);
+                        }
+                    }
                 }
                 eventData.add("pentakillPlayers", pentakillPlayersJson);
                 
                 JsonObject survivedPlayersJson = new JsonObject();
-                for (UUID playerId : bloodAndIronWeek.getSurvivedPlayers()) {
-                    survivedPlayersJson.addProperty(playerId.toString(), true);
+                Set<UUID> survivedPlayers = bloodAndIronWeek.getSurvivedPlayers();
+                if (survivedPlayers != null) {
+                    for (UUID playerId : survivedPlayers) {
+                        if (playerId != null) {
+                            survivedPlayersJson.addProperty(playerId.toString(), true);
+                        }
+                    }
                 }
                 eventData.add("survivedPlayers", survivedPlayersJson);
                 
                 JsonObject deadPlayersJson = new JsonObject();
-                for (UUID playerId : bloodAndIronWeek.getDeadPlayers()) {
-                    deadPlayersJson.addProperty(playerId.toString(), true);
+                Set<UUID> deadPlayers = bloodAndIronWeek.getDeadPlayers();
+                if (deadPlayers != null) {
+                    for (UUID playerId : deadPlayers) {
+                        if (playerId != null) {
+                            deadPlayersJson.addProperty(playerId.toString(), true);
+                        }
+                    }
                 }
                 eventData.add("deadPlayers", deadPlayersJson);
                 
                 JsonObject awardedAdrenalineJson = new JsonObject();
-                for (UUID playerId : bloodAndIronWeek.getAwardedAdrenaline()) {
-                    awardedAdrenalineJson.addProperty(playerId.toString(), true);
+                Set<UUID> awardedAdrenaline = bloodAndIronWeek.getAwardedAdrenaline();
+                if (awardedAdrenaline != null) {
+                    for (UUID playerId : awardedAdrenaline) {
+                        if (playerId != null) {
+                            awardedAdrenalineJson.addProperty(playerId.toString(), true);
+                        }
+                    }
                 }
                 eventData.add("awardedAdrenaline", awardedAdrenalineJson);
                 
                 JsonObject mobKillWarningGivenJson = new JsonObject();
-                for (UUID playerId : bloodAndIronWeek.getMobKillWarningGiven()) {
-                    mobKillWarningGivenJson.addProperty(playerId.toString(), true);
+                Set<UUID> mobKillWarningGiven = bloodAndIronWeek.getMobKillWarningGiven();
+                if (mobKillWarningGiven != null) {
+                    for (UUID playerId : mobKillWarningGiven) {
+                        if (playerId != null) {
+                            mobKillWarningGivenJson.addProperty(playerId.toString(), true);
+                        }
+                    }
                 }
                 eventData.add("mobKillWarningGiven", mobKillWarningGivenJson);
+                
+                // Validar y guardar massKillers (jugadores con 10+ kills)
+                JsonObject massKillersJson = new JsonObject();
+                Set<UUID> massKillers = bloodAndIronWeek.getMassKillers();
+                if (massKillers != null) {
+                    for (UUID playerId : massKillers) {
+                        if (playerId != null) {
+                            massKillersJson.addProperty(playerId.toString(), true);
+                        }
+                    }
+                }
+                eventData.add("massKillers", massKillersJson);
+                
+                // Validar y guardar playerKillers (jugadores que mataron 3+ jugadores)
+                JsonObject playerKillersJson = new JsonObject();
+                Set<UUID> playerKillers = bloodAndIronWeek.getPlayerKillers();
+                if (playerKillers != null) {
+                    for (UUID playerId : playerKillers) {
+                        if (playerId != null) {
+                            playerKillersJson.addProperty(playerId.toString(), true);
+                        }
+                    }
+                }
+                eventData.add("playerKillers", playerKillersJson);
+                
+                // Validar y guardar survivors (jugadores supervivientes)
+                JsonObject survivorsJson = new JsonObject();
+                Set<UUID> survivors = bloodAndIronWeek.getSurvivors();
+                if (survivors != null) {
+                    for (UUID playerId : survivors) {
+                        if (playerId != null) {
+                            survivorsJson.addProperty(playerId.toString(), true);
+                        }
+                    }
+                }
+                eventData.add("survivors", survivorsJson);
             }
             
             try (FileWriter writer = new FileWriter(eventDataFile)) {
@@ -853,21 +930,6 @@ public class StorageManager {
                             }
                         }
                         
-                        if (eventData.has("instantDamageKillers")) {
-                            JsonObject instantDamageKillersJson = eventData.getAsJsonObject("instantDamageKillers");
-                            if (instantDamageKillersJson != null) {
-                                Set<UUID> instantDamageKillers = new HashSet<>();
-                                for (Map.Entry<String, com.google.gson.JsonElement> entry : instantDamageKillersJson.entrySet()) {
-                                    try {
-                                        instantDamageKillers.add(UUID.fromString(entry.getKey()));
-                                    } catch (IllegalArgumentException e) {
-                                        plugin.getLogger().warning("UUID inválido en instantDamageKillers: " + entry.getKey());
-                                    }
-                                }
-                                bloodAndIronWeek.loadInstantDamageKillers(instantDamageKillers);
-                            }
-                        }
-                        
                         if (eventData.has("pentakillPlayers")) {
                             JsonObject pentakillPlayersJson = eventData.getAsJsonObject("pentakillPlayers");
                             if (pentakillPlayersJson != null) {
@@ -940,6 +1002,54 @@ public class StorageManager {
                                     }
                                 }
                                 bloodAndIronWeek.loadMobKillWarningGiven(mobKillWarningGiven);
+                            }
+                        }
+                        
+                        // Cargar massKillers (jugadores con 10+ kills)
+                        if (eventData.has("massKillers")) {
+                            JsonObject massKillersJson = eventData.getAsJsonObject("massKillers");
+                            if (massKillersJson != null) {
+                                Set<UUID> massKillers = new HashSet<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : massKillersJson.entrySet()) {
+                                    try {
+                                        massKillers.add(UUID.fromString(entry.getKey()));
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en massKillers: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadMassKillers(massKillers);
+                            }
+                        }
+                        
+                        // Cargar playerKillers (jugadores que mataron 3+ jugadores)
+                        if (eventData.has("playerKillers")) {
+                            JsonObject playerKillersJson = eventData.getAsJsonObject("playerKillers");
+                            if (playerKillersJson != null) {
+                                Set<UUID> playerKillers = new HashSet<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : playerKillersJson.entrySet()) {
+                                    try {
+                                        playerKillers.add(UUID.fromString(entry.getKey()));
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en playerKillers: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadPlayerKillers(playerKillers);
+                            }
+                        }
+                        
+                        // Cargar survivors (jugadores supervivientes)
+                        if (eventData.has("survivors")) {
+                            JsonObject survivorsJson = eventData.getAsJsonObject("survivors");
+                            if (survivorsJson != null) {
+                                Set<UUID> survivors = new HashSet<>();
+                                for (Map.Entry<String, com.google.gson.JsonElement> entry : survivorsJson.entrySet()) {
+                                    try {
+                                        survivors.add(UUID.fromString(entry.getKey()));
+                                    } catch (IllegalArgumentException e) {
+                                        plugin.getLogger().warning("UUID inválido en survivors: " + entry.getKey());
+                                    }
+                                }
+                                bloodAndIronWeek.loadSurvivors(survivors);
                             }
                         }
                     

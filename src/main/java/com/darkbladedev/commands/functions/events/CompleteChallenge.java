@@ -57,7 +57,7 @@ public class CompleteChallenge implements SubcommandExecutor, TabCompletable {
         
         // Verificar argumentos
         if (args.length < 1) {
-            sender.sendMessage(MM.toComponent("<red>Uso: /heartless completechallenge <desafío> [jugador]"));
+            sender.sendMessage(MM.toComponent("<red>Uso: /heartless complete-challenge <desafío> [jugador]"));
             sender.sendMessage(MM.toComponent("<yellow>Desafíos disponibles: " + getAvailableChallenges(currentEvent)));
             return;
         }
@@ -79,7 +79,7 @@ public class CompleteChallenge implements SubcommandExecutor, TabCompletable {
         } else {
             // Si es consola y no se especifica jugador
             sender.sendMessage(MM.toComponent("<red>Debes especificar un jugador cuando ejecutas desde consola."));
-            sender.sendMessage(MM.toComponent("<yellow>Uso: /heartless completechallenge <desafío> <jugador>"));
+            sender.sendMessage(MM.toComponent("<yellow>Uso: /heartless complete-challenge <desafío> <jugador>"));
             return;
         }
         
@@ -212,12 +212,9 @@ public class CompleteChallenge implements SubcommandExecutor, TabCompletable {
                 break;
                 
             case "bloodandironweek":
+                // Fallback a desafíos hardcodeados para este método
                 challenges.addAll(List.of(
-                    "iron_golem_killer_5", "iron_golem_killer_10", "iron_golem_killer_25",
-                    "wither_skeleton_slayer_10", "wither_skeleton_slayer_25", "wither_skeleton_slayer_50",
-                    "iron_collector_50", "iron_collector_100", "iron_collector_200",
-                    "blood_warrior_25", "blood_warrior_50", "blood_warrior_100",
-                    "iron_master_50", "iron_master_100"
+                    "player_killer", "pentakill", "survivor", "mass_killer"
                 ));
                 break;
                 
@@ -328,13 +325,27 @@ public class CompleteChallenge implements SubcommandExecutor, TabCompletable {
      * Completa desafíos específicos para BloodAndIronWeek usando métodos conocidos
      */
     private boolean completeBloodAndIronWeekChallenge(WeeklyEvent event, Player player, String challengeId) {
-        List<String> knownChallenges = getKnownChallengesForEvent(event);
-        if (!knownChallenges.contains(challengeId)) {
+        // Verificar si es una instancia de BloodAndIronWeek
+        if (!(event instanceof com.darkbladedev.mechanics.BloodAndIronWeek)) {
             return false;
         }
         
-        HeartlessMain.getInstance().getLogger().info("Completando desafío " + challengeId + " para " + player.getName() + " en BloodAndIronWeek");
-        return true;
+        com.darkbladedev.mechanics.BloodAndIronWeek bloodEvent = (com.darkbladedev.mechanics.BloodAndIronWeek) event;
+        
+        // Verificar si el desafío es válido usando el método público
+        List<String> availableChallenges = bloodEvent.getAvailableChallengeIds();
+        if (!availableChallenges.contains(challengeId)) {
+            return false;
+        }
+        
+        // Completar el desafío usando el método público
+        boolean success = bloodEvent.completeChallengeForPlayerByPlayer(player, challengeId);
+        
+        if (success) {
+            HeartlessMain.getInstance().getLogger().info("Desafío " + challengeId + " completado para " + player.getName() + " en BloodAndIronWeek");
+        }
+        
+        return success;
     }
     
 

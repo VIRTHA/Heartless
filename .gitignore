@@ -19,3 +19,4 @@ test-data
 src/test/*
 .docs/Heartless.md
 src/main/resources/heartless_datapack.zip
+.tests/

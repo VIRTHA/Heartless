@@ -102,7 +102,7 @@ public class Bootstraps implements PluginBootstrap {
                     .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(20, 8))
                     .weight(3)
                     
-                    .description(MM.toComponent("<red>TicTac</red>"))
+                    .description(MM.toComponent("<gradient:#ea2c2c:#e53553:#e03e7a:#dc48a2:#d751c9:#d25af0>TicTac</gradient>"))
                     
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.SWORDS))
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.AXES))
@@ -150,7 +150,7 @@ public class Bootstraps implements PluginBootstrap {
                     .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(25, 12))
                     .weight(2)
                     
-                    .description(MM.toComponent("<gold>Adrenalina</gold>"))
+                    .description(MM.toComponent("<gradient:#71f65b:#6bf26d:#65ee7f:#60e992:#5ae5a4:#54e1b6:#4eddc8:#49d8db:#43d4ed:#3dd0ff>Adrenalina</gradient>"))
                     
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.HEAD_ARMOR))
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.CHEST_ARMOR))
@@ -168,7 +168,7 @@ public class Bootstraps implements PluginBootstrap {
                     .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(30, 15))
                     .weight(2)
                     
-                    .description(MM.toComponent("<dark_red>Primer Golpe</dark_red>"))
+                    .description(MM.toComponent("<gradient:#ff3d3d:#f63c3c:#ee3a3a:#e53939:#dd3737:#d43636:#cb3434:#c33333:#ba3131:#b23030:#a92e2e>Primer Golpe</gradient>"))
                     
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.SWORDS))
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.AXES))

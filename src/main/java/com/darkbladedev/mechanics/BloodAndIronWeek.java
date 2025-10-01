@@ -2,14 +2,13 @@ package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.challenges.Reward;
-import com.darkbladedev.events.WeeklyEventResumeEvent;
-import com.darkbladedev.utils.EventType;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -21,15 +20,17 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -47,7 +48,7 @@ import java.util.logging.Level;
  * - Validaciones de nulidad mejoradas
  * - Gestión segura de tareas asíncronas
  */
-public class BloodAndIronWeek extends WeeklyEvent {
+public class BloodAndIronWeek extends AbstractWeeklyEvent {
 
     // Referencias atómicas para tareas críticas
     private final AtomicReference<BukkitTask> mainTaskRef = new AtomicReference<>();
@@ -58,19 +59,16 @@ public class BloodAndIronWeek extends WeeklyEvent {
     private final Map<UUID, Long> lastPlayerKillTime = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> playerKillCount = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> consecutiveKills = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> potionDamageDealt = new ConcurrentHashMap<>();
-    private final Set<UUID> instantDamageKillers = ConcurrentHashMap.newKeySet();
     private final Set<UUID> pentakillPlayers = ConcurrentHashMap.newKeySet();
     private final Set<UUID> survivedPlayers = ConcurrentHashMap.newKeySet();
     private final Set<UUID> deadPlayers = ConcurrentHashMap.newKeySet();
     private final Set<UUID> awardedAdrenaline = ConcurrentHashMap.newKeySet();
     private final Set<UUID> mobKillWarningGiven = ConcurrentHashMap.newKeySet();
     private final Set<UUID> survivors = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> massKillers = ConcurrentHashMap.newKeySet();
     
     // Aliases para compatibilidad
-    // Referencias corregidas para evitar duplicación
     private final Set<UUID> playerKillers = ConcurrentHashMap.newKeySet();
-    private final Set<UUID> potionKillers = ConcurrentHashMap.newKeySet();
     private final Set<UUID> pentaKillers = ConcurrentHashMap.newKeySet();
     private final Map<UUID, Long> lastMobKillTime = new ConcurrentHashMap<>();
     
@@ -84,6 +82,9 @@ public class BloodAndIronWeek extends WeeklyEvent {
     public BloodAndIronWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
         this.prefix = "<b><gradient:#f82f2f:#f74242:#f75555:#f66869:#f67b7c:#f58f8f:#f4a2a2:#f4b5b5:#f3c8c9:#f3dbdc:#f2eeef:#f2eeef:#f2edee:#f2edee:#f2eded:#f3eded:#f3eced:#f3ecec:#f3ecec:#f3ebeb:#f3ebeb>Semana de Sangre y Hierro</gradient></b>";
+        
+        // Inicializar desafíos específicos del evento
+        initializeChallengeDefinitions();
     }
     
     /**
@@ -104,6 +105,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
     /**
      * Restaura datos específicos del evento después del reinicio
      */
+    @SuppressWarnings("unused")
     private void restoreEventSpecificData() {
         try {
             // Las colecciones son final y ya están inicializadas, solo necesitamos limpiarlas si es necesario
@@ -141,7 +143,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
             // Limpiar jugadores offline de las colecciones
             cleanupOfflinePlayers();
             
-            plugin.getLogger().info("Validación de datos del evento completada");
+            plugin.getLogger().info("Desafíos de BloodAndIronWeek inicializados correctamente");
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Error al validar datos del evento", e);
         }
@@ -178,6 +180,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
     /**
      * Intenta una recuperación segura del evento en caso de error
      */
+    @SuppressWarnings("unused")
     private void safeEventRecovery() {
         try {
             plugin.getLogger().info("Iniciando recuperación segura del evento...");
@@ -213,29 +216,18 @@ public class BloodAndIronWeek extends WeeklyEvent {
         lastPlayerKillTime.clear();
         lastHostileMobKillTime.clear();
         consecutiveKills.clear();
-        potionDamageDealt.clear();
-        instantDamageKillers.clear();
         pentakillPlayers.clear();
         mobKillWarningGiven.clear();
         survivors.clear();
+        massKillers.clear();
         playerKillers.clear();
-        potionKillers.clear();
         pentaKillers.clear();
         lastMobKillTime.clear();
         
         plugin.getLogger().info("Colecciones del evento BloodAndIronWeek inicializadas correctamente");
     }
 
-    @Override
-    public void start() {
-        try {
-            super.start();
-            plugin.getLogger().info("BloodAndIronWeek iniciado correctamente");
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Error al iniciar BloodAndIronWeek", e);
-            throw new RuntimeException("Fallo crítico al iniciar el evento", e);
-        }
-    }
+
 
     @Override
     protected void startEventTasks() {
@@ -256,7 +248,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
             plugin.getLogger().info("Tareas del evento BloodAndIronWeek iniciadas");
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Error al iniciar tareas del evento", e);
-            stopEventTasks(); // Limpieza en caso de error
+            stopEventTasks();
         }
     }
     
@@ -303,12 +295,16 @@ public class BloodAndIronWeek extends WeeklyEvent {
             lastPlayerKillTime.clear();
             playerKillCount.clear();
             consecutiveKills.clear();
-            instantDamageKillers.clear();
             pentakillPlayers.clear();
             survivedPlayers.clear();
             deadPlayers.clear();
             awardedAdrenaline.clear();
             mobKillWarningGiven.clear();
+            survivors.clear();
+            massKillers.clear();
+            playerKillers.clear();
+            pentaKillers.clear();
+            lastMobKillTime.clear();
             
             plugin.getLogger().info("Datos del evento BloodAndIronWeek limpiados");
         } catch (Exception e) {
@@ -332,42 +328,6 @@ public class BloodAndIronWeek extends WeeklyEvent {
             plugin.getLogger().info("Evento BloodAndIronWeek pausado");
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error al pausar evento", e);
-        }
-    }
-    
-    /**
-     * Maneja la reanudación específica del evento BloodAndIronWeek
-     * @param event El evento de reanudación
-     */
-    public void onResumeEvent(WeeklyEventResumeEvent event) {
-        if (event.getEventType() != EventType.BLOOD_AND_IRON_WEEK) {
-            return;
-        }
-        
-        try {
-            plugin.getLogger().info("Iniciando reanudación específica de BloodAndIronWeek...");
-            
-            // Validar estado del evento antes de reanudar
-            if (!isActive.get()) {
-                plugin.getLogger().warning("Intentando reanudar evento inactivo");
-                return;
-            }
-            
-            // Restaurar datos específicos del evento
-            restoreEventSpecificData();
-            
-            // Reinicializar jugadores online
-            reinitializeOnlinePlayers();
-            
-            // Validar integridad de datos después de la restauración
-            validateEventData();
-            
-            plugin.getLogger().info("Reanudación específica de BloodAndIronWeek completada");
-            
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Error en reanudación específica de BloodAndIronWeek", e);
-            // Intentar recuperación segura
-            safeEventRecovery();
         }
     }
     
@@ -402,60 +362,17 @@ public class BloodAndIronWeek extends WeeklyEvent {
                             // Reinicializar jugadores online después del reinicio del servidor
                             reinitializeOnlinePlayers();
                             
-                            plugin.getLogger().info("Evento BloodAndIronWeek reanudado correctamente con sincronización mejorada");
+                            plugin.getLogger().info("Evento BloodAndIronWeek reanudado correctamente");
                         } catch (Exception e) {
                             plugin.getLogger().log(Level.SEVERE, "Error al iniciar tareas durante reanudación", e);
                             stopEventTasks();
                         }
                     }
                 }.runTaskLater(plugin, 1L);
-                
             }
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Error al reanudar evento", e);
-            // Intentar limpieza en caso de error
             stopEventTasks();
-        }
-    }
-        
-    @Override
-    public void stop() {
-        try {
-            if (!isActive.get()) return;
-            
-            isActive.set(false);
-            
-            // Cancelar tareas de forma segura
-            stopEventTasks();
-            
-            // Otorgar recompensas de supervivencia
-            Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
-            if (onlinePlayers != null) {
-                for (Player player : onlinePlayers) {
-                    if (player != null && player.isOnline()) {
-                        try {
-                            UUID playerId = player.getUniqueId();
-                            if (!deadPlayers.contains(playerId) && 
-                                playerKillCount.getOrDefault(playerId, 0) >= 10) {
-                                awardSurvivalChallenge(player);
-                            }
-                        } catch (Exception e) {
-                            plugin.getLogger().log(Level.WARNING, 
-                                "Error al otorgar recompensa de supervivencia a " + player.getName(), e);
-                        }
-                    }
-                }
-            }
-            
-            // Limpiar datos
-            cleanupEventData();
-            
-            // Llamar al método stop() de la clase padre
-            super.stop();
-            
-            plugin.getLogger().info("BloodAndIronWeek detenido correctamente");
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Error crítico al detener BloodAndIronWeek", e);
         }
     }
     
@@ -556,7 +473,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
                 plugin.getLogger().info("Tarea de verificación anterior cancelada antes de iniciar nueva");
             }
             
-            // Iniciar nueva tarea de verificación de kills con validaciones adicionales
+            // Iniciar nueva tarea de verificación
             BukkitTask newTask = new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -569,9 +486,9 @@ public class BloodAndIronWeek extends WeeklyEvent {
                         }
                         
                         long currentTime = System.currentTimeMillis();
-                        
                         Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
-                        if (onlinePlayers != null && !onlinePlayers.isEmpty()) {
+                        
+                        if (onlinePlayers != null) {
                             for (Player player : onlinePlayers) {
                                 if (player != null && player.isOnline()) {
                                     checkMobKillTimeout(player, currentTime);
@@ -581,7 +498,6 @@ public class BloodAndIronWeek extends WeeklyEvent {
                         }
                     } catch (Exception e) {
                         plugin.getLogger().log(Level.WARNING, "Error en tarea de verificación de kills", e);
-                        // No cancelar la tarea por un error menor, solo registrar
                     }
                 }
             }.runTaskTimer(plugin, 20L * 60, 20L * 60); // Cada minuto
@@ -598,6 +514,31 @@ public class BloodAndIronWeek extends WeeklyEvent {
         }
     }
     
+    private void initializeEventStatistics() {
+        // Inicializar estadísticas globales específicas
+        incrementGlobalStatistic("blood_and_iron_events_started", 1);
+    }
+    
+    private void cleanupEventResources() {
+        // Cancelar tareas específicas del evento
+        if (mainTaskRef.get() != null && !mainTaskRef.get().isCancelled()) {
+            mainTaskRef.get().cancel();
+        }
+        if (checkKillsTaskRef.get() != null && !checkKillsTaskRef.get().isCancelled()) {
+            checkKillsTaskRef.get().cancel();
+        }
+    }
+    
+    private void processFinalEventStatistics() {
+        // Procesar estadísticas finales del evento
+        incrementGlobalStatistic("blood_and_iron_events_completed", 1);
+        
+        // Log de estadísticas finales
+        plugin.getLogger().info("[BloodAndIronWeek] Estadísticas finales - Supervivientes: " + survivors.size() + 
+                               ", Asesinos en masa: " + massKillers.size() + 
+                               ", Pentakills: " + pentakillPlayers.size());
+    }
+
     private void initializePlayer(Player player) {
         try {
             if (player == null) return;
@@ -605,9 +546,10 @@ public class BloodAndIronWeek extends WeeklyEvent {
             UUID playerId = player.getUniqueId();
             long currentTime = System.currentTimeMillis();
             
-            // Inicializar tiempos de kill
-            lastHostileMobKillTime.put(playerId, currentTime);
-            lastPlayerKillTime.put(playerId, currentTime);
+            // Inicializar tiempos si no existen
+            lastHostileMobKillTime.putIfAbsent(playerId, currentTime);
+            lastPlayerKillTime.putIfAbsent(playerId, currentTime);
+            lastMobKillTime.putIfAbsent(playerId, currentTime);
             
             // Inicializar contadores si no existen
             playerKillCount.putIfAbsent(playerId, 0);
@@ -695,12 +637,12 @@ public class BloodAndIronWeek extends WeeklyEvent {
             Bukkit.broadcast(MM.toComponent("<gray><b>=== <gold>DESAFÍOS DE LA SEMANA</gold> <gray><b>==="));
             Bukkit.broadcast(MM.toComponent("<yellow>1. <red>Mata</red> a <white>3</white> jugadores</yellow>"));
             Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Encantamiento <gold><u>Adrenaline</u></gold><gray>"));
-            Bukkit.broadcast(MM.toComponent("<yellow>2. <red>Mata<red> a un jugador con poción de daño instantáneo</yellow>"));
-            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón extra</gray>"));
-            Bukkit.broadcast(MM.toComponent("<yellow>3. <red>Mata<red> a 5 jugadores seguidos sin morir</yellow>"));
+            Bukkit.broadcast(MM.toComponent("<yellow>2. <red>Mata<red> a 5 jugadores seguidos sin morir</yellow>"));
             Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>Tag</u> \"Pentakill\"</gray>"));
-            Bukkit.broadcast(MM.toComponent("<yellow>4. <green>Sobrevive<green> sin morir en todo el evento (con más de 10 kills)</yellow>"));
+            Bukkit.broadcast(MM.toComponent("<yellow>3. <green>Sobrevive<green> sin morir en todo el evento (con más de 10 kills)</yellow>"));
             Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+20 Thalos</u></gray>"));
+            Bukkit.broadcast(MM.toComponent("<yellow>4. <red>Mata<red> a más de 10 jugadores durante la semana</yellow>"));
+            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón máximo</gray>"));
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error al anunciar desafíos", e);
         }
@@ -714,18 +656,31 @@ public class BloodAndIronWeek extends WeeklyEvent {
             if (inventory == null) return;
             
             int ironArmorPieces = 0;
+            int diamondNetheriteArmorPieces = 0;
             
-            // Contar piezas de armadura de hierro
+            // Contar piezas de armadura
             ItemStack[] armorContents = inventory.getArmorContents();
             if (armorContents != null) {
                 for (ItemStack armor : armorContents) {
-                    if (armor != null && armor.getType().name().startsWith("IRON_")) {
-                        ironArmorPieces++;
+                    if (armor != null) {
+                        String materialName = armor.getType().name();
+                        if (materialName.startsWith("IRON_")) {
+                            ironArmorPieces++;
+                        } else if (materialName.startsWith("DIAMOND_") || materialName.startsWith("NETHERITE_")) {
+                            diamondNetheriteArmorPieces++;
+                        }
                     }
                 }
             }
             
-            // Aplicar efectos según piezas de armadura
+            // Aplicar penalizaciones por armadura de diamante/netherite
+            if (diamondNetheriteArmorPieces > 0) {
+                // Aplicar Fatiga II y Lentitud II (se remueven instantáneamente al desequiparse)
+                player.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 120, 1, false, false));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 120, 1, false, false));
+            }
+            
+            // Aplicar efectos según piezas de armadura de hierro
             if (ironArmorPieces >= 4) {
                 // Armadura completa: Resistencia II y Fuerza I
                 player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 120, 1, false, false));
@@ -747,7 +702,18 @@ public class BloodAndIronWeek extends WeeklyEvent {
             if (inventory == null) return;
             
             ItemStack mainHand = inventory.getItemInMainHand();
-            if (mainHand != null && mainHand.getType() == Material.IRON_SWORD) {
+            if (mainHand == null) return;
+            
+            Material swordType = mainHand.getType();
+            
+            // Verificar si porta espada de diamante/netherite
+            if (swordType == Material.DIAMOND_SWORD || swordType == Material.NETHERITE_SWORD) {
+                // Aplicar Náuseas I durante 10 segundos (se remueve instantáneamente al desequiparse)
+                player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 200, 0, false, false));
+            }
+            
+            // Verificar si porta espada de hierro
+            if (swordType == Material.IRON_SWORD) {
                 // Espada de hierro: Velocidad I
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 120, 0, false, false));
             }
@@ -758,29 +724,73 @@ public class BloodAndIronWeek extends WeeklyEvent {
     
     // ========== MÉTODOS DE DESAFÍOS ==========
     
+    /**
+     * Obtiene la lista de IDs de desafíos disponibles para este evento
+     * Compatible con el comando CompleteChallenge
+     */
+    @SuppressWarnings("unused")
+    private List<String> getAvailableChallengeIdsInternal() {
+        return Arrays.asList(
+            "player_killer",    // Mata a 3 jugadores
+            "pentakill",        // Mata a 5 jugadores seguidos sin morir
+            "survivor",         // Sobrevive sin morir en todo el evento (con más de 10 kills)
+            "mass_killer"       // Mata a más de 10 jugadores durante la semana
+        );
+    }
+    
+    /**
+     * Completa un desafío específico para un jugador
+     * Compatible con el comando CompleteChallenge
+     */
+    public boolean completeChallengeForPlayerByPlayer(Player player, String challengeId) {
+        if (player == null || challengeId == null) return false;
+        
+        try {
+            switch (challengeId.toLowerCase()) {
+                case "player_killer":
+                    completeChallengeForPlayerInternal(player, "player_killer");
+                    return true;
+                case "pentakill":
+                    completeChallengeForPlayerInternal(player, "pentakill");
+                    return true;
+                case "survivor":
+                    completeChallengeForPlayerInternal(player, "survivor");
+                    return true;
+                case "mass_killer":
+                    completeChallengeForPlayerInternal(player, "mass_killer");
+                    return true;
+                default:
+                    return false;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error al completar desafío: " + challengeId, e);
+            return false;
+        }
+    }
+    
     private boolean hasChallengeCompleted(Player player, String challengeType) {
         try {
             if (player == null || challengeType == null) return false;
-            return hasChallengeCompleted(player.getUniqueId(), challengeType);
+            return hasChallengeCompletedInternal(player.getUniqueId(), challengeType);
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error al verificar desafío completado", e);
             return false;
         }
     }
     
-    public boolean hasChallengeCompleted(UUID playerId, String challengeType) {
+    private boolean hasChallengeCompletedInternal(UUID playerId, String challengeType) {
         try {
             if (playerId == null || challengeType == null) return false;
             
             switch (challengeType.toLowerCase()) {
                 case "player_killer":
                     return playerKillers.contains(playerId);
-                case "potion_killer":
-                    return potionKillers.contains(playerId);
                 case "pentakill":
                     return pentaKillers.contains(playerId);
                 case "survivor":
                     return survivors.contains(playerId);
+                case "mass_killer":
+                    return massKillers.contains(playerId);
                 default:
                     return false;
             }
@@ -790,7 +800,7 @@ public class BloodAndIronWeek extends WeeklyEvent {
         }
     }
     
-    private void completeChallengeForPlayer(Player player, String challengeType) {
+    private void completeChallengeForPlayerInternal(Player player, String challengeType) {
         try {
             if (player == null || challengeType == null) return;
             
@@ -803,18 +813,6 @@ public class BloodAndIronWeek extends WeeklyEvent {
                         player.sendMessage(MM.toComponent("<green>¡Desafío completado: Asesino de Jugadores!"));
                         Reward reward = new Reward("enchantment:adrenaline:1");
                         reward.grantTo(player, prefix);
-                    }
-                    break;
-                case "potion_killer":
-                    if (!potionKillers.contains(playerId)) {
-                        potionKillers.add(playerId);
-                        player.sendMessage(MM.toComponent("<green>¡Desafío completado: Maestro de Pociones!"));
-                        
-                        // Otorgar +1 corazón máximo por matar con poción de daño instantáneo
-                        double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
-                        player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(currentMaxHealth + 2.0);
-                        player.setHealth(player.getAttribute(Attribute.MAX_HEALTH).getBaseValue());
-                        player.sendMessage(MM.toComponent("<green>¡Has ganado un corazón extra!"));
                     }
                     break;
                 case "pentakill":
@@ -846,10 +844,6 @@ public class BloodAndIronWeek extends WeeklyEvent {
         return new HashSet<>(playerKillers);
     }
     
-    public Set<UUID> getPotionKillers() {
-        return new HashSet<>(potionKillers);
-    }
-    
     public Set<UUID> getPentaKillers() {
         return new HashSet<>(pentaKillers);
     }
@@ -862,13 +856,6 @@ public class BloodAndIronWeek extends WeeklyEvent {
         if (killers != null) {
             playerKillers.clear();
             playerKillers.addAll(killers);
-        }
-    }
-    
-    public void loadPotionKillers(Set<UUID> killers) {
-        if (killers != null) {
-            potionKillers.clear();
-            potionKillers.addAll(killers);
         }
     }
     
@@ -900,19 +887,23 @@ public class BloodAndIronWeek extends WeeklyEvent {
         }
     }
     
+    public Set<UUID> getMassKillers() {
+        return new HashSet<>(massKillers);
+    }
+    
+    public void loadMassKillers(Set<UUID> killers) {
+        if (killers != null) {
+            massKillers.clear();
+            massKillers.addAll(killers);
+        }
+    }
+    
     public Set<UUID> getAwardedAdrenaline() {
         return new HashSet<>(awardedAdrenaline);
     }
     
     public Set<UUID> getMobKillWarningGiven() {
         return new HashSet<>(mobKillWarningGiven);
-    }
-    
-    public void loadInstantDamageKillers(Set<UUID> killersSet) {
-        if (killersSet != null) {
-            potionKillers.clear();
-            potionKillers.addAll(killersSet);
-        }
     }
     
     public void loadPentakillPlayers(Set<UUID> pentaSet) {
@@ -986,10 +977,6 @@ public class BloodAndIronWeek extends WeeklyEvent {
     
     public Map<UUID, Integer> getConsecutiveKills() {
         return new HashMap<>(consecutiveKills);
-    }
-    
-    public Set<UUID> getInstantDamageKillers() {
-        return new HashSet<>(potionKillers);
     }
     
     public Set<UUID> getPentakillPlayers() {
@@ -1084,19 +1071,9 @@ public class BloodAndIronWeek extends WeeklyEvent {
             Player victim = (Player) event.getEntity();
             
             // Verificar si el atacante usó poción de daño
+            @SuppressWarnings("unused")
             ItemStack mainHand = attacker.getInventory().getItemInMainHand();
-            if (mainHand != null && mainHand.getType() == Material.SPLASH_POTION) {
-                PotionMeta meta = (PotionMeta) mainHand.getItemMeta();
-                if (meta != null && meta.hasCustomEffects()) {
-                    for (PotionEffect effect : meta.getCustomEffects()) {
-                        if (effect.getType() == PotionEffectType.INSTANT_DAMAGE) {
-                            // Marcar para verificar kill con poción
-                            potionDamageDealt.put(attacker.getUniqueId(), System.currentTimeMillis());
-                            break;
-                        }
-                    }
-                }
-            }
+            // Lógica de poción de daño eliminada - ya no es un desafío válido
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error en evento EntityDamageByEntity", e);
         }
@@ -1118,22 +1095,15 @@ public class BloodAndIronWeek extends WeeklyEvent {
             
             // Verificar desafío de 3 kills
             if (currentKills >= 3 && !hasChallengeCompleted(killer, "player_killer")) {
-                completeChallengeForPlayer(killer, "player_killer");
+                completeChallengeForPlayer(killerId, "player_killer");
             }
             
             // Verificar desafío de pentakill
             if (currentConsecutive >= 5 && !hasChallengeCompleted(killer, "pentakill")) {
-                completeChallengeForPlayer(killer, "pentakill");
+                completeChallengeForPlayer(killerId, "pentakill");
             }
             
-            // Verificar kill con poción
-            Long potionTime = potionDamageDealt.get(killerId);
-            if (potionTime != null && (System.currentTimeMillis() - potionTime) < 5000) { // 5 segundos
-                if (!hasChallengeCompleted(killer, "potion_killer")) {
-                    completeChallengeForPlayer(killer, "potion_killer");
-                }
-                potionDamageDealt.remove(killerId);
-            }
+            // Lógica de kill con poción eliminada - ya no es un desafío válido
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error al manejar kill de jugador", e);
         }
@@ -1161,7 +1131,8 @@ public class BloodAndIronWeek extends WeeklyEvent {
          }
      }
      
-     private void awardSurvivalChallenge(Player player) {
+     @SuppressWarnings("unused")
+    private void awardSurvivalChallenge(Player player) {
          try {
              if (player == null) return;
              
@@ -1170,7 +1141,27 @@ public class BloodAndIronWeek extends WeeklyEvent {
              // Verificar si el jugador tiene más de 10 kills y no ha muerto
              int kills = playerKillCount.getOrDefault(playerId, 0);
              if (kills >= 10 && !deadPlayers.contains(playerId) && !hasChallengeCompleted(player, "survivor")) {
-                 completeChallengeForPlayer(player, "survivor");
+                 completeChallengeForPlayer(playerId, "survivor");
+             }
+             
+             // Verificar desafío de +1 corazón máximo por más de 10 kills
+             if (kills > 10 && !massKillers.contains(playerId)) {
+                 massKillers.add(playerId);
+                 
+                 // Otorgar +1 corazón máximo (2.0 de salud)
+                 AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+                 if (maxHealthAttr != null) {
+                     double currentMaxHealth = maxHealthAttr.getValue();
+                     double newMaxHealth = Math.min(currentMaxHealth + 2.0, 40.0); // Máximo 20 corazones
+                     maxHealthAttr.setBaseValue(newMaxHealth);
+                     
+                     // Curar al jugador para que vea el efecto inmediatamente
+                     player.setHealth(Math.min(player.getHealth() + 2.0, newMaxHealth));
+                     
+                     // Mensaje de recompensa
+                     Bukkit.broadcast(MM.toComponent("<gold><b>" + player.getName() + "</b> ha obtenido <red>+1 corazón máximo</red> por eliminar a más de 10 jugadores!"));
+                     player.sendMessage(MM.toComponent("<green><b>¡Felicidades!</b> Has obtenido <red>+1 corazón máximo</red> por tus habilidades de combate."));
+                 }
              }
          } catch (Exception e) {
              plugin.getLogger().log(Level.WARNING, "Error al otorgar desafío de supervivencia", e);
@@ -1200,10 +1191,6 @@ public class BloodAndIronWeek extends WeeklyEvent {
                  player.sendMessage(MM.toComponent("<green>✓ Asesino de Jugadores"));
              }
              
-             if (hasChallengeCompleted(player, "potion_killer")) {
-                 player.sendMessage(MM.toComponent("<green>✓ Maestro de Pociones"));
-             }
-             
              if (hasChallengeCompleted(player, "pentakill")) {
                  player.sendMessage(MM.toComponent("<green>✓ Pentakill"));
              }
@@ -1215,4 +1202,176 @@ public class BloodAndIronWeek extends WeeklyEvent {
              plugin.getLogger().log(Level.WARNING, "Error al enviar estadísticas a " + player.getName(), e);
          }
      }
+
+    // === IMPLEMENTACIÓN DE MÉTODOS ABSTRACTOS ===
+    
+    @Override
+    protected void onEventStart() {
+        try {
+            plugin.getLogger().info("[BloodAndIronWeek] Iniciando evento específico...");
+            
+            // Configurar desafíos específicos del evento
+            setupBloodAndIronChallenges();
+            
+            // Inicializar estadísticas específicas
+            initializeEventStatistics();
+            
+            plugin.getLogger().info("[BloodAndIronWeek] Evento específico iniciado correctamente");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[BloodAndIronWeek] Error al iniciar evento específico", e);
+        }
+    }
+    
+    @Override
+    protected void onEventStop() {
+        try {
+            plugin.getLogger().info("[BloodAndIronWeek] Deteniendo evento específico...");
+            
+            // Limpiar recursos específicos del evento
+            cleanupEventResources();
+            
+            // Procesar estadísticas finales
+            processFinalEventStatistics();
+            
+            plugin.getLogger().info("[BloodAndIronWeek] Evento específico detenido correctamente");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[BloodAndIronWeek] Error al detener evento específico", e);
+        }
+    }
+    
+    @Override
+    protected void initializeEventSpecificData() {
+        try {
+            plugin.getLogger().info("[BloodAndIronWeek] Inicializando datos específicos del evento...");
+            
+            // Inicializar mapas de tracking
+            lastHostileMobKillTime.clear();
+            lastPlayerKillTime.clear();
+            playerKillCount.clear();
+            consecutiveKills.clear();
+            pentakillPlayers.clear();
+            survivedPlayers.clear();
+            deadPlayers.clear();
+            awardedAdrenaline.clear();
+            mobKillWarningGiven.clear();
+            survivors.clear();
+            massKillers.clear();
+            
+            // Configurar datos específicos en el mapa de persistencia
+            eventSpecificData.put("event_type", "blood_and_iron_week");
+            eventSpecificData.put("start_time", System.currentTimeMillis());
+            eventSpecificData.put("total_player_kills", 0L);
+            eventSpecificData.put("total_mob_kills", 0L);
+            eventSpecificData.put("pentakills_achieved", 0L);
+            
+            plugin.getLogger().info("[BloodAndIronWeek] Datos específicos inicializados correctamente");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[BloodAndIronWeek] Error al inicializar datos específicos", e);
+        }
+    }
+    
+    @Override
+    protected void saveEventSpecificData() {
+        try {
+            plugin.getLogger().info("[BloodAndIronWeek] Guardando datos específicos del evento...");
+            
+            // Actualizar estadísticas en el mapa de persistencia
+            eventSpecificData.put("last_save_time", System.currentTimeMillis());
+            eventSpecificData.put("active_players", getActivePlayerCount());
+            eventSpecificData.put("total_survivors", survivors.size());
+            eventSpecificData.put("total_mass_killers", massKillers.size());
+            
+            // Guardar progreso de desafíos
+            eventSpecificData.put("completed_challenges_count", getTotalChallengesCompleted());
+            
+            plugin.getLogger().info("[BloodAndIronWeek] Datos específicos guardados correctamente");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[BloodAndIronWeek] Error al guardar datos específicos", e);
+        }
+    }
+    
+    @Override
+    protected void processEventStatistics() {
+        try {
+            // Actualizar estadísticas globales
+            incrementGlobalStatistic("total_player_kills", playerKillCount.values().stream().mapToInt(Integer::intValue).sum());
+            incrementGlobalStatistic("total_pentakills", pentakillPlayers.size());
+            incrementGlobalStatistic("total_survivors", survivors.size());
+            incrementGlobalStatistic("total_mass_killers", massKillers.size());
+            
+            // Procesar estadísticas de jugadores activos
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                UUID playerId = player.getUniqueId();
+                
+                // Actualizar estadísticas del jugador
+                updatePlayerStatistic(playerId, "kills", playerKillCount.getOrDefault(playerId, 0));
+                updatePlayerStatistic(playerId, "consecutive_kills", consecutiveKills.getOrDefault(playerId, 0));
+                updatePlayerStatistic(playerId, "is_survivor", survivors.contains(playerId) ? 1 : 0);
+                updatePlayerStatistic(playerId, "is_mass_killer", massKillers.contains(playerId) ? 1 : 0);
+            }
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[BloodAndIronWeek] Error al procesar estadísticas del evento", e);
+        }
+    }
+    
+    // === MÉTODOS AUXILIARES PARA LOS MÉTODOS ABSTRACTOS ===
+    
+    private void setupBloodAndIronChallenges() {
+        try {
+            // Configurar desafíos específicos del evento
+            initializeChallengeDefinitions();
+            plugin.getLogger().info("[BloodAndIronWeek] Desafíos específicos configurados");
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[BloodAndIronWeek] Error al configurar desafíos", e);
+        }
+    }
+    
+    /**
+     * Inicializa las definiciones de desafíos específicos de la Semana de Sangre y Hierro
+     */
+    private void initializeChallengeDefinitions() {
+        try {
+            // Desafío 1: Matar a un jugador (Fácil)
+            registerChallenge("player_killer", ChallengeDefinition.fromStringRewards(
+                "player_killer",
+                "Asesino de Jugadores",
+                "Mata a un jugador durante el evento",
+                1,
+                Collections.singletonList("coins:10")
+            ));
+            
+            // Desafío 2: Conseguir pentakill (5 kills consecutivos) (Intermedio)
+            registerChallenge("pentakill", ChallengeDefinition.fromStringRewards(
+                "pentakill",
+                "Pentakill",
+                "Consigue 5 kills consecutivos sin morir",
+                5,
+                Collections.singletonList("enchant:sharpness:3")
+            ));
+            
+            // Desafío 3: Sobrevivir hasta el final del evento (Difícil)
+            registerChallenge("survivor", ChallengeDefinition.fromStringRewards(
+                "survivor",
+                "Superviviente",
+                "Sobrevive hasta el final del evento sin morir",
+                1,
+                Collections.singletonList("health:1")
+            ));
+            
+            // Desafío 4: Conseguir 10+ kills para obtener +1 corazón permanente (Leyenda)
+            registerChallenge("mass_killer", ChallengeDefinition.fromStringRewards(
+                "mass_killer",
+                "Asesino en Masa",
+                "Consigue 10 o más kills durante el evento",
+                10,
+                Collections.singletonList("health:2")
+            ));
+            
+            plugin.getLogger().info("[BloodAndIronWeek] Desafíos registrados correctamente en el sistema");
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "[BloodAndIronWeek] Error al inicializar definiciones de desafíos", e);
+        }
+    }            
 }

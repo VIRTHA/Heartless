@@ -551,7 +551,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     
     private void setupUndeadWeekChallenges() {
         // Desafío 1: Evitar morir durante la Noche Roja (Intermedio)
-        availableChallenges.put("dr_zomboss", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
+        registerChallenge("dr_zomboss", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
             "dr_zomboss",
             "Dr. Zomboss",
             "Evita morir en la Noche Roja",
@@ -560,7 +560,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         ));
         
         // Desafío 2: Curarse infección zombie 10 veces (Intermedio)
-        availableChallenges.put("infection_survivor", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
+        registerChallenge("infection_survivor", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
             "infection_survivor",
             "Superviviente de Infección",
             "Curarse infección zombie 10 veces",
@@ -569,7 +569,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         ));
         
         // Desafío 3: Matar 50 no-muertos en Noche Roja (Difícil)
-        availableChallenges.put("red_moon_hunter", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
+        registerChallenge("red_moon_hunter", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
             "red_moon_hunter",
             "Cazador de Noche Roja",
             "Matar 50 no-muertos en Noche Roja",
@@ -578,7 +578,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         ));
         
         // Desafío 4: Derrotar Wither en Noche Roja (Leyenda)
-        availableChallenges.put("wither_slayer", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
+        registerChallenge("wither_slayer", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
             "wither_slayer",
             "Wither Slayer",
             "Derrotar Wither en Noche Roja",
