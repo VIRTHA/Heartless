@@ -91,7 +91,7 @@ public class EventManager {
         plugin.getLogger().info("EventManager: Aplicando cambios de configuración...");
         
         // Obtener nuevos valores de configuración
-        ConfigManager configManager = HeartlessMain.getConfigManager();
+        ConfigManager configManager = HeartlessMain.getInstance().getConfigManager();
         
         // Aplicar configuraciones específicas del sistema de eventos
         if (configManager.isEventsEnabled()) {

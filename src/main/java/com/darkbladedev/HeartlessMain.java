@@ -236,7 +236,7 @@ public class HeartlessMain extends JavaPlugin {
         return instance;
     }
     
-    public static ConfigManager getConfigManager() {
+    public ConfigManager getConfigManager() {
         return configManager;
     }
 

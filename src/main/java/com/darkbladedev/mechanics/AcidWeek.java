@@ -224,18 +224,51 @@ public class AcidWeek extends AbstractWeeklyEvent {
     }
     
     /**
+     * Obtiene el color de dificultad basado en el ID del desafío
+     */
+    private String getDifficultyColor(String challengeId) {
+        switch (challengeId) {
+            case "fish_collector":
+                return "<green>";
+            case "acid_rain_survivor":
+                return "<yellow>";
+            case "chemical_killer":
+                return "<red>";
+            case "blue_axolotl":
+                return "<light_purple>";
+            default:
+                return "<white>";
+        }
+    }
+
+    /**
+     * Anuncia los desafíos registrados dinámicamente
+     */
+    private void announceRegisteredChallenges() {
+        try {
+            if (availableChallenges == null || availableChallenges.isEmpty()) {
+                plugin.getLogger().warning("[AcidWeek] No hay desafíos registrados para anunciar");
+                return;
+            }
+            
+            Bukkit.broadcast(MM.toComponent("<yellow>Desafíos disponibles:"));
+            
+            for (ChallengeDefinition challenge : availableChallenges.values()) {
+                String difficultyColor = getDifficultyColor(challenge.getId());
+                Bukkit.broadcast(MM.toComponent(difficultyColor + "• " + 
+                    challenge.getDisplayName() + " - <gray>" + challenge.getDescription()));
+            }
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al anunciar desafíos registrados", e);
+        }
+    }
+
+    /**
      * Anuncia los desafíos disponibles durante la semana ácida
      */
     private void announceAcidChallenges() {
-        try {
-            Bukkit.broadcast(MM.toComponent("<yellow>Desafíos disponibles:"));
-            Bukkit.broadcast(MM.toComponent("<green>•  Nadador Ácido - Sobrevive en agua ácida"));
-            Bukkit.broadcast(MM.toComponent("<green>•  Superviviente de Lluvia - Resiste la lluvia ácida"));
-            Bukkit.broadcast(MM.toComponent("<green>•  Coleccionista de Pescados - Pesca todos los tipos"));
-            Bukkit.broadcast(MM.toComponent("<green>•  Domador de Ajolotes - Domestica un ajolote azul"));
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al anunciar desafíos", e);
-        }
+        announceRegisteredChallenges();
     }
     
     @Override

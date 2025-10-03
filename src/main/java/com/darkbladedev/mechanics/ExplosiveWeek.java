@@ -49,7 +49,7 @@ import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 
-public class ExplosiveWeek extends WeeklyEvent {
+public class ExplosiveWeek extends AbstractWeeklyEvent {
     
     private final Random random = new Random();
     
@@ -72,9 +72,7 @@ public class ExplosiveWeek extends WeeklyEvent {
     private final Set<EntityType> classicHostileMobs = new HashSet<>(Arrays.asList(
             EntityType.ZOMBIE, 
             EntityType.SKELETON, 
-            EntityType.CREEPER, 
-            EntityType.SPIDER, 
-            EntityType.ENDERMAN
+            EntityType.CREEPER
     ));
     
     
@@ -454,12 +452,12 @@ public class ExplosiveWeek extends WeeklyEvent {
                 return;
             }
             
-            Bukkit.broadcast(MM.toComponent(prefix + " <yellow>Desafíos disponibles:"));
+            Bukkit.broadcast(MM.toComponent("<yellow>Desafíos disponibles:"));
             
             for (ChallengeDefinition challenge : explosiveChallenges.values()) {
                 String difficultyColor = getDifficultyColor(challenge.getId());
-                Bukkit.broadcast(MM.toComponent(prefix + " " + difficultyColor + "• " + 
-                    challenge.getTitle() + " - " + challenge.getDescription()));
+                Bukkit.broadcast(MM.toComponent(difficultyColor + "• " + 
+                    challenge.getTitle() + " - <gray>" + challenge.getDescription()));
             }
             
         } catch (Exception e) {

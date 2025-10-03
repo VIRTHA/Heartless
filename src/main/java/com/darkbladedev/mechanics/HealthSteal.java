@@ -122,7 +122,7 @@ public class HealthSteal implements Listener {
         
         Player player = event.getEntity();
         double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
-        double minHealth = HeartlessMain.getConfigManager().getHealthMinimum();
+        double minHealth = HeartlessMain.getInstance().getConfigManager().getHealthMinimum();
 
         if (currentMaxHealth <= minHealth) {
             PenalizePlayer(player);

@@ -62,7 +62,7 @@ public class DatabaseManager {
     
     public DatabaseManager(HeartlessMain plugin) {
         this.plugin = plugin;
-        this.configManager = HeartlessMain.getConfigManager();
+        this.configManager = HeartlessMain.getInstance().getConfigManager();
         this.gson = new GsonBuilder().setPrettyPrinting().create();
         
         // Configurar archivos de fallback

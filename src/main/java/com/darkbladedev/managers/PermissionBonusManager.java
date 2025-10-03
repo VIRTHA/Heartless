@@ -41,7 +41,9 @@ public class PermissionBonusManager {
      * Carga la configuración de bonificaciones desde config.yml
      */
     public void loadConfiguration() {
-        FileConfiguration config = plugin.getConfig();
+        // Usar el ConfigManager central para garantizar que se lea el config.yml correcto
+        // y no el FileConfiguration por defecto de JavaPlugin, que puede no estar inicializado.
+        FileConfiguration config = plugin.getConfigManager().getConfig();
         
         // Verificar si la sección existe, si no, usar valores predeterminados
         if (!config.contains("reward-bonus")) {
@@ -57,17 +59,32 @@ public class PermissionBonusManager {
         bonusPermissions.clear();
         
         // Cargar bonificaciones configuradas
+        // Nota: En YamlConfiguration las claves con puntos se interpretan como rutas anidadas.
+        // Por ello usamos getValues(true) para obtener las claves completas (p.ej. "htl.bonus.10").
         ConfigurationSection bonusSection = config.getConfigurationSection("reward-bonus.permissions");
         if (bonusSection != null) {
-            for (String permission : bonusSection.getKeys(false)) {
-                double bonusPercentage = bonusSection.getDouble(permission);
-                bonusPermissions.put(permission, bonusPercentage / 100.0); // Convertir porcentaje a multiplicador
-                logger.info("Cargada bonificación: " + permission + " -> " + bonusPercentage + "%");
+            Map<String, Object> values = bonusSection.getValues(true);
+            for (Map.Entry<String, Object> entry : values.entrySet()) {
+                String fullKey = entry.getKey();
+                Object value = entry.getValue();
+                if (value instanceof Number) {
+                    double bonusPercentage = ((Number) value).doubleValue();
+                    bonusPermissions.put(fullKey, bonusPercentage / 100.0); // Convertir porcentaje a multiplicador
+                    logger.info("Cargada bonificación: " + fullKey + " -> " + bonusPercentage + "%");
+                }
             }
         }
         
         logger.info("Sistema de bonificaciones por permisos " + (enabled ? "activado" : "desactivado") + 
                    " con " + bonusPermissions.size() + " niveles configurados.");
+    }
+
+    /**
+     * Método de callback para recarga de configuración.
+     * Invocado por el ConfigManager cuando se ejecuta /heartless reload.
+     */
+    public void onConfigReload() {
+        loadConfiguration();
     }
     
     /**

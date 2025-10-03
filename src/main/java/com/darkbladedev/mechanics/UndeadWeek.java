@@ -34,6 +34,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
 
 /**
  * Evento semanal de No-Muertos que introduce mecánicas de infección zombie,
@@ -120,6 +121,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         // Anunciar inicio del evento
         Bukkit.broadcast(MM.toComponent("<red><bold>¡La Semana de No-Muertos ha comenzado!</bold></red>"));
         Bukkit.broadcast(MM.toComponent("<gray>Los zombies son más peligrosos y pueden infectarte...</gray>"));
+        
+        // Anunciar desafíos disponibles
+        announceRegisteredChallenges();
         
         logger.info("[UndeadWeek] Evento iniciado correctamente");
     }
@@ -549,6 +553,47 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         }
     }
     
+    /**
+     * Obtiene el color de dificultad basado en el ID del desafío
+     */
+    private String getDifficultyColor(String challengeId) {
+        switch (challengeId) {
+            case "dr_zomboss":
+                return "<yellow>";
+            case "infection_survivor":
+                return "<yellow>";
+            case "red_moon_hunter":
+                return "<red>";
+            case "wither_slayer":
+                return "<light_purple>";
+            default:
+                return "<white>";
+        }
+    }
+
+    /**
+     * Anuncia los desafíos registrados dinámicamente
+     */
+    private void announceRegisteredChallenges() {
+        try {
+            if (availableChallenges == null || availableChallenges.isEmpty()) {
+                plugin.getLogger().warning("[UndeadWeek] No hay desafíos registrados para anunciar");
+                return;
+            }
+            
+            Bukkit.broadcast(MM.toComponent("<yellow>Desafíos disponibles:"));
+            
+            for (ChallengeDefinition challenge : availableChallenges.values()) {
+                String difficultyColor = getDifficultyColor(challenge.getId());
+                Bukkit.broadcast(MM.toComponent(difficultyColor + "• " + 
+                    challenge.getDisplayName() + " - <gray>" + challenge.getDescription()));
+            }
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[UndeadWeek] Error al anunciar desafíos registrados", e);
+        }
+    }
+
     private void setupUndeadWeekChallenges() {
         // Desafío 1: Evitar morir durante la Noche Roja (Intermedio)
         registerChallenge("dr_zomboss", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(

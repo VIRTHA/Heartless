@@ -151,7 +151,7 @@ public class BanManager implements Listener {
         plugin.getLogger().info("BanManager: Aplicando cambios de configuración...");
         
         // Obtener nuevos valores de configuración
-        ConfigManager configManager = HeartlessMain.getConfigManager();
+        ConfigManager configManager = HeartlessMain.getInstance().getConfigManager();
         
         // Aplicar configuraciones específicas del sistema de baneos
         if (!configManager.isBanSystemEnabled()) {
@@ -243,7 +243,7 @@ public class BanManager implements Listener {
             return;
         }
         
-        ConfigManager configManager = HeartlessMain.getConfigManager();
+        ConfigManager configManager = HeartlessMain.getInstance().getConfigManager();
         
         // Verificar si el sistema de baneos está habilitado
         if (!configManager.isBanSystemEnabled()) {

@@ -43,8 +43,8 @@ public class Reload implements SubcommandExecutor, TabCompletable {
 
         try {
             // Recargar configuración principal usando ConfigManager
-            if (HeartlessMain.getConfigManager() != null) {
-                HeartlessMain.getConfigManager().reloadConfig();
+            if (HeartlessMain.getInstance().getConfigManager() != null) {
+                HeartlessMain.getInstance().getConfigManager().reloadConfig();
                 sender.sendMessage(MM.toComponent(plugin.getPrefix() + " <gray>Configuración <green>recargada</green>."));
             }
             

@@ -401,7 +401,7 @@ public class CustomEffectsManager implements Listener {
         plugin.getLogger().info("CustomEffectsManager: Aplicando cambios de configuración...");
         
         // Obtener nuevos valores de configuración
-        ConfigManager configManager = HeartlessMain.getConfigManager();
+        ConfigManager configManager = HeartlessMain.getInstance().getConfigManager();
         
         // Aplicar configuraciones específicas de efectos personalizados
         if (!configManager.isCustomEffectsEnabled()) {

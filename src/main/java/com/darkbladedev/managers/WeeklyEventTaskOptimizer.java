@@ -223,7 +223,7 @@ public class WeeklyEventTaskOptimizer {
         logger.info("WeeklyEventTaskOptimizer: Aplicando cambios de configuración...");
         
         // Obtener nuevos valores de configuración
-        ConfigManager configManager = HeartlessMain.getConfigManager();
+        ConfigManager configManager = HeartlessMain.getInstance().getConfigManager();
         
         // Aplicar configuraciones específicas del optimizador
         if (configManager.isOptimizationTaskOptimizerEnabled()) {

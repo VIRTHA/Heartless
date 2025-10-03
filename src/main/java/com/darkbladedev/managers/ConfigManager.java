@@ -223,6 +223,11 @@ public class ConfigManager {
         if (plugin.getEventManager() != null) {
             plugin.getEventManager().onConfigReload();
         }
+
+        // Notificar al PermissionBonusManager para recargar bonificaciones
+        if (plugin.getPermissionBonusManager() != null) {
+            plugin.getPermissionBonusManager().onConfigReload();
+        }
     }
     
     // Getters para acceso a los valores de configuración

@@ -256,7 +256,7 @@ public class BloodAndIronWeek extends AbstractWeeklyEvent {
     protected void announceEventStart() {
         try {
             Bukkit.broadcast(MM.toComponent(prefix + " <gray>¡<gold>El coliseo del caos está abierto. <red>Elimina o sé eliminado<gray>!"));
-            announceChallenges();
+            announceRegisteredChallenges();
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error al anunciar inicio del evento", e);
         }
@@ -632,19 +632,47 @@ public class BloodAndIronWeek extends AbstractWeeklyEvent {
         }
     }
     
-    private void announceChallenges() {
+    /**
+     * Anuncia los desafíos registrados dinámicamente
+     */
+    private void announceRegisteredChallenges() {
         try {
-            Bukkit.broadcast(MM.toComponent("<gray><b>=== <gold>DESAFÍOS DE LA SEMANA</gold> <gray><b>==="));
-            Bukkit.broadcast(MM.toComponent("<yellow>1. <red>Mata</red> a <white>3</white> jugadores</yellow>"));
-            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> Encantamiento <gold><u>Adrenaline</u></gold><gray>"));
-            Bukkit.broadcast(MM.toComponent("<yellow>2. <red>Mata<red> a 5 jugadores seguidos sin morir</yellow>"));
-            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>Tag</u> \"Pentakill\"</gray>"));
-            Bukkit.broadcast(MM.toComponent("<yellow>3. <green>Sobrevive<green> sin morir en todo el evento (con más de 10 kills)</yellow>"));
-            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+20 Thalos</u></gray>"));
-            Bukkit.broadcast(MM.toComponent("<yellow>4. <red>Mata<red> a más de 10 jugadores durante la semana</yellow>"));
-            Bukkit.broadcast(MM.toComponent("<gray>   <white>Recompensa:</white> <u>+1</u> corazón máximo</gray>"));
+            if (availableChallenges == null || availableChallenges.isEmpty()) {
+                plugin.getLogger().warning("[BloodAndIronWeek] No hay desafíos registrados para anunciar");
+                return;
+            }
+            
+            Bukkit.broadcast(MM.toComponent("<yellow>Desafíos disponibles:"));
+            
+            for (ChallengeDefinition challenge : availableChallenges.values()) {
+                String difficultyColor = getDifficultyColor(challenge.getId());
+                Bukkit.broadcast(MM.toComponent(difficultyColor + "• " + 
+                    challenge.getDisplayName() + " - <gray>" + challenge.getDescription()));
+            }
+            
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "Error al anunciar desafíos", e);
+            plugin.getLogger().log(Level.WARNING, "[BloodAndIronWeek] Error al anunciar desafíos registrados", e);
+        }
+    }
+    
+    /**
+     * Obtiene el color de dificultad basado en el ID del desafío
+     * 
+     * @param challengeId ID del desafío
+     * @return Color en formato MiniMessage
+     */
+    private String getDifficultyColor(String challengeId) {
+        switch (challengeId) {
+            case "player_killer":
+                return "<green>"; // Fácil
+            case "pentakill":
+                return "<yellow>"; // Intermedio
+            case "survivor":
+                return "<red>"; // Difícil
+            case "mass_killer":
+                return "<light_purple>"; // Leyenda
+            default:
+                return "<white>";
         }
     }
     
