@@ -41,7 +41,7 @@ public class Apply implements SubcommandExecutor, TabCompletable {
     
     @Override
     public void execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("heartless.effects.apply")) {
+        if (!sender.hasPermission("htl.effects.apply")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para aplicar efectos."));
             return;
         }

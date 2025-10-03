@@ -143,7 +143,7 @@ public class ConfigManager {
         databasePassword = config.getString("database.mysql.password", "");
         
         // SQLite configuration
-        sqliteFile = config.getString("database.sqlite.file", "heartless.db");
+        sqliteFile = config.getString("database.sqlite.file", "htl.db");
         
         // Pool configuration
         databasePoolSize = config.getInt("database.pool.size", 10);

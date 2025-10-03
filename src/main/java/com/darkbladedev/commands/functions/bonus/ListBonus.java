@@ -35,7 +35,7 @@ public class ListBonus implements SubcommandExecutor {
         }
         
         // Obtener el gestor de bonificaciones
-        PermissionBonusManager bonusManager = HeartlessMain.getPermissionBonusManager();
+        PermissionBonusManager bonusManager = HeartlessMain.getInstance().getPermissionBonusManager();
         
         // Verificar si el sistema está habilitado
         boolean enabled = bonusManager.isEnabled();

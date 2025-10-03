@@ -34,7 +34,7 @@ public class DisableBonus implements SubcommandExecutor {
         }
         
         // Obtener el gestor de bonificaciones
-        PermissionBonusManager bonusManager = HeartlessMain.getPermissionBonusManager();
+        PermissionBonusManager bonusManager = HeartlessMain.getInstance().getPermissionBonusManager();
         
         // Verificar si ya está deshabilitado
         if (!bonusManager.isEnabled()) {

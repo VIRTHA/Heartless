@@ -39,7 +39,7 @@ public class Deactivate implements SubcommandExecutor, TabCompletable {
     
     @Override
     public void execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("heartless.effects.deactivate")) {
+        if (!sender.hasPermission("htl.effects.deactivate")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para desactivar efectos."));
             return;
         }

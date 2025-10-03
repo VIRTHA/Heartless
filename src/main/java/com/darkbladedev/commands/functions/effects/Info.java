@@ -43,7 +43,7 @@ public class Info implements SubcommandExecutor, TabCompletable {
     
     @Override
     public void execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("heartless.effects.info")) {
+        if (!sender.hasPermission("htl.effects.info")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para ver información de efectos."));
             return;
         }

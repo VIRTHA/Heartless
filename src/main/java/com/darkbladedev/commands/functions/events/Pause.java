@@ -38,7 +38,7 @@ public class Pause implements SubcommandExecutor, TabCompletable {
     @Override
     public void execute(CommandSender sender, String[] args) {
         // Verificar permisos
-        if (!sender.hasPermission("heartless.events.pause")) {
+        if (!sender.hasPermission("htl.events.pause")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para pausar eventos semanales."));
             return;
         }

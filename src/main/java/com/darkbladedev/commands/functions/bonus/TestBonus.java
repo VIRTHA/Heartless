@@ -43,7 +43,7 @@ public class TestBonus implements SubcommandExecutor {
         Player player = (Player) sender;
         
         // Obtener el gestor de bonificaciones
-        PermissionBonusManager bonusManager = HeartlessMain.getPermissionBonusManager();
+        PermissionBonusManager bonusManager = HeartlessMain.getInstance().getPermissionBonusManager();
         
         if (bonusManager == null) {
             sender.sendMessage(MM.toComponent("<red>Error: PermissionBonusManager no está disponible."));

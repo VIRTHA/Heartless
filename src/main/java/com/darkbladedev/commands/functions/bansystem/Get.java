@@ -35,7 +35,7 @@ public class Get implements SubcommandExecutor, TabCompletable {
 
     @Override
     public void execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("heartless.bansystem.unban")) {
+        if (!sender.hasPermission("htl.bansystem.unban")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para listar jugadores baneados."));
             return;
         }

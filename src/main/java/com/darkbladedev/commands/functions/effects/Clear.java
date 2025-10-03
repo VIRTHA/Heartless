@@ -43,7 +43,7 @@ public class Clear implements SubcommandExecutor, TabCompletable {
     
     @Override
     public void execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("heartless.effects.clear")) {
+        if (!sender.hasPermission("htl.effects.clear")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para eliminar efectos."));
             return;
         }

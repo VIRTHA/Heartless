@@ -21,7 +21,7 @@ public class TestPersistence implements SubcommandExecutor {
         // Verificar permisos
         if (sender instanceof Player) {
             Player player = (Player) sender;
-            if (!player.hasPermission("heartless.admin") && !player.hasPermission("heartless.diagnostic")) {
+            if (!player.hasPermission("htl.admin") && !player.hasPermission("htl.diagnostic")) {
                 sender.sendMessage(MM.toComponent("<red>No tienes permisos para usar este comando."));
                 return;
             }

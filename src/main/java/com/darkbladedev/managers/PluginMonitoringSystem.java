@@ -262,11 +262,11 @@ public class PluginMonitoringSystem implements Listener {
                         Bukkit.broadcast(MM.toComponent(
                             "<yellow>⚠ El evento ha sido pausado automáticamente debido a: " + 
                             getCauseDisplayName(cause) + "</yellow>"
-                        ), "heartless.admin");
+                        ), "htl.admin");
                         
                         Bukkit.broadcast(MM.toComponent(
                             "<gray>El evento se reanudará automáticamente cuando sea posible.</gray>"
-                        ), "heartless.admin");
+                        ), "htl.admin");
                         
                         recordIncident("EVENTS_PAUSED", "Evento '" + eventName + "' pausado por " + cause, cause);
                     } else {
@@ -285,11 +285,11 @@ public class PluginMonitoringSystem implements Listener {
                     Bukkit.broadcast(MM.toComponent(
                         "<red>⚠ El evento ha sido detenido automáticamente debido a: " + 
                         getCauseDisplayName(cause) + "</red>"
-                    ), "heartless.admin");
+                    ), "htl.admin");
                     
                     Bukkit.broadcast(MM.toComponent(
                         "<gray>Se iniciará un nuevo evento según la programación normal.</gray>"
-                    ), "heartless.admin");
+                    ), "htl.admin");
                     
                     recordIncident("EVENTS_STOPPED", "Evento '" + eventName + "' detenido por " + cause, cause);
                 }

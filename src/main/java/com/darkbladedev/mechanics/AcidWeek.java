@@ -824,7 +824,7 @@ public class AcidWeek extends AbstractWeeklyEvent {
                         plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en tarea de control climático", e);
                     }
                 }
-            }.runTaskTimer(plugin, 0L, 600L); // Cada 30 segundos para mejor control
+            }.runTaskTimer(plugin, 0L, 300L); // Cada 15 segundos para mejor control
             
             weatherTask.set(newTask);
             plugin.getLogger().info("[AcidWeek] Tarea de control climático iniciada (lluvia día, calma noche)");

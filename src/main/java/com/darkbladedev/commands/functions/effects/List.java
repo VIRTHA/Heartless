@@ -38,7 +38,7 @@ public class List implements SubcommandExecutor, TabCompletable {
     
     @Override
     public void execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("heartless.effects.list")) {
+        if (!sender.hasPermission("htl.effects.list")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para ver la lista de efectos."));
             return;
         }

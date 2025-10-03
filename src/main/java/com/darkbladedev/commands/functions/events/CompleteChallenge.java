@@ -35,7 +35,7 @@ public class CompleteChallenge implements SubcommandExecutor, TabCompletable {
     @Override
     public void execute(CommandSender sender, String[] args) {
         // Verificar permisos
-        if (!sender.hasPermission("heartless.admin")) {
+        if (!sender.hasPermission("htl.admin")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para usar este comando de debug."));
             return;
         }
@@ -108,7 +108,7 @@ public class CompleteChallenge implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("heartless.admin")) {
+        if (!sender.hasPermission("htl.admin")) {
             return Collections.emptyList();
         }
         

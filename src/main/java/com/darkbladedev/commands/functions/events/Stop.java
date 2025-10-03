@@ -38,7 +38,7 @@ public class Stop implements SubcommandExecutor, TabCompletable {
     @Override
     public void execute(CommandSender sender, String[] args) {
         // Verificar permisos
-        if (!sender.hasPermission("heartless.events.stop")) {
+        if (!sender.hasPermission("htl.events.stop")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para detener eventos semanales."));
             return;
         }

@@ -127,7 +127,7 @@ public class EventStatisticsManager {
         
         // Enviar a todos los jugadores online
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.hasPermission("heartless.access")) {
+            if (player.hasPermission("htl.access")) {
                 for (Component message : messages) {
                     player.sendMessage(message);
                 }

@@ -405,7 +405,7 @@ public class PostRestartValidator {
         // Notificar a administradores en línea sobre problemas de validación
         Bukkit.getScheduler().runTask(plugin, () -> {
             Bukkit.getOnlinePlayers().stream()
-                .filter(player -> player.hasPermission("heartless.admin.notifications"))
+                .filter(player -> player.hasPermission("htl.admin"))
                 .forEach(admin -> {
                     admin.sendMessage("§c[Heartless] ¡ATENCIÓN! Validación post-reinicio falló");
                     admin.sendMessage("§e" + result.getErrorSummary());

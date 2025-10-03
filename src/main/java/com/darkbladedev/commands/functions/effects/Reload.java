@@ -36,7 +36,7 @@ public class Reload implements SubcommandExecutor, TabCompletable {
     
     @Override
     public void execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("heartless.effects.reload")) {
+        if (!sender.hasPermission("htl.effects.reload")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para recargar el sistema de efectos."));
             return;
         }

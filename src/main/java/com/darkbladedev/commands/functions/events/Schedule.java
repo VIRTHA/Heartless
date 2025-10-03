@@ -45,7 +45,7 @@ public class Schedule implements SubcommandExecutor, TabCompletable {
     @Override
     public void execute(CommandSender sender, String[] args) {
         // Verificar permisos
-        if (!sender.hasPermission("heartless.events.schedule")) {
+        if (!sender.hasPermission("htl.events.schedule")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para programar eventos semanales."));
             return;
         }

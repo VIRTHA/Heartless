@@ -288,16 +288,29 @@ public class Reward {
      */
     private void grantMoney(Player player, String eventId) {
         try {
-            double moneyAmount = Double.parseDouble(amount);
-            
+            // Parsear cantidad base como número y convertir a entero para aplicar bonificación
+            double parsedAmount = Double.parseDouble(amount);
+            int baseAmount = (int) Math.round(parsedAmount);
+
+            // Aplicar bonificación por permisos si está habilitada
+            int finalAmount = baseAmount;
+            var bonusManager = HeartlessMain.getInstance().getPermissionBonusManager();
+            if (bonusManager != null && bonusManager.isEnabled()) {
+                finalAmount = bonusManager.applyBonus(player, baseAmount);
+            }
+
             // Integración con CoinsEngine usando el comando thalos
             if (Bukkit.getPluginManager().getPlugin("CoinsEngine") != null) {
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "thalos give " + player.getName() + " " + moneyAmount);
-                logger.info("[" + eventId + "] Thalos otorgados: " + moneyAmount + " a " + player.getName());
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "thalos give " + player.getName() + " " + finalAmount);
+                if (finalAmount != baseAmount) {
+                    logger.info("[" + eventId + "] Thalos otorgados: " + finalAmount + " (bonificado desde " + baseAmount + ") a " + player.getName());
+                } else {
+                    logger.info("[" + eventId + "] Thalos otorgados: " + finalAmount + " a " + player.getName());
+                }
             } else {
-                logger.warning("[" + eventId + "] CoinsEngine no está disponible para otorgar " + moneyAmount + " thalos a " + player.getName());
+                logger.warning("[" + eventId + "] CoinsEngine no está disponible para otorgar " + finalAmount + " thalos a " + player.getName());
                 // Fallback: dar experiencia equivalente
-                int expEquivalent = (int)(moneyAmount / 10); // 10 thalos = 1 exp
+                int expEquivalent = (int)(finalAmount / 10); // 10 thalos = 1 exp
                 player.giveExp(expEquivalent);
                 player.sendMessage(MM.toComponent("<yellow>¡Has recibido <green>" + expEquivalent + "</green> puntos de experiencia! (CoinsEngine no disponible)</yellow>"));
             }

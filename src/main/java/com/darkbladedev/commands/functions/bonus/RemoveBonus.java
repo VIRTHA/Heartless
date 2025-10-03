@@ -44,7 +44,7 @@ public class RemoveBonus implements SubcommandExecutor, TabCompletable {
         }
         
         // Obtener el gestor de bonificaciones
-        PermissionBonusManager bonusManager = HeartlessMain.getPermissionBonusManager();
+        PermissionBonusManager bonusManager = HeartlessMain.getInstance().getPermissionBonusManager();
         
         // Obtener argumentos
         String permission = args[0];
@@ -66,7 +66,7 @@ public class RemoveBonus implements SubcommandExecutor, TabCompletable {
     public List<String> onTabComplete(CommandSender sender, String[] args) {
         if (args.length == 1) {
             // Devolver la lista de permisos con bonificación
-            PermissionBonusManager bonusManager = HeartlessMain.getPermissionBonusManager();
+            PermissionBonusManager bonusManager = HeartlessMain.getInstance().getPermissionBonusManager();
             return new ArrayList<>(bonusManager.getBonusPermissions().keySet());
         }
         return Collections.emptyList();

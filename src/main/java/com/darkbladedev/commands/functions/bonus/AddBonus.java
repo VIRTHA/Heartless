@@ -45,7 +45,7 @@ public class AddBonus implements SubcommandExecutor, TabCompletable {
         }
         
         // Obtener el gestor de bonificaciones
-        PermissionBonusManager bonusManager = HeartlessMain.getPermissionBonusManager();
+        PermissionBonusManager bonusManager = HeartlessMain.getInstance().getPermissionBonusManager();
         
         // Obtener argumentos
         String permission = args[0];

@@ -38,7 +38,7 @@ public class Activate implements SubcommandExecutor, TabCompletable {
     
     @Override
     public void execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("heartless.effects.activate")) {
+        if (!sender.hasPermission("htl.effects.activate")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para activar efectos."));
             return;
         }

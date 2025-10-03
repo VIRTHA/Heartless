@@ -15,7 +15,7 @@ public class PermissionManager {
     private final Plugin plugin;
     
     // Permisos del plugin
-    public static final String PERM_BAN_DURATION = "heartless.ban.duration.";
+    public static final String PERM_BAN_DURATION = "htl.ban.duration.";
     
     private PermissionManager(Plugin plugin) {
         this.plugin = plugin;

@@ -34,7 +34,7 @@ public class Reload implements SubcommandExecutor, TabCompletable {
     @Override
     public void execute(CommandSender sender, String[] args) {
         // Verificar permisos
-        if (!sender.hasPermission("heartless.reload")) {
+        if (!sender.hasPermission("htl.reload")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso recargar el plugin."));
             return;
         }

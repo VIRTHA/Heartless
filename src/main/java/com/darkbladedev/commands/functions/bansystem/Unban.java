@@ -34,7 +34,7 @@ public class Unban implements SubcommandExecutor, TabCompletable {
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
         // Verificar permisos primero
-        if (!sender.hasPermission("heartless.bansystem.unban")) {
+        if (!sender.hasPermission("htl.bansystem.unban")) {
             return Collections.emptyList();
         }
         
@@ -73,7 +73,7 @@ public class Unban implements SubcommandExecutor, TabCompletable {
     @Override
     public void execute(CommandSender sender, String[] args) {
         // Verificar permisos
-        if (!sender.hasPermission("heartless.bansystem.unban")) {
+        if (!sender.hasPermission("htl.bansystem.unban")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para desbanear jugadores."));
             return;
         }

@@ -292,7 +292,7 @@ public class HeartlessMain extends JavaPlugin {
         return migrationManager;
     }
     
-    public static PermissionBonusManager getPermissionBonusManager() {
+    public PermissionBonusManager getPermissionBonusManager() {
         return permissionBonusManager;
     }
     

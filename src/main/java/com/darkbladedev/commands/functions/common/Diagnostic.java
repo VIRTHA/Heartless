@@ -34,7 +34,7 @@ public class Diagnostic implements SubcommandExecutor {
     @Override
     public void execute(CommandSender sender, String[] args) {
         // Verificar permisos
-        if (!sender.hasPermission("heartless.admin") && !sender.hasPermission("heartless.diagnostic")) {
+        if (!sender.hasPermission("htl.admin") && !sender.hasPermission("htl.diagnostic")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para usar este comando."));
             return;
         }

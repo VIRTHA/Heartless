@@ -33,7 +33,7 @@ public class Reset implements SubcommandExecutor, TabCompletable {
     @Override
     public void execute(CommandSender sender, String[] args) {
         // Verificar permisos
-        if (!sender.hasPermission("heartless.events.reset")) {
+        if (!sender.hasPermission("htl.events.reset")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permiso para resetear el estado de eventos semanales."));
             return;
         }

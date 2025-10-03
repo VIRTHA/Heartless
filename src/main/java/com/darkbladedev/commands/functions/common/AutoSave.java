@@ -67,7 +67,7 @@ public class AutoSave implements SubcommandExecutor, TabCompletable {
     @Override
     public void execute(CommandSender sender, String[] args) {
         // Verificar permisos
-        if (!sender.hasPermission("heartless.admin.autosave")) {
+        if (!sender.hasPermission("htl.admin.autosave")) {
             sender.sendMessage(MM.toComponent("<red>No tienes permisos para usar este comando."));
             return;
         }
