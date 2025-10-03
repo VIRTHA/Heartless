@@ -346,6 +346,55 @@ public class StandardizedChallenge {
     }
     
     /**
+     * Calcula las recompensas ajustadas por dificultad y bonificaciones por permisos.
+     * 
+     * @param player Jugador para el que se calculan las recompensas
+     * @return Lista de recompensas con multiplicadores aplicados
+     */
+    public List<String> getAdjustedRewards(org.bukkit.entity.Player player) {
+        if (player == null) {
+            return getAdjustedRewards();
+        }
+        
+        // Obtener recompensas ajustadas por dificultad
+        List<String> difficultyAdjustedRewards = getAdjustedRewards();
+        
+        // Obtener el gestor de bonificaciones por permisos
+        com.darkbladedev.managers.PermissionBonusManager bonusManager = 
+            com.darkbladedev.HeartlessMain.getInstance().getPermissionBonusManager();
+        
+        // Si el sistema de bonificaciones no está activado, devolver recompensas sin bonificación
+        if (bonusManager == null || !bonusManager.isEnabled()) {
+            return difficultyAdjustedRewards;
+        }
+        
+        List<String> finalRewards = new ArrayList<>();
+        
+        // Aplicar bonificación por permisos a cada recompensa
+        for (String reward : difficultyAdjustedRewards) {
+            // Solo aplicar bonificación a recompensas de tipo money/coins
+            if (reward.toLowerCase().startsWith("money:") || reward.toLowerCase().startsWith("coins:")) {
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d+)");
+                java.util.regex.Matcher matcher = pattern.matcher(reward);
+                StringBuffer sb = new StringBuffer();
+                
+                while (matcher.find()) {
+                    int originalValue = Integer.parseInt(matcher.group(1));
+                    int bonusValue = bonusManager.applyBonus(player, originalValue);
+                    matcher.appendReplacement(sb, String.valueOf(bonusValue));
+                }
+                matcher.appendTail(sb);
+                
+                finalRewards.add(sb.toString());
+            } else {
+                finalRewards.add(reward);
+            }
+        }
+        
+        return finalRewards;
+    }
+    
+    /**
      * Obtiene el título formateado con dificultad.
      * 
      * @return Título con color de dificultad

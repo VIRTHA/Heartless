@@ -14,83 +14,97 @@ commands:
   heartless:
     description: "Main commands."
     aliases: [hs]
-    permission: heartless.access
+    permission: htl.access
     permission-message: "You do not have permission to use this command."
 
 # Permissions Statement
 permissions:
   # Main Permissions
-  heartless.access:
+  htl.access:
     description: "Allows to use Heartless core commands."
     default: op
-  heartless.reload:
+  htl.reload:
     description: "Allows to reload Heartless plugin."
     default: op
-  heartless.diagnostic:
+  htl.diagnostic:
     description: "Allows to use diagnostic commands for system troubleshooting."
     default: op
 
   # Command Permissions
-  heartless.command.health:
+  htl.command.health:
     description: "Allows to use /heartless health command."
     default: op
-  heartless.command.effects.zombieinfection:
+  htl.command.effects.zombieinfection:
     description: "Allows to use /heartless effects zombieinfection command."
     default: op
-  heartless.command.curemanagement:
+  htl.command.curemanagement:
     description: "Permite gestionar la cantidad de curas de infección zombie de los jugadores."
     default: op
-  heartless.admin.zombieinfection:
+  htl.admin.zombieinfection:
     description: "Permite administrar el sistema de infección zombie."
     default: op
-  heartless.admin.autosave:
+  htl.admin.autosave:
     description: "Permite administrar el sistema de guardado automático."
     default: op
+  htl.admin.bonus:
+    description: "Permite administrar el sistema de bonificaciones por permisos."
+    default: op
+    
+  # Permisos de bonificación
+  htl.bonus.5:
+    description: "Otorga un 5% de bonificación en recompensas de desafíos."
+    default: false
+  htl.bonus.10:
+    description: "Otorga un 10% de bonificación en recompensas de desafíos."
+    default: false
+  htl.bonus.20:
+    description: "Otorga un 20% de bonificación en recompensas de desafíos."
+    default: false
 
     
-  heartless.bansystem.unban:
+  htl.bansystem.unban:
     description: Permite desbanear jugadores
     default: op
-  heartless.bansystem.list:
+  htl.bansystem.list:
     description: Permite listar jugadores baneados
     default: op
   
 
-  heartless.events.pause:
+  htl.events.pause:
     description: Permite pausar eventos
     default: op
-  heartless.events.resume:
+  htl.events.resume:
     description: Permite pausar eventos
     default: op
-  heartless.events.start:
+  htl.events.start:
     description: Permite iniciar eventos
     default: op
-  heartless.events.stop:
+  htl.events.stop:
     description: Permite detener eventos
     default: op
     
   # Ban Duration Permissions
-  heartless.ban.duration.exempt:
+  htl.ban.duration.exempt:
     description: Exime al jugador de ser baneado al llegar al minimo de corazones
     default: false
-  heartless.ban.duration.1:
+  htl.ban.duration.1:
     description: Establece la duracion del baneo a 1 hora
     default: false
-  heartless.ban.duration.2:
+  htl.ban.duration.2:
     description: Establece la duracion del baneo a 2 horas
     default: false
-  heartless.ban.duration.3:
+  htl.ban.duration.3:
     description: Establece la duracion del baneo a 3 horas
     default: false
-  heartless.ban.duration.4:
+  htl.ban.duration.4:
     description: Establece la duracion del baneo a 4 horas
     default: false
-  heartless.ban.duration.6:
+  htl.ban.duration.6:
     description: Establece la duracion del baneo a 6 horas
     default: false
-  heartless.ban.duration.12:
+  htl.ban.duration.12:
     description: Establece la duracion del baneo a 12 horas
     default: false
-  heartless.ban.duration.24:
+  htl.ban.duration.24:
     description: Establece la duracion del baneo a 24 horas
     default: false

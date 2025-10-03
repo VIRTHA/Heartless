@@ -459,6 +459,60 @@ public class StorageManager {
                 eventData.add("survivors", survivorsJson);
             }
             
+            // Guardar challengeProgress y completedChallenges para todos los eventos que extienden AbstractWeeklyEvent
+            if (event instanceof com.darkbladedev.mechanics.AbstractWeeklyEvent) {
+                com.darkbladedev.mechanics.AbstractWeeklyEvent abstractEvent = (com.darkbladedev.mechanics.AbstractWeeklyEvent) event;
+                
+                // Guardar challengeProgress
+                JsonObject challengeProgressJson = new JsonObject();
+                Map<UUID, Map<String, Object>> allChallengeProgress = abstractEvent.getAllChallengeProgress();
+                if (allChallengeProgress != null) {
+                    for (Map.Entry<UUID, Map<String, Object>> playerEntry : allChallengeProgress.entrySet()) {
+                        if (playerEntry.getKey() != null && playerEntry.getValue() != null) {
+                            JsonObject playerProgressJson = new JsonObject();
+                            for (Map.Entry<String, Object> challengeEntry : playerEntry.getValue().entrySet()) {
+                                if (challengeEntry.getKey() != null && challengeEntry.getValue() != null) {
+                                    // Convertir el valor del progreso a JSON apropiado
+                                    if (challengeEntry.getValue() instanceof Number) {
+                                        playerProgressJson.addProperty(challengeEntry.getKey(), (Number) challengeEntry.getValue());
+                                    } else if (challengeEntry.getValue() instanceof Boolean) {
+                                        playerProgressJson.addProperty(challengeEntry.getKey(), (Boolean) challengeEntry.getValue());
+                                    } else if (challengeEntry.getValue() instanceof String) {
+                                        playerProgressJson.addProperty(challengeEntry.getKey(), (String) challengeEntry.getValue());
+                                    } else {
+                                        // Para otros tipos, convertir a string
+                                        playerProgressJson.addProperty(challengeEntry.getKey(), challengeEntry.getValue().toString());
+                                    }
+                                }
+                            }
+                            challengeProgressJson.add(playerEntry.getKey().toString(), playerProgressJson);
+                        }
+                    }
+                }
+                eventData.add("challengeProgress", challengeProgressJson);
+                
+                // Guardar completedChallenges
+                JsonObject completedChallengesJson = new JsonObject();
+                Map<UUID, Set<String>> allCompletedChallenges = abstractEvent.getAllCompletedChallenges();
+                if (allCompletedChallenges != null) {
+                    for (Map.Entry<UUID, Set<String>> playerEntry : allCompletedChallenges.entrySet()) {
+                        if (playerEntry.getKey() != null && playerEntry.getValue() != null) {
+                            JsonArray challengesArray = new JsonArray();
+                            for (String challengeId : playerEntry.getValue()) {
+                                if (challengeId != null && !challengeId.trim().isEmpty()) {
+                                    challengesArray.add(challengeId);
+                                }
+                            }
+                            completedChallengesJson.add(playerEntry.getKey().toString(), challengesArray);
+                        }
+                    }
+                }
+                eventData.add("completedChallenges", completedChallengesJson);
+                
+                plugin.getLogger().info("Guardados " + allChallengeProgress.size() + " registros de progreso de desafíos y " + 
+                    allCompletedChallenges.size() + " registros de desafíos completados");
+            }
+            
             try (FileWriter writer = new FileWriter(eventDataFile)) {
                 gson.toJson(eventData, writer);
                 writer.flush(); // Asegurar que se escriba al disco
@@ -656,7 +710,7 @@ public class StorageManager {
                             }
                             challengeProgressData.put(playerId, playerProgress);
                         }
-                        undeadWeek.loadChallengeProgress(challengeProgressData);
+                        undeadWeek.loadChallengeProgressFromString(challengeProgressData);
                     }
                     
                     // Cargar desafíos completados
@@ -672,7 +726,7 @@ public class StorageManager {
                             }
                             completedChallengesData.put(playerId, playerCompletedChallenges);
                         }
-                        undeadWeek.loadCompletedChallenges(completedChallengesData);
+                        undeadWeek.loadCompletedChallengesFromString(completedChallengesData);
                     }
                     
                     plugin.getLogger().info("Datos específicos de UndeadWeek cargados correctamente");
@@ -738,7 +792,7 @@ public class StorageManager {
                                 }
                             }
                         }
-                        acidWeek.loadChallengeProgress(challengeProgressData);
+                        acidWeek.loadChallengeProgressFromString(challengeProgressData);
                     }
                     
                     // Cargar desafíos completados
@@ -764,7 +818,7 @@ public class StorageManager {
                                 completedChallengesData.put(playerId, playerCompletedChallenges);
                             }
                         }
-                        acidWeek.loadCompletedChallenges(completedChallengesData);
+                        acidWeek.loadCompletedChallengesFromString(completedChallengesData);
                     }
                     
                     plugin.getLogger().info("Datos específicos de AcidWeek cargados correctamente (incluyendo progreso de desafíos)");
@@ -1055,7 +1109,90 @@ public class StorageManager {
                     
                     plugin.getLogger().info("Datos específicos de BloodAndIronWeek cargados correctamente");
                 }
+                
+                // Cargar challengeProgress y completedChallenges para todos los eventos que extienden AbstractWeeklyEvent
+                if (event instanceof com.darkbladedev.mechanics.AbstractWeeklyEvent) {
+                    com.darkbladedev.mechanics.AbstractWeeklyEvent abstractEvent = (com.darkbladedev.mechanics.AbstractWeeklyEvent) event;
+                    
+                    // Cargar challengeProgress
+                    if (eventData.has("challengeProgress")) {
+                        JsonObject challengeProgressJson = eventData.getAsJsonObject("challengeProgress");
+                        Map<UUID, Map<String, Object>> challengeProgressData = new HashMap<>();
+                        
+                        for (Map.Entry<String, JsonElement> playerEntry : challengeProgressJson.entrySet()) {
+                            try {
+                                UUID playerId = UUID.fromString(playerEntry.getKey());
+                                JsonObject playerProgressJson = playerEntry.getValue().getAsJsonObject();
+                                Map<String, Object> playerProgress = new HashMap<>();
+                                
+                                for (Map.Entry<String, JsonElement> challengeEntry : playerProgressJson.entrySet()) {
+                                    String challengeId = challengeEntry.getKey();
+                                    JsonElement progressElement = challengeEntry.getValue();
+                                    
+                                    // Convertir el progreso según su tipo
+                                    Object progressValue;
+                                    if (progressElement.isJsonPrimitive()) {
+                                        JsonPrimitive primitive = progressElement.getAsJsonPrimitive();
+                                        if (primitive.isNumber()) {
+                                            // Intentar mantener el tipo numérico original
+                                            if (primitive.getAsString().contains(".")) {
+                                                progressValue = primitive.getAsDouble();
+                                            } else {
+                                                progressValue = primitive.getAsInt();
+                                            }
+                                        } else if (primitive.isBoolean()) {
+                                            progressValue = primitive.getAsBoolean();
+                                        } else {
+                                            progressValue = primitive.getAsString();
+                                        }
+                                    } else {
+                                        progressValue = progressElement.toString();
+                                    }
+                                    
+                                    playerProgress.put(challengeId, progressValue);
+                                }
+                                challengeProgressData.put(playerId, playerProgress);
+                            } catch (IllegalArgumentException e) {
+                                plugin.getLogger().warning("UUID inválido en challengeProgress: " + playerEntry.getKey());
+                            } catch (Exception e) {
+                                plugin.getLogger().warning("Error cargando progreso de desafío para jugador " + playerEntry.getKey() + ": " + e.getMessage());
+                            }
+                        }
+                        
+                        // Usar el método de carga centralizado
+                        abstractEvent.loadChallengeProgress(challengeProgressData);
+                    }
+                    
+                    // Cargar completedChallenges
+                    if (eventData.has("completedChallenges")) {
+                        JsonObject completedChallengesJson = eventData.getAsJsonObject("completedChallenges");
+                        Map<UUID, Set<String>> completedChallengesData = new HashMap<>();
+                        
+                        for (Map.Entry<String, JsonElement> playerEntry : completedChallengesJson.entrySet()) {
+                            try {
+                                UUID playerId = UUID.fromString(playerEntry.getKey());
+                                JsonArray challengesArray = playerEntry.getValue().getAsJsonArray();
+                                Set<String> playerCompletedChallenges = new HashSet<>();
+                                
+                                for (JsonElement challengeElement : challengesArray) {
+                                    if (challengeElement.isJsonPrimitive()) {
+                                        playerCompletedChallenges.add(challengeElement.getAsString());
+                                    }
+                                }
+                                completedChallengesData.put(playerId, playerCompletedChallenges);
+                            } catch (IllegalArgumentException e) {
+                                plugin.getLogger().warning("UUID inválido en completedChallenges: " + playerEntry.getKey());
+                            } catch (Exception e) {
+                                plugin.getLogger().warning("Error cargando desafíos completados para jugador " + playerEntry.getKey() + ": " + e.getMessage());
+                            }
+                        }
+                        
+                        // Usar el método de carga centralizado
+                        abstractEvent.loadCompletedChallenges(completedChallengesData);
+                    }
+                }
             }
+            
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Error cargando datos específicos del evento", e);
         }

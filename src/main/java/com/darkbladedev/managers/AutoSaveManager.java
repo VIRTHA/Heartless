@@ -21,6 +21,8 @@ import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.mechanics.WeeklyEvent;
+import com.darkbladedev.mechanics.AbstractWeeklyEvent;
+import com.darkbladedev.persistence.EventDataPersistenceManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -230,6 +232,19 @@ public class AutoSaveManager {
                 if (currentEvent != null) {
                     // Usar StorageManager para guardar el evento
                     plugin.getStorageManager().saveEvent(currentEvent);
+                    
+                    // Usar EventDataPersistenceManager para eventos que extienden AbstractWeeklyEvent
+                    if (currentEvent instanceof AbstractWeeklyEvent) {
+                        EventDataPersistenceManager persistenceManager = HeartlessMain.getEventDataPersistenceManager();
+                        if (persistenceManager != null) {
+                            boolean persistenceSuccess = persistenceManager.saveEventData((AbstractWeeklyEvent) currentEvent);
+                            if (persistenceSuccess) {
+                                logger.info("Datos de desafíos guardados exitosamente para evento: " + currentEvent.getId());
+                            } else {
+                                logger.warning("Error guardando datos de desafíos para evento: " + currentEvent.getId());
+                            }
+                        }
+                    }
                     
                     // También usar DatabaseManager si está disponible
                     DatabaseManager dbManager = HeartlessMain.getDatabaseManager();

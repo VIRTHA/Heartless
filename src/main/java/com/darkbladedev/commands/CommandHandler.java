@@ -1,6 +1,7 @@
 package com.darkbladedev.commands;
 
 import com.darkbladedev.commands.nodes.BanSystem;
+import com.darkbladedev.commands.nodes.Bonus;
 import com.darkbladedev.commands.nodes.Common;
 import com.darkbladedev.commands.nodes.Effects;
 import com.darkbladedev.commands.nodes.Enchantments;
@@ -26,6 +27,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 
     public CommandHandler() {
         register("bansystem", new BanSystem());
+        register("bonus", new Bonus());
         register("commons", new Common());
         register("effects", new Effects());
         register("enchantments", new Enchantments());

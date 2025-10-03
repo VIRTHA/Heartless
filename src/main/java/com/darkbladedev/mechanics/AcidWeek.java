@@ -1331,8 +1331,8 @@ public class AcidWeek extends AbstractWeeklyEvent {
      }
      
      // Métodos para cargar/guardar progreso de desafíos
-     
-     public void loadChallengeProgress(Map<String, Map<String, Object>> data) {
+    
+    public void loadChallengeProgressFromString(Map<String, Map<String, Object>> data) {
         try {
             if (data == null) return;
             
@@ -1419,7 +1419,7 @@ public class AcidWeek extends AbstractWeeklyEvent {
         }
     }
      
-     public void loadCompletedChallenges(Map<String, Set<String>> data) {
+     public void loadCompletedChallengesFromString(Map<String, Set<String>> data) {
          try {
              if (data == null) return;
              

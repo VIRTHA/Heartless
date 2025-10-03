@@ -72,6 +72,14 @@ optimization:
   max-threads: 4
   queue-size: 1000
   
+# Configuración del sistema de bonificación por permisos
+reward-bonus:
+  enabled: true
+  permissions:
+    htl.bonus.5: 5     # 5% de bonificación
+    htl.bonus.10: 10  # 10% de bonificación
+    htl.bonus.20: 20     # 20% de bonificación
+
 # Configuración de debug
 debug:
   enabled: false

@@ -29,6 +29,8 @@ import com.darkbladedev.managers.WeeklyEventManager;
 import com.darkbladedev.managers.WeeklyEventTaskOptimizer;
 import com.darkbladedev.managers.WeeklyEventMigrationManager;
 import com.darkbladedev.managers.PvPManager;
+import com.darkbladedev.managers.PermissionBonusManager;
+import com.darkbladedev.persistence.EventDataPersistenceManager;
 import com.darkbladedev.utils.MM;
 
 public class HeartlessMain extends JavaPlugin {
@@ -53,6 +55,8 @@ public class HeartlessMain extends JavaPlugin {
     private static PostRestartValidator postRestartValidator;
     private static BackupManager backupManager;
     private static PvPManager pvpManager;
+    private static PermissionBonusManager permissionBonusManager;
+    private static EventDataPersistenceManager eventDataPersistenceManager;
     
     static {
         gson = new GsonBuilder().setPrettyPrinting().create();
@@ -83,6 +87,9 @@ public class HeartlessMain extends JavaPlugin {
         // Inicializar AutoSaveManager después de DatabaseManager
         autoSaveManager = new AutoSaveManager(instance);
         
+        // Inicializar EventDataPersistenceManager
+        eventDataPersistenceManager = new EventDataPersistenceManager(instance);
+        
         // Inicializar PostRestartValidator
         postRestartValidator = new PostRestartValidator(instance);
         
@@ -101,6 +108,9 @@ public class HeartlessMain extends JavaPlugin {
         // Inicializar PvPManager para características globales de PvP
         pvpManager = new PvPManager(instance);
         pvpManager.enable();
+        
+        // Inicializar PermissionBonusManager para bonificaciones de recompensas
+        permissionBonusManager = new PermissionBonusManager(instance);
 
         initializeSystems();
 
@@ -282,6 +292,10 @@ public class HeartlessMain extends JavaPlugin {
         return migrationManager;
     }
     
+    public static PermissionBonusManager getPermissionBonusManager() {
+        return permissionBonusManager;
+    }
+    
     public static AutoSaveManager getAutoSaveManager() {
         return autoSaveManager;
     }
@@ -298,6 +312,10 @@ public class HeartlessMain extends JavaPlugin {
         return pvpManager;
     }
     
+    public static EventDataPersistenceManager getEventDataPersistenceManager() {
+        return eventDataPersistenceManager;
+    }
+    
     public Gson getGson() {
         return gson;
     }
@@ -305,14 +323,13 @@ public class HeartlessMain extends JavaPlugin {
     /**
      * Muestra el banner de inicio del plugin
      */
-    @SuppressWarnings("deprecation")
     private void displayStartupBanner() {
         Bukkit.getConsoleSender().sendMessage(MM.toComponent(""));
         Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>┌─────────────────────────────────────────────────────────────┐"));
         Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                                                             │"));
         Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│         <gradient:#ffc329:#ffb029:#ff9c29:#ff8929:#ff7629:#ff6329:#ff5029:#ff3c29:#ff2929>Heartless</gradient> Plugin Enabled <gray>🖤                          │"));
         Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                                                             │"));
-        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│         <white>Version:</white> <yellow>" + getDescription().getVersion() + "</yellow>                                      │"));
+        Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│         <white>Version:</white> <yellow>" + getPluginMeta().getVersion() + "</yellow>                                      │"));
         Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│         <white>Author:</white> <yellow>" + "DarkBladeDev" + "</yellow>                                │"));
         Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>│                                                             │"));
         Bukkit.getConsoleSender().sendMessage(MM.toComponent("<gray>└─────────────────────────────────────────────────────────────┘"));

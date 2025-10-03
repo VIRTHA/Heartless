@@ -279,7 +279,7 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
      * @param progress Progreso actual
      * @param maxProgress Progreso máximo requerido
      */
-    protected final void updateChallengeProgress(UUID playerId, String challengeId, 
+    public final void updateChallengeProgress(UUID playerId, String challengeId, 
                                                Object progress, Object maxProgress) {
         if (playerId == null || challengeId == null) return;
         
@@ -301,7 +301,7 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
      * @param statistic Nombre de la estadística
      * @param value Valor a establecer
      */
-    protected final void updatePlayerStatistic(UUID playerId, String statistic, Object value) {
+    public final void updatePlayerStatistic(UUID playerId, String statistic, Object value) {
         if (playerId == null || statistic == null || value == null) return;
         
         playerStatistics.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>())
@@ -349,7 +349,7 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
      * @param statistic Nombre de la estadística
      * @param value Valor a establecer
      */
-    protected final void updateGlobalStatistic(String statistic, long value) {
+    public final void updateGlobalStatistic(String statistic, long value) {
         if (statistic == null) return;
         
         globalStatistics.computeIfAbsent(statistic, k -> new AtomicLong(0)).set(value);
@@ -952,6 +952,70 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
             for (Reward reward : rewardObjects) {
                 reward.grantTo(player, eventId);
             }
+        }
+    }
+
+
+    /**
+     * Obtiene todos los desafíos completados de todos los jugadores.
+     * 
+     * @return Mapa con todos los desafíos completados (UUID -> Set<String>)
+     */
+    public final Map<UUID, Set<String>> getAllCompletedChallenges() {
+        Map<UUID, Set<String>> allCompleted = new HashMap<>();
+        for (Map.Entry<UUID, Set<String>> entry : completedChallenges.entrySet()) {
+            allCompleted.put(entry.getKey(), new HashSet<>(entry.getValue()));
+        }
+        return allCompleted;
+    }
+    
+    /**
+     * Obtiene todo el progreso de desafíos de todos los jugadores.
+     * 
+     * @return Mapa con todo el progreso de desafíos (UUID -> Map<String, Object>)
+     */
+    public final Map<UUID, Map<String, Object>> getAllChallengeProgress() {
+        Map<UUID, Map<String, Object>> allProgress = new HashMap<>();
+        for (Map.Entry<UUID, Map<String, Object>> entry : challengeProgress.entrySet()) {
+            allProgress.put(entry.getKey(), new HashMap<>(entry.getValue()));
+        }
+        return allProgress;
+    }
+    
+    /**
+     * Carga el progreso de desafíos desde los datos persistentes.
+     * Este método es llamado por StorageManager durante la carga del evento.
+     * 
+     * @param data Mapa con el progreso de desafíos (UUID -> Map<String, Object>)
+     */
+    public final void loadChallengeProgress(Map<UUID, Map<String, Object>> data) {
+        if (data != null) {
+            challengeProgress.clear();
+            for (Map.Entry<UUID, Map<String, Object>> entry : data.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null) {
+                    challengeProgress.put(entry.getKey(), new ConcurrentHashMap<>(entry.getValue()));
+                }
+            }
+            logger.info("[" + getId() + "] Progreso de desafíos cargado para " + challengeProgress.size() + " jugadores");
+        }
+    }
+    
+    /**
+     * Carga los desafíos completados desde los datos persistentes.
+     * Este método es llamado por StorageManager durante la carga del evento.
+     * 
+     * @param data Mapa con los desafíos completados (UUID -> Set<String>)
+     */
+    public final void loadCompletedChallenges(Map<UUID, Set<String>> data) {
+        if (data != null) {
+            completedChallenges.clear();
+            for (Map.Entry<UUID, Set<String>> entry : data.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null) {
+                    completedChallenges.put(entry.getKey(), ConcurrentHashMap.newKeySet());
+                    completedChallenges.get(entry.getKey()).addAll(entry.getValue());
+                }
+            }
+            logger.info("[" + getId() + "] Desafíos completados cargados para " + completedChallenges.size() + " jugadores");
         }
     }
 }

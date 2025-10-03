@@ -828,7 +828,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
      * 
      * @param data Mapa con el progreso de desafíos serializado
      */
-    public void loadChallengeProgress(Map<String, Map<String, Object>> data) {
+    public void loadChallengeProgressFromString(Map<String, Map<String, Object>> data) {
         if (data != null) {
             challengeProgress.clear();
             data.forEach((playerIdStr, progressMap) -> {
@@ -848,7 +848,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
      * 
      * @param data Mapa con los desafíos completados serializados
      */
-    public void loadCompletedChallenges(Map<String, Set<String>> data) {
+    public void loadCompletedChallengesFromString(Map<String, Set<String>> data) {
         if (data != null) {
             completedChallenges.clear();
             data.forEach((playerIdStr, challengeSet) -> {
