@@ -292,6 +292,15 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
         dataDirty.set(true);
     }
     
+    /**
+     * Obtiene todos los desafíos disponibles en este evento.
+     * 
+     * @return Mapa inmutable con los IDs de desafíos como claves y sus definiciones como valores
+     */
+    public final Map<String, ChallengeDefinition> getChallenges() {
+        return Collections.unmodifiableMap(availableChallenges);
+    }
+    
     // === SISTEMA DE ESTADÍSTICAS ===
     
     /**

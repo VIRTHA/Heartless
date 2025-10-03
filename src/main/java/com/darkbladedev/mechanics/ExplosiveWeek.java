@@ -1,10 +1,8 @@
 package com.darkbladedev.mechanics;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -16,7 +14,6 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.World.Environment;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
@@ -44,31 +41,27 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
-import com.darkbladedev.challenges.ChallengeDefinition;
-import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 
 public class ExplosiveWeek extends AbstractWeeklyEvent {
     
+    // === CAMPOS ESPECÍFICOS DEL EVENTO ===
+    
     private final Random random = new Random();
     
-    // Tasks
+    // Tareas del evento
     private BukkitTask ghastSpawnTask;
     private BukkitTask ghastAttackTask;
     private BukkitTask mainTask;
     
-    // Challenge tracking
+    // Seguimiento de jugadores para desafíos
     private final Set<UUID> ghastKillers = new HashSet<>();
     private final Map<UUID, Set<EntityType>> mobHeadCollectors = new HashMap<>();
     private final Set<UUID> playerExplosionKillers = new HashSet<>();
     private final Set<UUID> wardenKillers = new HashSet<>();
-    private final Set<UUID> wardenCreeperKillers = new HashSet<>();
     
-    // Challenge definitions storage
-    private Map<String, ChallengeDefinition> explosiveChallenges;
-    
-    // Set of classic hostile mobs for the head collection challenge
+    // Configuración de mobs hostiles clásicos
     private final Set<EntityType> classicHostileMobs = new HashSet<>(Arrays.asList(
             EntityType.ZOMBIE, 
             EntityType.SKELETON, 
@@ -84,9 +77,82 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
         setupExplosiveWeekChallenges();
     }
     
+    // === IMPLEMENTACIÓN DE MÉTODOS ABSTRACTOS ===
+    
     @Override
-    public void start() {
-        super.start();
+    protected void onEventStart() {
+        // Inicializar tareas específicas del evento
+        startEventTasks();
+        
+        // Anunciar el inicio del evento
+        announceEventStart();
+        
+        logger.info("[ExplosiveWeek] Evento iniciado - Todas las explosiones son más poderosas");
+    }
+    
+    @Override
+    protected void onEventStop() {
+        // Detener tareas específicas del evento
+        stopEventTasks();
+        
+        // Anunciar el fin del evento
+        announceEventEnd();
+        
+        // Limpiar datos del evento
+        cleanupEventData();
+        
+        logger.info("[ExplosiveWeek] Evento detenido - El mundo vuelve a la normalidad");
+    }
+    
+    @Override
+    protected void initializeEventSpecificData() {
+        // Inicializar estructuras de datos específicas del evento
+        ghastKillers.clear();
+        mobHeadCollectors.clear();
+        playerExplosionKillers.clear();
+        wardenKillers.clear();
+        
+        // Inicializar estadísticas específicas del evento
+        updateGlobalStatistic("ghasts_spawned", 0);
+        updateGlobalStatistic("explosions_caused", 0);
+        updateGlobalStatistic("players_killed_by_explosion", 0);
+        updateGlobalStatistic("wardens_killed", 0);
+        
+        logger.info("[ExplosiveWeek] Datos específicos del evento inicializados");
+    }
+    
+    @Override
+    protected void saveEventSpecificData() {
+        // Guardar datos específicos del evento
+        // Los datos de desafíos se guardan automáticamente por AbstractWeeklyEvent
+        
+        // Actualizar estadísticas finales
+        updateGlobalStatistic("total_ghast_killers", ghastKillers.size());
+        updateGlobalStatistic("total_explosion_killers", playerExplosionKillers.size());
+        updateGlobalStatistic("total_warden_killers", wardenKillers.size());
+        
+        // Calcular estadísticas de colección de cabezas
+        long totalHeadCollectors = mobHeadCollectors.values().stream()
+            .mapToLong(Set::size)
+            .sum();
+        updateGlobalStatistic("total_heads_collected", totalHeadCollectors);
+        
+        logger.info("[ExplosiveWeek] Datos específicos del evento guardados");
+    }
+    
+    @Override
+    protected void processEventStatistics() {
+        // Procesar estadísticas específicas del evento
+        for (UUID playerId : getActivePlayers()) {
+            // Actualizar estadísticas de jugador
+            updatePlayerStatistic(playerId, "ghast_kills", ghastKillers.contains(playerId) ? 1 : 0);
+            updatePlayerStatistic(playerId, "explosion_kills", playerExplosionKillers.contains(playerId) ? 1 : 0);
+            updatePlayerStatistic(playerId, "warden_kills", wardenKillers.contains(playerId) ? 1 : 0);
+            
+            // Estadísticas de colección de cabezas
+            Set<EntityType> playerHeads = mobHeadCollectors.get(playerId);
+            updatePlayerStatistic(playerId, "heads_collected", playerHeads != null ? playerHeads.size() : 0);
+        }
     }
 
 
@@ -116,28 +182,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     protected void announceEventEnd() {
         // Anuncio general del fin del evento
         Bukkit.broadcast(MM.toComponent(prefix + " <red>¡La semana explosiva ha terminado! El mundo vuelve a la calma."));
-        Bukkit.broadcast(MM.toComponent(prefix + " <yellow>¡Revisando las estadísticas de supervivencia explosiva!"));
-        
-        // Enviar estadísticas individuales a cada jugador
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            sendPlayerStatistics(player);
-        }
+        Bukkit.broadcast(MM.toComponent("<yellow>¡Revisando las estadísticas de supervivencia explosiva!"));
     }
     
-    /**
-     * Envía las estadísticas del jugador al finalizar el evento.
-     * Ahora utiliza el sistema estandarizado de reportes.
-     * 
-     * @param player El jugador al que enviar las estadísticas
-     */
-    private void sendPlayerStatistics(Player player) {
-        // El sistema de reportes ahora se maneja automáticamente en AbstractWeeklyEvent
-        // Este método se mantiene por compatibilidad pero ya no es necesario
-        // Las estadísticas se envían automáticamente al finalizar el evento
-        
-        // Mensaje de transición para informar al jugador
-        player.sendMessage(MM.toComponent(prefix + " <green>Generando tu reporte de estadísticas...</green>"));
-    }
     
     @Override
     protected void stopEventTasks() {
@@ -294,174 +341,82 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     /**
      * Configura e inicializa los desafíos específicos de la Semana Explosiva
      */
+    /**
+     * Configura los desafíos específicos de la Semana Explosiva usando el sistema AbstractWeeklyEvent
+     */
     private void setupExplosiveWeekChallenges() {
         try {
-            initializeChallengeDefinitions();
-            plugin.getLogger().info("[ExplosiveWeek] Sistema de desafíos inicializado correctamente");
+            // Desafío 1: Matar un Ghast
+            registerChallenge("ghast_killer", 
+                ChallengeDefinition.fromStringRewards(
+                    "ghast_killer",
+                    "Cazador de Ghasts", 
+                    "Mata un Ghast durante una tormenta", 
+                    1, 
+                    Arrays.asList("enchant:tictac:1")
+                )
+            );
+            
+            // Desafío 2: Coleccionar cabezas de mobs hostiles clásicos
+            registerChallenge("mob_head_collector", 
+                ChallengeDefinition.fromStringRewards(
+                    "mob_head_collector",
+                    "Coleccionista de Cabezas", 
+                    "Colecciona cabezas de Zombie, Skeleton y Creeper", 
+                    3, 
+                    Arrays.asList("coins:20")
+                )
+            );
+            
+            // Desafío 3: Matar a un jugador con una explosión
+            registerChallenge("storm_killer", 
+                ChallengeDefinition.fromStringRewards(
+                    "storm_killer",
+                    "Intormentable", 
+                    "Mata a un jugador durante una tormenta", 
+                    1, 
+                    Arrays.asList("tag:tntomano")
+                )
+            );
+            
+            // Desafío 4: Matar un Warden durante una tormenta
+            registerChallenge("warden_storm_killer", 
+                ChallengeDefinition.fromStringRewards(
+                    "warden_storm_killer",
+                    "Electro Warden",
+                    "Mata un Warden durante una tormenta", 
+                    1, 
+                    Arrays.asList("health:2")
+                )
+            );
+            
+            logger.info("[ExplosiveWeek] Desafíos configurados correctamente");
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "[ExplosiveWeek] Error al configurar desafíos", e);
+            logger.severe("[ExplosiveWeek] Error al configurar desafíos: " + e.getMessage());
         }
     }
     
     /**
-     * Inicializa las definiciones de desafíos específicos de la Semana Explosiva
-     * 
-     * Desafíos disponibles:
-     * 1. Ghast Killer (Fácil) - Matar un ghast en el Overworld
-     * 2. Mob Head Collector (Intermedio) - Conseguir cabezas de todos los mobs hostiles clásicos  
-     * 3. Player Explosion Killer (Difícil) - Matar a un jugador con una explosión
-     * 4. Warden Creeper Killer (Leyenda) - Matar a un warden con la explosión de un creeper eléctrico
-     */
-    private void initializeChallengeDefinitions() {
-        try {
-            // Desafío 1: Matar un ghast en el Overworld (Fácil)
-            registerExplosiveChallenge("ghast_killer",
-                "Cazador de Ghasts",
-                "Mata a un ghast en el Overworld durante la Semana Explosiva",
-                1,
-                Collections.singletonList("enchant:tictac:1")
-            );
-            
-            // Desafío 2: Conseguir cabezas de todos los mobs hostiles clásicos (Intermedio)
-            registerExplosiveChallenge("mob_head_collector",
-                "Coleccionista de Cabezas",
-                "Consigue la cabeza de todos los mobs hostiles clásicos (Zombie, Skeleton, Creeper, Spider, Enderman)",
-                classicHostileMobs.size(),
-                Collections.singletonList("health:2")
-            );
-            
-            // Desafío 3: Matar a un jugador con una explosión (Difícil)
-            registerExplosiveChallenge("player_explosion_killer",
-                "TNTómano",
-                "Mata a un jugador con una explosión durante la Semana Explosiva",
-                1,
-                Collections.singletonList("tag:tntomano")
-            );
-            
-            // Desafío 4: Matar a un warden con la explosión de un creeper eléctrico (Leyenda)
-            registerExplosiveChallenge("warden_creeper_killer",
-                "Domador de Wardens",
-                "Mata a un warden con la explosión de un creeper eléctrico",
-                1,
-                Collections.singletonList("health:2")
-            );
-            
-            plugin.getLogger().info("[ExplosiveWeek] " + getRegisteredChallengesCount() + " desafíos registrados correctamente");
-            
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "[ExplosiveWeek] Error al inicializar definiciones de desafíos", e);
-        }
-    }
-    
-    /**
-     * Registra un desafío específico de la Semana Explosiva
-     * 
-     * @param challengeId ID único del desafío
-     * @param displayName Nombre mostrado del desafío
-     * @param description Descripción del desafío
-     * @param requiredProgress Progreso requerido para completar el desafío
-     * @param rewards Lista de recompensas del desafío
-     */
-    private void registerExplosiveChallenge(String challengeId, String displayName, String description, 
-                                          int requiredProgress, List<String> rewards) {
-        try {
-            if (challengeId == null || displayName == null || description == null) {
-                plugin.getLogger().warning("[ExplosiveWeek] Intento de registrar desafío con parámetros nulos");
-                return;
-            }
-            
-            // Crear definición del desafío usando el sistema heredado de WeeklyEvent
-            // Nota: Como ExplosiveWeek extiende WeeklyEvent y no AbstractWeeklyEvent,
-            // almacenamos la información en estructuras propias
-            
-            // Crear y registrar el desafío usando el sistema heredado
-            ChallengeDefinition challengeDefinition = new ChallengeDefinition(
-                challengeId, displayName, description, requiredProgress, rewards
-            );
-            
-            // Almacenar en mapa local para gestión
-            if (explosiveChallenges == null) {
-                explosiveChallenges = new HashMap<>();
-            }
-            explosiveChallenges.put(challengeId, challengeDefinition);
-            
-            plugin.getLogger().info("[ExplosiveWeek] Desafío registrado: " + challengeId + " - " + displayName);
-            
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, 
-                "[ExplosiveWeek] Error al registrar desafío: " + challengeId, e);
-        }
-    }
-    
-    /**
-     * Obtiene todos los desafíos registrados en la Semana Explosiva
-     * 
-     * @return Mapa con los desafíos disponibles (ID -> ChallengeDefinition)
-     */
-    public Map<String, ChallengeDefinition> getRegisteredChallenges() {
-        return explosiveChallenges != null ? new HashMap<>(explosiveChallenges) : new HashMap<>();
-    }
-    
-    /**
-     * Obtiene una lista de IDs de desafíos disponibles
-     * 
-     * @return Lista con los IDs de desafíos disponibles
-     */
-    public List<String> getRegisteredChallengeIds() {
-        return explosiveChallenges != null ? 
-            new java.util.ArrayList<>(explosiveChallenges.keySet()) : 
-            new java.util.ArrayList<>();
-    }
-    
-    /**
-     * Obtiene un desafío específico por su ID
-     * 
-     * @param challengeId ID del desafío
-     * @return ChallengeDefinition del desafío o null si no existe
-     */
-    public ChallengeDefinition getRegisteredChallenge(String challengeId) {
-        return explosiveChallenges != null ? explosiveChallenges.get(challengeId) : null;
-    }
-    
-    /**
-     * Obtiene el número total de desafíos registrados
-     * 
-     * @return Número de desafíos registrados
-     */
-    public int getRegisteredChallengesCount() {
-        return explosiveChallenges != null ? explosiveChallenges.size() : 0;
-    }
-    
-    /**
-     * Verifica si un desafío específico está registrado
-     * 
-     * @param challengeId ID del desafío
-     * @return true si el desafío está registrado
-     */
-    public boolean isChallengeRegistered(String challengeId) {
-        return explosiveChallenges != null && explosiveChallenges.containsKey(challengeId);
-    }
-    
-    /**
-     * Anuncia todos los desafíos registrados a los jugadores
+     * Anuncia todos los desafíos registrados a los jugadores usando el sistema AbstractWeeklyEvent
      */
     public void announceRegisteredChallenges() {
         try {
-            if (explosiveChallenges == null || explosiveChallenges.isEmpty()) {
-                plugin.getLogger().warning("[ExplosiveWeek] No hay desafíos registrados para anunciar");
+            Map<String, AbstractWeeklyEvent.ChallengeDefinition> challenges = getAvailableChallenges();
+            if (challenges == null || challenges.isEmpty()) {
+                logger.warning("[ExplosiveWeek] No hay desafíos registrados para anunciar");
                 return;
             }
             
             Bukkit.broadcast(MM.toComponent("<yellow>Desafíos disponibles:"));
             
-            for (ChallengeDefinition challenge : explosiveChallenges.values()) {
+            for (AbstractWeeklyEvent.ChallengeDefinition challenge : challenges.values()) {
                 String difficultyColor = getDifficultyColor(challenge.getId());
                 Bukkit.broadcast(MM.toComponent(difficultyColor + "• " + 
-                    challenge.getTitle() + " - <gray>" + challenge.getDescription()));
+                    challenge.getDisplayName() + " - <gray>" + challenge.getDescription()));
             }
             
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "[ExplosiveWeek] Error al anunciar desafíos registrados", e);
+            logger.log(Level.WARNING, "[ExplosiveWeek] Error al anunciar desafíos registrados", e);
         }
     }
     
@@ -479,10 +434,8 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
                 return "<yellow>"; // Intermedio
             case "player_explosion_killer":
                 return "<red>"; // Difícil
-            case "warden_creeper_killer":
-                return "<light_purple>"; // Leyenda
             default:
-                return "<white>";
+                return "<white>"; // Por defecto
         }
     }
 
@@ -589,25 +542,6 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
             }
         }
         
-        // Track warden kills by charged creeper for challenge (during storm)
-        if (victim instanceof Warden && damager instanceof Creeper && victim.getWorld().hasStorm()) {
-            Creeper creeper = (Creeper) damager;
-            if (creeper.isPowered()) {
-                // Find nearby players who might have led the creeper to the warden
-                for (Player player : Bukkit.getOnlinePlayers()) {
-                    if (player.getWorld().equals(victim.getWorld()) &&
-                        player.getLocation().distance(victim.getLocation()) < 32 &&
-                        !wardenCreeperKillers.contains(player.getUniqueId())) {
-                        
-                        wardenCreeperKillers.add(player.getUniqueId());
-                        
-                        // Award the challenge reward
-                        awardWardenCreeperKillChallenge(player);
-                        break; // Only award to one player
-                    }
-                }
-            }
-        }
     }
 
     @EventHandler
@@ -654,8 +588,7 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
         if (killer != null && classicHostileMobs.contains(entity.getType())) {
             // Check if the mob dropped its head
             for (ItemStack drop : event.getDrops()) {
-                if (drop.getType() == Material.PLAYER_HEAD || 
-                    drop.getType() == Material.ZOMBIE_HEAD || 
+                if (drop.getType() == Material.ZOMBIE_HEAD || 
                     drop.getType() == Material.SKELETON_SKULL || 
                     drop.getType() == Material.CREEPER_HEAD) {
                     
@@ -675,31 +608,6 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
             }
         }
         
-        // Handle Warden death by charged creeper explosion (during storm)
-        if (entity instanceof Warden && entity.getWorld().hasStorm()) {
-            EntityDamageEvent lastDamage = entity.getLastDamageCause();
-            if (lastDamage instanceof EntityDamageByEntityEvent) {
-                EntityDamageByEntityEvent damageEvent = (EntityDamageByEntityEvent) lastDamage;
-                if (damageEvent.getDamager() instanceof Creeper) {
-                    Creeper creeper = (Creeper) damageEvent.getDamager();
-                    if (creeper.isPowered()) {
-                        // Find nearby players who might have led the creeper to the warden
-                        for (Player player : Bukkit.getOnlinePlayers()) {
-                            if (player.getWorld().equals(entity.getWorld()) &&
-                                player.getLocation().distance(entity.getLocation()) < 32 &&
-                                !wardenCreeperKillers.contains(player.getUniqueId())) {
-                                
-                                wardenCreeperKillers.add(player.getUniqueId());
-                                
-                                // Award the challenge reward
-                                awardWardenCreeperKillChallenge(player);
-                                break; // Only award to one player
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
     
     @EventHandler
@@ -769,32 +677,29 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     // Challenge reward methods
     
     private void awardGhastKillChallenge(Player player) {
-        if (ghastKillers.contains(player.getUniqueId())) {
+        if (hasChallengeCompleted(player.getUniqueId(), "ghast_killer")) {
             // Already awarded
             return;
         }
         
-        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
-        player.sendMessage(MM.toComponent("<yellow>Has matado a un ghast en el Overworld.</yellow>"));
-        player.sendMessage(MM.toComponent("<gold>Recompensa: Encantamiento Tic Tac</gold>"));
-
-        ItemStack tictacBook = HeartlessMain.getContentManager().getEnchantmentItem(CustomEnchantments.ENCHANTMENTS.TICTAC.toEnchantment(), 1);
-        player.getInventory().addItem(tictacBook);
+        // Usar el sistema oficial de desafíos
+        completeChallengeForPlayer(player.getUniqueId(), "ghast_killer");
         
+        // Mantener el tracking local para compatibilidad
         ghastKillers.add(player.getUniqueId());
-        
     }
     
     private void awardMobHeadCollectionChallenge(Player player) {
         Set<EntityType> collectedHeads = mobHeadCollectors.getOrDefault(player.getUniqueId(), new HashSet<>());
         
         if (collectedHeads.size() >= classicHostileMobs.size()) {
-            player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
-            player.sendMessage(MM.toComponent("<yellow>Has conseguido la cabeza de todos los mobs hostiles clásicos.</yellow>"));
-            player.sendMessage(MM.toComponent("<gold>Recompensa: +20 Thalos</gold>"));
+            if (hasChallengeCompleted(player.getUniqueId(), "mob_head_collector")) {
+                // Already awarded
+                return;
+            }
             
-            // Award 20 Thalos to the player
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "thalos give " + player.getName() + " 20");
+            // Usar el sistema oficial de desafíos
+            completeChallengeForPlayer(player.getUniqueId(), "mob_head_collector");
             
             // Announce to server
             Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Coleccionar todas las cabezas de mobs hostiles clásicos</gray></yellow></gold>"));
@@ -802,40 +707,20 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     }
     
     private void awardExplosionKillChallenge(Player player) {
-        if (playerExplosionKillers.contains(player.getUniqueId())) {
+        if (hasChallengeCompleted(player.getUniqueId(), "storm_killer")) {
             // Already awarded
             return;
         }
         
-        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
-        player.sendMessage(MM.toComponent("<yellow>Has matado a un jugador con una explosión.</yellow>"));
-        player.sendMessage(MM.toComponent("<gold>Recompensa: Tag \"TNTómano\"</gold>"));
+        // Usar el sistema oficial de desafíos
+        completeChallengeForPlayer(player.getUniqueId(), "storm_killer");
         
-        // Award the tag
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission set htl.tag.tntomano");
-        
+        // Mantener el tracking local para compatibilidad
         playerExplosionKillers.add(player.getUniqueId());
         
-        // Announce to server
-        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Matar a un jugador con una explosión</gray></yellow></gold>"));
     }
     
-    private void awardWardenCreeperKillChallenge(Player player) {
-        if (wardenCreeperKillers.contains(player.getUniqueId())) {
-            // Already awarded
-            return;
-        }
-        
-        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
-        player.sendMessage(MM.toComponent("<yellow>Has matado a un warden durante una tormenta.</yellow>"));
-        player.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón permanente</gold>"));
-        
-        // Add one heart to player's max health
-        double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
-        player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(currentMaxHealth + 2.0);
-        
-        wardenCreeperKillers.add(player.getUniqueId());
-    }
+
     
     public boolean isActive() {
         return isActive.get();
@@ -880,32 +765,6 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
             }
         }.runTaskTimer(plugin, 0L, 20L * 5); // Check every 5 seconds
     }
-
-    /**
-     * Checks if a player has completed a specific challenge
-     * @param playerId The UUID of the player
-     * @param challengeId The ID of the challenge
-     * @return true if the challenge is completed, false otherwise
-     */
-    public boolean hasChallengeCompleted(UUID playerId, String challengeId) {
-        switch (challengeId) {
-            case "ghast_killer":
-                // Player has killed a ghast
-                return ghastKillers.contains(playerId);
-            case "mob_head_collector":
-                // Player has collected all classic hostile mob heads
-                Set<EntityType> collectedHeads = mobHeadCollectors.getOrDefault(playerId, new HashSet<>());
-                return collectedHeads.containsAll(classicHostileMobs);
-            case "explosion_killer":
-                // Player has killed another player with an explosion
-                return playerExplosionKillers.contains(playerId);
-            case "warden_creeper_killer":
-                // Player has killed a warden with a creeper
-                return wardenCreeperKillers.contains(playerId);
-            default:
-                return false;
-        }
-    }
     
     // ========== MÉTODOS DE PERSISTENCIA ==========
     
@@ -938,14 +797,6 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     }
     
     /**
-     * Obtiene el conjunto de jugadores que han matado wardens con creepers
-     * @return Set de UUIDs de jugadores que mataron wardens con creepers
-     */
-    public Set<UUID> getWardenCreeperKillers() {
-        return new HashSet<>(wardenCreeperKillers);
-    }
-    
-    /**
      * Carga los jugadores que han matado ghasts (para carga desde persistencia)
      * @param ghastKillers Set con UUIDs de jugadores que mataron ghasts
      */
@@ -961,15 +812,6 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     public void loadPlayerExplosionKillers(Set<UUID> playerExplosionKillers) {
         this.playerExplosionKillers.clear();
         this.playerExplosionKillers.addAll(playerExplosionKillers);
-    }
-    
-    /**
-     * Carga los jugadores que han matado wardens con creepers (para carga desde persistencia)
-     * @param wardenCreeperKillers Set con UUIDs de jugadores que mataron wardens con creepers
-     */
-    public void loadWardenCreeperKillers(Set<UUID> wardenCreeperKillers) {
-        this.wardenCreeperKillers.clear();
-        this.wardenCreeperKillers.addAll(wardenCreeperKillers);
     }
     
     /**
@@ -999,22 +841,15 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     }
 
     private void awardWardenKillChallenge(Player player) {
-        if (wardenKillers.contains(player.getUniqueId())) {
+        if (hasChallengeCompleted(player.getUniqueId(), "warden_storm_killer")) {
             // Already awarded
             return;
         }
         
-        player.sendMessage(MM.toComponent("<green><bold>¡DESAFÍO COMPLETADO!</bold></green>"));
-        player.sendMessage(MM.toComponent("<yellow>Has matado a un warden durante una tormenta.</yellow>"));
-        player.sendMessage(MM.toComponent("<gold>Recompensa: +1 corazón permanente</gold>"));
+        // Usar el sistema oficial de desafíos
+        completeChallengeForPlayer(player.getUniqueId(), "warden_storm_killer");
         
-        // Add one heart to player's max health
-        double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
-        player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(currentMaxHealth + 2.0);
-        
+        // Mantener el tracking local para compatibilidad
         wardenKillers.add(player.getUniqueId());
-        
-        // Announce to server
-        Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Matar a un warden durante una tormenta</gray></yellow></gold>"));
     }
 }

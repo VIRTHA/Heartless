@@ -82,6 +82,9 @@ permissions:
   htl.events.stop:
     description: Permite detener eventos
     default: op
+  htl.challenges:
+    description: Permite ver desafíos
+    default: op
     
   # Ban Duration Permissions
   htl.ban.duration.exempt:

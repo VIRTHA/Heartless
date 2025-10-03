@@ -11,11 +11,11 @@ import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.exceptions.CustomException;
 import com.darkbladedev.exceptions.ExceptionBuilder;
 import com.darkbladedev.exceptions.NullEventException;
+import com.darkbladedev.mechanics.AbstractWeeklyEvent;
 import com.darkbladedev.mechanics.AcidWeek;
 import com.darkbladedev.mechanics.BloodAndIronWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
 import com.darkbladedev.mechanics.UndeadWeek;
-import com.darkbladedev.mechanics.WeeklyEvent;
 import com.darkbladedev.utils.EffectType;
 import com.darkbladedev.utils.MM;
 
@@ -352,7 +352,7 @@ public class PlaceholderApiManager extends PlaceholderExpansion {
      * @throws CustomException 
      */
     private boolean isChallengeCompleted(Player player, String eventName, String challengeId) throws CustomException {
-        WeeklyEvent currentEvent = plugin.getWeeklyEventManager().getCurrentEvent();
+        AbstractWeeklyEvent currentEvent = plugin.getWeeklyEventManager().getCurrentEvent();
         
         switch (eventName) {
             case "blood_and_iron_week":

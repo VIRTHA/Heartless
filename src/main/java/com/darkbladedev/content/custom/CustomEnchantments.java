@@ -19,6 +19,7 @@ public class CustomEnchantments {
     public static final Key CONDIMENT_KEY = Key.key(namespace, "condiment");
     public static final Key ADRENALINE_KEY = Key.key(namespace, "adrenaline");
     public static final Key FIRST_STRIKE_KEY = Key.key(namespace, "first_strike");
+    public static final Key HEAD_DROPPER_KEY = Key.key(namespace, "head_dropper");
 
     public Enchantment getEnchantment(Key key) {
         return RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT).get(key);
@@ -49,6 +50,9 @@ public class CustomEnchantments {
             case "first_strike":
             case "primer_golpe":
                 return FIRST_STRIKE_KEY;
+            case "head_hunter":
+            case "cazador_cabezas":
+                return HEAD_DROPPER_KEY;
             default:
                 return null;
         }
@@ -68,7 +72,8 @@ public class CustomEnchantments {
         Material material = item.getType();
         
         // Verificar restricciones específicas para cada encantamiento personalizado
-        if (enchantmentKey.equals(ACID_INFECTION_KEY) || enchantmentKey.equals(TICTAC_KEY) || enchantmentKey.equals(FIRST_STRIKE_KEY)) {
+        if (enchantmentKey.equals(ACID_INFECTION_KEY) || enchantmentKey.equals(TICTAC_KEY) || 
+            enchantmentKey.equals(FIRST_STRIKE_KEY) || enchantmentKey.equals(HEAD_DROPPER_KEY)) {
             // Solo armas (espadas y hachas)
             return isWeapon(material);
         } else if (enchantmentKey.equals(ACID_RESISTANCE_KEY) || enchantmentKey.equals(ADRENALINE_KEY)) {
@@ -130,7 +135,8 @@ public class CustomEnchantments {
         TICTAC(TICTAC_KEY, "TicTac", 5),
         CONDIMENT(CONDIMENT_KEY, "Condimento", 3),
         ADRENALINE(ADRENALINE_KEY, "Adrenalina", 1),
-        FIRST_STRIKE(FIRST_STRIKE_KEY, "Primer Golpe", 1);
+        FIRST_STRIKE(FIRST_STRIKE_KEY, "Primer Golpe", 1),
+        HEAD_HUNTER(HEAD_DROPPER_KEY, "Cazador de Cabezas", 1);
 
         private final Key key;
         private final String displayName;

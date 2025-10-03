@@ -379,14 +379,16 @@ public class PlayerStatisticsReportManager {
      * @return Nombre para mostrar
      */
     private String getChallengeDisplayName(String challengeId) {
-        // Mapeo de IDs a nombres legibles
-        Map<String, String> challengeNames = Map.of(
-            "long_stay", "Permanencia Prolongada",
-            "ghast_killer", "Cazador de Ghasts",
-            "mob_head_collector", "Coleccionista de Cabezas",
-            "explosion_killer", "Maestro de Explosiones",
-            "warden_creeper_killer", "Cazador Élite"
-        );
+        // Mapeo de IDs a nombres legibles (valores por defecto)
+        Map<String, String> challengeNames = new HashMap<>();
+
+        // Obtener los desafíos del evento actual y agregar sus nombres
+        AbstractWeeklyEvent currentEvent = plugin.getWeeklyEventManager().getCurrentEvent();
+        if (currentEvent != null) {
+            currentEvent.getChallenges().forEach((key, value) -> {
+                challengeNames.put(key, value.getDisplayName());
+            });
+        }
         
         return challengeNames.getOrDefault(challengeId, challengeId);
     }

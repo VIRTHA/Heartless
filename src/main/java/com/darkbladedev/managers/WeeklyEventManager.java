@@ -25,12 +25,12 @@ import com.darkbladedev.utils.EventType;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.events.WeeklyEventDispatcher;
+import com.darkbladedev.mechanics.AbstractWeeklyEvent;
 import com.darkbladedev.mechanics.AcidWeek;
 import com.darkbladedev.mechanics.BloodAndIronWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
 import com.darkbladedev.mechanics.ToxicFog;
 import com.darkbladedev.mechanics.UndeadWeek;
-import com.darkbladedev.mechanics.WeeklyEvent;
 import com.darkbladedev.utils.TimeConverter;
 import com.darkbladedev.utils.TimeExpression;
 
@@ -69,7 +69,7 @@ public class WeeklyEventManager {
     private final File dataFile;
     private final Gson gson;
     private final WeeklyEventDispatcher eventDispatcher;
-    private final Map<String, WeeklyEvent> registeredEvents = new HashMap<>();
+    private final Map<String, AbstractWeeklyEvent> registeredEvents = new HashMap<>();
     
     // Sistemas integrados
     private final EventStatisticsManager statisticsManager;
@@ -78,7 +78,7 @@ public class WeeklyEventManager {
     // Volatile references for thread visibility
     private volatile BukkitTask weeklyTask;
     private volatile EventType currentEventType;
-    private volatile WeeklyEvent currentEvent;
+    private volatile AbstractWeeklyEvent currentEvent;
     
     public WeeklyEventManager(HeartlessMain plugin) {
         this.plugin = plugin;
@@ -460,7 +460,7 @@ public class WeeklyEventManager {
             eventEndTime.set(startTime + duration);
             
             // Create event instance
-            WeeklyEvent event = createEventInstance(eventType, duration);
+            AbstractWeeklyEvent event = createEventInstance(eventType, duration);
             if (event == null) {
                 plugin.getLogger().severe("Failed to create event instance for: " + eventType.getEventName());
                 return;
@@ -490,7 +490,7 @@ public class WeeklyEventManager {
     /**
      * Creates event instance based on type with proper error handling
      */
-    private WeeklyEvent createEventInstance(EventType eventType, long duration) {
+    private AbstractWeeklyEvent createEventInstance(EventType eventType, long duration) {
         try {
             TimeExpression durationExpression = TimeExpression.fromMilliseconds(duration);
             
@@ -821,7 +821,7 @@ public class WeeklyEventManager {
         }
     }
     
-    public WeeklyEvent getCurrentEvent() {
+    public AbstractWeeklyEvent getCurrentEvent() {
         eventLock.readLock().lock();
         try {
             return currentEvent;
@@ -988,7 +988,7 @@ public class WeeklyEventManager {
      * Registra un nuevo evento semanal
      * @param event El evento a registrar
      */
-    public void registerEvent(WeeklyEvent event) {
+    public void registerEvent(AbstractWeeklyEvent event) {
         if (event != null && event.getId() != null) {
             registeredEvents.put(event.getId(), event);
         }
@@ -999,7 +999,7 @@ public class WeeklyEventManager {
      * @param eventName El nombre del evento
      * @param event El evento a registrar
      */
-    public void registerEvent(String eventName, WeeklyEvent event) {
+    public void registerEvent(String eventName, AbstractWeeklyEvent event) {
         if (event != null && eventName != null) {
             registeredEvents.put(eventName, event);
         }
@@ -1028,7 +1028,7 @@ public class WeeklyEventManager {
      * @return true si el evento se inició correctamente
      */
     public boolean startEvent(String eventName) {
-        WeeklyEvent event = registeredEvents.get(eventName);
+        AbstractWeeklyEvent event = registeredEvents.get(eventName);
         if (event == null) {
             return false;
         }
@@ -1077,7 +1077,7 @@ public class WeeklyEventManager {
         try {
             stopCurrentEvent();
             // Detener cualquier otro evento que pueda estar ejecutándose
-            for (WeeklyEvent event : registeredEvents.values()) {
+            for (AbstractWeeklyEvent event : registeredEvents.values()) {
                 if (event != null) {
                     try {
                         event.stop();
@@ -1095,7 +1095,7 @@ public class WeeklyEventManager {
      * Establece el evento actual (usado principalmente para testing)
      * @param event El evento a establecer como actual
      */
-    public void setCurrentEvent(WeeklyEvent event) {
+    public void setCurrentEvent(AbstractWeeklyEvent event) {
         eventLock.writeLock().lock();
         try {
             this.currentEvent = event;
@@ -1117,7 +1117,7 @@ public class WeeklyEventManager {
     public boolean stopEvent(String eventName) {
         eventLock.writeLock().lock();
         try {
-            WeeklyEvent event = registeredEvents.get(eventName);
+            AbstractWeeklyEvent event = registeredEvents.get(eventName);
             if (event != null) {
                 try {
                     event.stop();
@@ -1158,8 +1158,8 @@ public class WeeklyEventManager {
     public boolean transitionToEvent(String fromEventName, String toEventName) {
         eventLock.writeLock().lock();
         try {
-            WeeklyEvent fromEvent = registeredEvents.get(fromEventName);
-            WeeklyEvent toEvent = registeredEvents.get(toEventName);
+            AbstractWeeklyEvent fromEvent = registeredEvents.get(fromEventName);
+            AbstractWeeklyEvent toEvent = registeredEvents.get(toEventName);
             
             if (fromEvent == null || toEvent == null) {
                 return false;
@@ -1196,7 +1196,7 @@ public class WeeklyEventManager {
     public boolean scheduleEvent(String eventName, long startTime, int durationMs) {
         eventLock.writeLock().lock();
         try {
-            WeeklyEvent event = registeredEvents.get(eventName);
+            AbstractWeeklyEvent event = registeredEvents.get(eventName);
             if (event == null) {
                 return false;
             }

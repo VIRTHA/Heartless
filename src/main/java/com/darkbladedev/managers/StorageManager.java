@@ -3,6 +3,7 @@ package com.darkbladedev.managers;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.mechanics.WeeklyEvent;
 import com.darkbladedev.mechanics.UndeadWeek;
+import com.darkbladedev.mechanics.AbstractWeeklyEvent;
 import com.darkbladedev.mechanics.AcidWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
 import com.darkbladedev.mechanics.ToxicFog;
@@ -285,12 +286,6 @@ public class StorageManager {
                     playerExplosionKillersJson.addProperty(playerId.toString(), true);
                 }
                 eventData.add("playerExplosionKillers", playerExplosionKillersJson);
-                
-                JsonObject wardenCreeperKillersJson = new JsonObject();
-                for (UUID playerId : explosiveWeek.getWardenCreeperKillers()) {
-                    wardenCreeperKillersJson.addProperty(playerId.toString(), true);
-                }
-                eventData.add("wardenCreeperKillers", wardenCreeperKillersJson);
                 
                 // Guardar mapa de coleccionistas de cabezas de mobs (más complejo)
                 JsonObject mobHeadCollectorsJson = new JsonObject();
@@ -861,15 +856,6 @@ public class StorageManager {
                         explosiveWeek.loadPlayerExplosionKillers(playerExplosionKillers);
                     }
                     
-                    if (eventData.has("wardenCreeperKillers")) {
-                        JsonObject wardenCreeperKillersJson = eventData.getAsJsonObject("wardenCreeperKillers");
-                        Set<UUID> wardenCreeperKillers = new HashSet<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> entry : wardenCreeperKillersJson.entrySet()) {
-                            wardenCreeperKillers.add(UUID.fromString(entry.getKey()));
-                        }
-                        explosiveWeek.loadWardenCreeperKillers(wardenCreeperKillers);
-                    }
-                    
                     plugin.getLogger().info("Datos específicos de ExplosiveWeek cargados correctamente");
                 }
                 
@@ -1268,7 +1254,7 @@ public class StorageManager {
             return;
         }
         
-        WeeklyEvent currentEvent = eventManager.getCurrentEvent();
+        AbstractWeeklyEvent currentEvent = eventManager.getCurrentEvent();
         if (currentEvent != null) {
             saveEvent(currentEvent);
         }

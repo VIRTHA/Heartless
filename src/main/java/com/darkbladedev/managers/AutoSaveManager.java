@@ -20,7 +20,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
-import com.darkbladedev.mechanics.WeeklyEvent;
 import com.darkbladedev.mechanics.AbstractWeeklyEvent;
 import com.darkbladedev.persistence.EventDataPersistenceManager;
 import com.google.gson.Gson;
@@ -228,21 +227,20 @@ public class AutoSaveManager {
         try {
             WeeklyEventManager eventManager = plugin.getWeeklyEventManager();
             if (eventManager != null) {
-                WeeklyEvent currentEvent = eventManager.getCurrentEvent();
+                AbstractWeeklyEvent currentEvent = eventManager.getCurrentEvent();
                 if (currentEvent != null) {
                     // Usar StorageManager para guardar el evento
                     plugin.getStorageManager().saveEvent(currentEvent);
                     
                     // Usar EventDataPersistenceManager para eventos que extienden AbstractWeeklyEvent
-                    if (currentEvent instanceof AbstractWeeklyEvent) {
-                        EventDataPersistenceManager persistenceManager = HeartlessMain.getEventDataPersistenceManager();
-                        if (persistenceManager != null) {
-                            boolean persistenceSuccess = persistenceManager.saveEventData((AbstractWeeklyEvent) currentEvent);
-                            if (persistenceSuccess) {
-                                logger.info("Datos de desafíos guardados exitosamente para evento: " + currentEvent.getId());
-                            } else {
-                                logger.warning("Error guardando datos de desafíos para evento: " + currentEvent.getId());
-                            }
+                    EventDataPersistenceManager persistenceManager = HeartlessMain.getEventDataPersistenceManager();
+                    if (persistenceManager != null) {
+                        boolean persistenceSuccess = persistenceManager.saveEventData(currentEvent);
+                        if (persistenceSuccess) {
+                            logger.info("Datos de desafíos guardados exitosamente para evento: " + currentEvent.getId());
+                        } else {
+                            logger.warning("Error guardando datos de desafíos para evento: " + currentEvent.getId());
+                        }
                         }
                     }
                     
@@ -255,7 +253,6 @@ public class AutoSaveManager {
                     logger.info("Datos del evento semanal guardados: " + currentEvent.getId());
                     return true;
                 }
-            }
             return true; // No hay evento activo, no es un error
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error guardando datos del evento semanal", e);
@@ -672,7 +669,7 @@ public class AutoSaveManager {
         try {
             WeeklyEventManager eventManager = plugin.getWeeklyEventManager();
             if (eventManager != null) {
-                WeeklyEvent currentEvent = eventManager.getCurrentEvent();
+                AbstractWeeklyEvent currentEvent = eventManager.getCurrentEvent();
                 if (currentEvent != null) {
                     logger.info("Evento semanal restaurado correctamente: " + currentEvent.getId());
                     

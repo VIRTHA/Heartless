@@ -46,6 +46,10 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
 
     @Override
     public void execute(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("htl.challenges")) {
+            sender.sendMessage(MM.toComponent(HeartlessMain.getInstance().getPrefix() + " <red>No tienes permisos para usar este comando."));
+            return;
+        }
         HeartlessMain plugin = HeartlessMain.getInstance();
         
         // Verificar si hay un evento activo
@@ -147,7 +151,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
         // Desafío 1: Mata a un ghast durante una tormenta
         Component challenge1 = MM.toComponent("<yellow>1. Mata a un <red>ghast</red> durante una <blue>tormenta</blue></yellow>");
         if (playerId != null) {
-            String hoverText = getProgressHover(event, playerId, "explosive_ghast_hunter", 1);
+            String hoverText = getProgressHover(event, playerId, "ghast_killer", 1);
             challenge1 = challenge1.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge1);
@@ -156,7 +160,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
         // Desafío 2: Consigue cabezas de mobs clásicos
         Component challenge2 = MM.toComponent("<yellow>2. Consigue <white>cabezas</white> de mobs clásicos</yellow>");
         if (playerId != null) {
-            String hoverText = getProgressHover(event, playerId, "explosive_head_collector", 3);
+            String hoverText = getProgressHover(event, playerId, "mob_head_collector", 3);
             challenge2 = challenge2.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge2);
@@ -166,7 +170,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
         // Desafío 3: Mata a un jugador en PvP durante una tormenta
         Component challenge3 = MM.toComponent("<yellow>3. Mata a un jugador en <red>PvP</red> durante una <blue>tormenta</blue></yellow>");
         if (playerId != null) {
-            String hoverText = getProgressHover(event, playerId, "explosive_storm_killer", 1);
+            String hoverText = getProgressHover(event, playerId, "storm_killer", 1);
             challenge3 = challenge3.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge3);
@@ -175,7 +179,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
         // Desafío 4: Mata a un Warden durante una tormenta
         Component challenge4 = MM.toComponent("<yellow>4. Mata a un <dark_red>Warden</dark_red> durante una <blue>tormenta</blue></yellow>");
         if (playerId != null) {
-            String hoverText = getProgressHover(event, playerId, "explosive_warden_slayer", 1);
+            String hoverText = getProgressHover(event, playerId, "warden_storm_killer", 1);
             challenge4 = challenge4.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge4);

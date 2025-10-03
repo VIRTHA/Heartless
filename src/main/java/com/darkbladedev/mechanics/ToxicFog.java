@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-public class ToxicFog extends WeeklyEvent {
+public class ToxicFog extends AbstractWeeklyEvent {
     
     private final Set<UUID> affectedPlayers;
     private BukkitTask toxicFogTask;
@@ -29,15 +29,28 @@ public class ToxicFog extends WeeklyEvent {
     }
     
     @Override
-    public void start() {
-        // Delegate lifecycle to base class (registers handlers and schedules end)
-        super.start();
+    protected void onEventStart() {
+        // Lógica específica de inicio para ToxicFog
     }
 
     @Override
-    public void stop() {
-        // Delegate lifecycle to base class (cancels end task, unregisters handlers)
-        super.stop();
+    protected void onEventStop() {
+        // Lógica específica de parada para ToxicFog
+    }
+    
+    @Override
+    protected void initializeEventSpecificData() {
+        // Inicializar datos específicos de ToxicFog
+    }
+    
+    @Override
+    protected void saveEventSpecificData() {
+        // Guardar datos específicos de ToxicFog
+    }
+    
+    @Override
+    protected void processEventStatistics() {
+        // Procesar estadísticas específicas de ToxicFog
     }
     
 
