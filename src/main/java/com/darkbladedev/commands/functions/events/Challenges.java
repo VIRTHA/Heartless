@@ -100,10 +100,10 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
     }
     
     /**
-     * Muestra los desafíos de la Semana de Sangre y Hierro
+     * Muestra los desafíos de BloodAndIronWeek
      */
     private void showBloodAndIronChallenges(CommandSender sender, List<String> rewards, BloodAndIronWeek event) {
-        UUID playerId = (sender instanceof Player) ? ((Player) sender).getUniqueId() : null;
+        UUID playerId = sender instanceof Player ? ((Player) sender).getUniqueId() : null;
         
         // Desafío 1: Mata a 3 jugadores
         Component challenge1 = MM.toComponent("<yellow>1. <red>Mata</red> a <white>3</white> jugadores</yellow>");
@@ -112,7 +112,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge1 = challenge1.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge1);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(0) + "<gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(0) + "<white>"));
         
         // Desafío 2: No mueras en toda la semana
         Component challenge2 = MM.toComponent("<yellow>2. <green>No mueras</green> en toda la semana</yellow>");
@@ -121,7 +121,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge2 = challenge2.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge2);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(1) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(1) + "</white>"));
         
         // Desafío 3: Mata a 5 jugadores seguidos sin morir
         Component challenge3 = MM.toComponent("<yellow>3. <red>Mata</red> a 5 jugadores seguidos sin morir</yellow>");
@@ -130,7 +130,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge3 = challenge3.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge3);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(2) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(2) + "</white>"));
         
         // Desafío 4: Haz más de 10 kills durante la semana
         Component challenge4 = MM.toComponent("<yellow>4. <red>Haz</red> más de <white>10 kills</white> durante la semana</yellow>");
@@ -139,23 +139,23 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge4 = challenge4.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge4);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(3) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(3) + "</white>"));
     }
     
     /**
-     * Muestra los desafíos de la Semana Explosiva
+     * Muestra los desafíos de ExplosiveWeek
      */
     private void showExplosiveWeekChallenges(CommandSender sender, List<String> rewards, ExplosiveWeek event) {
-        UUID playerId = (sender instanceof Player) ? ((Player) sender).getUniqueId() : null;
+        UUID playerId = sender instanceof Player ? ((Player) sender).getUniqueId() : null;
         
-        // Desafío 1: Mata a un ghast durante una tormenta
-        Component challenge1 = MM.toComponent("<yellow>1. Mata a un <red>ghast</red> durante una <blue>tormenta</blue></yellow>");
+        // Desafío 1: Mata un Ghast en el overworld
+        Component challenge1 = MM.toComponent("<yellow>1. Mata un <white>Ghast</white> en el <green>overworld</green> durante una <blue>tormenta</blue></yellow>");
         if (playerId != null) {
             String hoverText = getProgressHover(event, playerId, "ghast_killer", 1);
             challenge1 = challenge1.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge1);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(0) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(0) + "</white>"));
         
         // Desafío 2: Consigue cabezas de mobs clásicos
         Component challenge2 = MM.toComponent("<yellow>2. Consigue <white>cabezas</white> de mobs clásicos</yellow>");
@@ -164,8 +164,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge2 = challenge2.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge2);
-        sender.sendMessage(MM.toComponent("<gray>   (Zombie, Esqueleto, Creeper)</gray>"));
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(1) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(1) + "</white>"));
         
         // Desafío 3: Mata a un jugador en PvP durante una tormenta
         Component challenge3 = MM.toComponent("<yellow>3. Mata a un jugador en <red>PvP</red> durante una <blue>tormenta</blue></yellow>");
@@ -174,7 +173,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge3 = challenge3.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge3);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(2) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(2) + "</white>"));
         
         // Desafío 4: Mata a un Warden durante una tormenta
         Component challenge4 = MM.toComponent("<yellow>4. Mata a un <dark_red>Warden</dark_red> durante una <blue>tormenta</blue></yellow>");
@@ -183,32 +182,32 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge4 = challenge4.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge4);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(3) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(3) + "</white>"));
     }
     
     /**
-     * Muestra los desafíos de la Semana de No-Muertos
+     * Muestra los desafíos de UndeadWeek
      */
     private void showUndeadWeekChallenges(CommandSender sender, List<String> rewards, UndeadWeek event) {
-        UUID playerId = (sender instanceof Player) ? ((Player) sender).getUniqueId() : null;
+        UUID playerId = sender instanceof Player ? ((Player) sender).getUniqueId() : null;
         
-        // Desafío 1: Cura a 5 aldeanos zombificados
-        Component challenge1 = MM.toComponent("<yellow>1. <green>Cura</green> a <white>5</white> aldeanos zombificados</yellow>");
+        // Desafío 1: Evita morir durante la Noche Roja
+        Component challenge1 = MM.toComponent("<yellow>1. Evita morir durante la <red>Noche Roja</red></yellow>");
         if (playerId != null) {
-            String hoverText = getProgressHover(event, playerId, "undead_villager_healer", 5);
+            String hoverText = getProgressHover(event, playerId, "undead_red_night_survivor", 1);
             challenge1 = challenge1.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge1);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(0) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(0) + "</white>"));
         
-        // Desafío 2: Cúrate la infección zombie 10 veces
-        Component challenge2 = MM.toComponent("<yellow>2. <green>Cúrate</green> la infección zombie <white>10 veces</white></yellow>");
+        // Desafío 2: Cúrate de infección zombie 10 veces
+        Component challenge2 = MM.toComponent("<yellow>2. Cúrate de <green>infección zombie</green> <white>10 veces</white></yellow>");
         if (playerId != null) {
-            String hoverText = getProgressHover(event, playerId, "undead_self_healer", 10);
+            String hoverText = getProgressHover(event, playerId, "undead_infection_survivor", 10);
             challenge2 = challenge2.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge2);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(1) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(1) + "</white>"));
         
         // Desafío 3: Mata 50 no-muertos en Noche Roja
         Component challenge3 = MM.toComponent("<yellow>3. Mata <white>50 no-muertos</white> en <red>Noche Roja</red></yellow>");
@@ -217,7 +216,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge3 = challenge3.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge3);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(2) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(2) + "</white>"));
         
         // Desafío 4: Derrota al Wither en Noche Roja
         Component challenge4 = MM.toComponent("<yellow>4. Derrota al <dark_red>Wither</dark_red> en <red>Noche Roja</red></yellow>");
@@ -226,14 +225,14 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge4 = challenge4.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge4);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(3) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(3) + "</white>"));
     }
     
     /**
-     * Muestra los desafíos de la Semana Ácida
+     * Muestra los desafíos de AcidWeek
      */
     private void showAcidWeekChallenges(CommandSender sender, List<String> rewards, AcidWeek event) {
-        UUID playerId = (sender instanceof Player) ? ((Player) sender).getUniqueId() : null;
+        UUID playerId = sender instanceof Player ? ((Player) sender).getUniqueId() : null;
         
         // Desafío 1: Consigue los 4 tipos de pescados en cubetas
         Component challenge1 = MM.toComponent("<yellow>1. Consigue los <white>4 tipos</white> de pescados en <blue>cubetas</blue></yellow>");
@@ -242,7 +241,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge1 = challenge1.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge1);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(0) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(0) + "</white>"));
         
         // Desafío 2: Sobrevive 90 segundos bajo lluvia ácida
         Component challenge2 = MM.toComponent("<yellow>2. <green>Sobrevive</green> <white>90 segundos</white> bajo lluvia ácida sin pociones ni armadura especial</yellow>");
@@ -251,7 +250,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge2 = challenge2.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge2);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(1) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(1) + "</white>"));
         
         // Desafío 3: Mata a un jugador con botella de agua arrojadiza
         Component challenge3 = MM.toComponent("<yellow>3. Mata a un jugador con <blue>botella de agua</blue> arrojadiza</yellow>");
@@ -260,7 +259,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge3 = challenge3.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge3);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(2) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(2) + "</white>"));
         
         // Desafío 4: Consigue un ajolote azul
         Component challenge4 = MM.toComponent("<yellow>4. Consigue un <blue>ajolote azul</blue></yellow>");
@@ -269,7 +268,7 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             challenge4 = challenge4.hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
         }
         sender.sendMessage(challenge4);
-        sender.sendMessage(MM.toComponent("<gray>   <white>Recompensa:</white> " + rewards.get(3) + "</gray>"));
+        sender.sendMessage(MM.toComponent("<white>   <white>Recompensa:</white> " + rewards.get(3) + "</white>"));
     }
     
     /**

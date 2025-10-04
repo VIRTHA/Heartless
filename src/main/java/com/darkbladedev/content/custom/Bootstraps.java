@@ -173,6 +173,22 @@ public class Bootstraps implements PluginBootstrap {
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.SWORDS))
                     .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.AXES))
                 );
+                
+            // Register Head Hunter Enchantment
+            event.registry().register(
+                EnchantmentKeys.create(CustomEnchantments.HEAD_DROPPER_KEY),
+                b -> b.maxLevel(1)
+                    .anvilCost(30)
+                    .activeSlots(EquipmentSlotGroup.MAINHAND)
+                    .minimumCost(EnchantmentRegistryEntry.EnchantmentCost.of(25, 12))
+                    .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(35, 18))
+                    .weight(1)
+                    
+                    .description(MM.toComponent("<gradient:#8e7cf9:#8f82f7:#8f88f6:#908ff4:#9095f3:#919bf1:#92a1ef:#92a7ee:#93aeec:#93b4eb:#94bae9:#95c0e7:#95c6e6:#96cde4:#96d3e3:#97d9e1>Cazador de Cabezas</gradient>"))
+                    
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.SWORDS))
+                    .supportedItems(event.getOrCreateTag(ItemTypeTagKeys.AXES))
+                );
 
         }));
 

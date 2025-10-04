@@ -136,7 +136,7 @@ public class CustomEnchantments {
         CONDIMENT(CONDIMENT_KEY, "Condimento", 3),
         ADRENALINE(ADRENALINE_KEY, "Adrenalina", 1),
         FIRST_STRIKE(FIRST_STRIKE_KEY, "Primer Golpe", 1),
-        HEAD_HUNTER(HEAD_DROPPER_KEY, "Cazador de Cabezas", 1);
+        HEAD_DROPPER(HEAD_DROPPER_KEY, "Cazador de Cabezas", 1);
 
         private final Key key;
         private final String displayName;

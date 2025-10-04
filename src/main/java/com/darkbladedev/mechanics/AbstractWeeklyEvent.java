@@ -3,6 +3,7 @@ package com.darkbladedev.mechanics;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.challenges.Reward;
 import com.darkbladedev.content.custom.CustomEnchantments;
+import com.darkbladedev.events.ChallengeProgressUpdateEvent;
 import com.darkbladedev.managers.PlayerStatisticsReportManager;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
@@ -281,15 +282,39 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
      */
     public final void updateChallengeProgress(UUID playerId, String challengeId, 
                                                Object progress, Object maxProgress) {
-        if (playerId == null || challengeId == null) return;
+        if (playerId == null || challengeId == null) {
+            return;
+        }
         
         Map<String, Object> playerProgress = challengeProgress.computeIfAbsent(
             playerId, k -> new ConcurrentHashMap<>());
+        
+        // Obtener progreso anterior para comparar
+        Object previousProgress = playerProgress.get(challengeId + "_current");
         
         playerProgress.put(challengeId + "_current", progress);
         playerProgress.put(challengeId + "_max", maxProgress);
         
         dataDirty.set(true);
+        
+        // Disparar evento de actualización de progreso si hay cambios
+        if (!Objects.equals(previousProgress, progress)) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null && player.isOnline()) {
+                // Verificar si el desafío se completó
+                boolean isCompleted = false;
+                if (progress instanceof Number && maxProgress instanceof Number) {
+                    isCompleted = ((Number) progress).intValue() >= ((Number) maxProgress).intValue();
+                }
+                
+                // Crear y disparar el evento personalizado
+                ChallengeProgressUpdateEvent event = new ChallengeProgressUpdateEvent(
+                    player, challengeId, progress, maxProgress, getId(), isCompleted
+                );
+                
+                Bukkit.getPluginManager().callEvent(event);
+            }
+        }
     }
     
     /**

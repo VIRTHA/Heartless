@@ -1,6 +1,9 @@
 package com.darkbladedev.content.custom.listeners;
 
 import com.darkbladedev.content.custom.CustomEnchantments;
+import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.mechanics.ExplosiveWeek;
+import com.darkbladedev.mechanics.WeeklyEvent;
 import com.darkbladedev.utils.MM;
 
 import org.bukkit.Material;
@@ -15,6 +18,8 @@ import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 /**
  * Listener que maneja el encantamiento "Cazador de Cabezas" (Head Hunter).
@@ -29,6 +34,9 @@ public class HeadHunterListener implements Listener {
     // Mapeo de tipos de entidad a sus materiales de cabeza correspondientes
     private static final Map<EntityType, Material> HEAD_MATERIALS = new HashMap<>();
     
+    // Tipos de entidad elegibles para el desafío mob_head_collector
+    private static final Set<EntityType> CHALLENGE_ELIGIBLE_TYPES = new HashSet<>();
+    
     static {
         // Mobs hostiles
         HEAD_MATERIALS.put(EntityType.ZOMBIE, Material.ZOMBIE_HEAD);
@@ -37,6 +45,11 @@ public class HeadHunterListener implements Listener {
         HEAD_MATERIALS.put(EntityType.CREEPER, Material.CREEPER_HEAD);
         HEAD_MATERIALS.put(EntityType.ENDER_DRAGON, Material.DRAGON_HEAD);
         HEAD_MATERIALS.put(EntityType.PIGLIN, Material.PIGLIN_HEAD);
+        
+        // Tipos elegibles para el desafío mob_head_collector (Zombie, Skeleton, Creeper)
+        CHALLENGE_ELIGIBLE_TYPES.add(EntityType.ZOMBIE);
+        CHALLENGE_ELIGIBLE_TYPES.add(EntityType.SKELETON);
+        CHALLENGE_ELIGIBLE_TYPES.add(EntityType.CREEPER);
     }
 
     /**
@@ -83,6 +96,9 @@ public class HeadHunterListener implements Listener {
             
             // Agregar la cabeza garantizada a los drops
             event.getDrops().add(head);
+            
+            // Actualizar progreso del desafío mob_head_collector si aplica
+            updateMobHeadCollectorChallenge(killer, entity.getType());
         }
     }
     
@@ -163,5 +179,63 @@ public class HeadHunterListener implements Listener {
      */
     public static java.util.Set<EntityType> getEligibleEntityTypes() {
         return HEAD_MATERIALS.keySet();
+    }
+    
+    /**
+     * Actualiza el progreso del desafío de coleccionista de cabezas de mobs.
+     * 
+     * @param player El jugador que obtuvo la cabeza
+     * @param entityType El tipo de entidad de la cabeza obtenida
+     */
+    private void updateMobHeadCollectorChallenge(Player player, EntityType entityType) {
+        // Verificar si la entidad es elegible para el desafío
+        if (!CHALLENGE_ELIGIBLE_TYPES.contains(entityType)) {
+            return;
+        }
+        
+        // Obtener el evento actual
+        HeartlessMain plugin = HeartlessMain.getInstance();
+        if (plugin == null) {
+            return;
+        }
+        
+        WeeklyEvent currentEvent = plugin.getWeeklyEventManager().getCurrentEvent();
+        if (!(currentEvent instanceof ExplosiveWeek)) {
+            return; // Solo aplica durante ExplosiveWeek
+        }
+        
+        ExplosiveWeek explosiveWeek = (ExplosiveWeek) currentEvent;
+        
+        // Obtener tipos de cabezas ya colectadas desde playerStatistics
+        Set<String> collectedHeadTypes = new HashSet<>();
+        Map<String, Object> playerStats = explosiveWeek.getPlayerStatistics(player.getUniqueId());
+        if (playerStats.containsKey("mob_head_collector_types")) {
+            Object existingTypes = playerStats.get("mob_head_collector_types");
+            if (existingTypes instanceof Set) {
+                @SuppressWarnings("unchecked")
+                Set<String> existing = (Set<String>) existingTypes;
+                if (existing != null) {
+                    collectedHeadTypes.addAll(existing);
+                }
+            }
+        }
+        
+        // Agregar el nuevo tipo si no estaba ya colectado
+        String entityTypeName = entityType.name();
+        boolean wasNewType = !collectedHeadTypes.contains(entityTypeName);
+        
+        if (wasNewType) {
+            collectedHeadTypes.add(entityTypeName);
+            
+            // Actualizar el progreso
+            explosiveWeek.updatePlayerStatistic(player.getUniqueId(), "mob_head_collector_types", new HashSet<>(collectedHeadTypes));
+            explosiveWeek.updateChallengeProgress(player.getUniqueId(), "mob_head_collector", 
+                                                 collectedHeadTypes.size(), 3);
+            
+            // Verificar si se completó el desafío (3 tipos diferentes)
+            if (collectedHeadTypes.size() >= 3) {
+                explosiveWeek.completeChallengeForPlayer(player.getUniqueId(), "mob_head_collector");
+            }
+        }
     }
 }

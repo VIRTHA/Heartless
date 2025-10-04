@@ -14,7 +14,7 @@ import org.bukkit.enchantments.Enchantment;
 
 import com.darkbladedev.commands.SubcommandExecutor;
 import com.darkbladedev.commands.TabCompletable;
-import com.darkbladedev.content.custom.CustomEnchantments.ENCHANTMENTS;
+import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.utils.MM;
 
 public class Give implements SubcommandExecutor, TabCompletable {
@@ -46,7 +46,7 @@ public class Give implements SubcommandExecutor, TabCompletable {
 
         Enchantment enchantment;
         try {
-            enchantment = ENCHANTMENTS.valueOf(args[1].toUpperCase()).toEnchantment();
+            enchantment = CustomEnchantments.ENCHANTMENTS.valueOf(args[1].toUpperCase()).toEnchantment();
             if (enchantment == null) {
                 sender.sendMessage(MM.toComponent("<red>El encantamiento '" + args[1] + "' no existe."));
                 return;
@@ -125,7 +125,7 @@ public class Give implements SubcommandExecutor, TabCompletable {
                     .collect(Collectors.toList());
         } else if (args.length == 2) {
             // Autocompletar nombres de encantamientos
-            return java.util.Arrays.stream(ENCHANTMENTS.values())
+            return java.util.Arrays.stream(CustomEnchantments.ENCHANTMENTS.values())
                     .map(enchant -> enchant.getKey().value().toLowerCase())
                     .filter(name -> name.startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());

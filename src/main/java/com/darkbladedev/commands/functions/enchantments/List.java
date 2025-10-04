@@ -11,7 +11,6 @@ import org.bukkit.enchantments.Enchantment;
 import com.darkbladedev.commands.SubcommandExecutor;
 import com.darkbladedev.commands.TabCompletable;
 import com.darkbladedev.content.custom.CustomEnchantments;
-import com.darkbladedev.content.custom.CustomEnchantments.ENCHANTMENTS;
 import com.darkbladedev.utils.MM;
 
 public class List implements SubcommandExecutor, TabCompletable {
@@ -33,11 +32,11 @@ public class List implements SubcommandExecutor, TabCompletable {
         sender.sendMessage(MM.toComponent("<gold>Lista de encantamientos disponibles:</gold>"));
         
         // Obtener todos los encantamientos y ordenarlos alfabéticamente
-        java.util.List<ENCHANTMENTS> enchantments = Arrays.stream(ENCHANTMENTS.values())
+        java.util.List<CustomEnchantments.ENCHANTMENTS> enchantments = Arrays.stream(CustomEnchantments.ENCHANTMENTS.values())
                 .sorted(Comparator.comparing(e -> e.getKey()))
                 .collect(Collectors.toList());
         
-        for (ENCHANTMENTS enchant : enchantments) {
+        for (CustomEnchantments.ENCHANTMENTS enchant : enchantments) {
             Enchantment enchantment = enchant.toEnchantment();
             String enchantName = enchantment.getKey().getKey();
             int maxLevel = enchantment.getMaxLevel();

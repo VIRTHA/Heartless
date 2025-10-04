@@ -100,8 +100,6 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
         
         // Limpiar datos del evento
         cleanupEventData();
-        
-        logger.info("[ExplosiveWeek] Evento detenido - El mundo vuelve a la normalidad");
     }
     
     @Override
@@ -188,21 +186,26 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     
     @Override
     protected void stopEventTasks() {
-        // Cancel tasks
-        if (ghastSpawnTask != null) {
+        // Cancel ghast spawn task with proper verification
+        if (ghastSpawnTask != null && !ghastSpawnTask.isCancelled()) {
             ghastSpawnTask.cancel();
-            ghastSpawnTask = null;
+            logger.info("[ExplosiveWeek] Ghast spawn task cancelled");
         }
+        ghastSpawnTask = null;
         
-        if (ghastAttackTask != null) {
+        // Cancel ghast attack task with proper verification
+        if (ghastAttackTask != null && !ghastAttackTask.isCancelled()) {
             ghastAttackTask.cancel();
-            ghastAttackTask = null;
+            logger.info("[ExplosiveWeek] Ghast attack task cancelled");
         }
+        ghastAttackTask = null;
         
-        if (mainTask != null) {
+        // Cancel main task with proper verification
+        if (mainTask != null && !mainTask.isCancelled()) {
             mainTask.cancel();
-            mainTask = null;
+            logger.info("[ExplosiveWeek] Main task cancelled");
         }
+        mainTask = null;
         
         // Remove all spawned ghasts in overworld
         for (World world : Bukkit.getWorlds()) {
@@ -214,6 +217,8 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
                 }
             }
         }
+        
+        logger.info("[ExplosiveWeek] All event tasks stopped successfully");
     }
     
     @Override
@@ -231,26 +236,48 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     
     @Override
     protected void pauseEventTasks() {
-        if (ghastSpawnTask != null) {
+        // Cancel ghast spawn task with proper verification
+        if (ghastSpawnTask != null && !ghastSpawnTask.isCancelled()) {
             ghastSpawnTask.cancel();
+            logger.info("[ExplosiveWeek] Ghast spawn task paused");
         }
         
-        if (ghastAttackTask != null) {
+        // Cancel ghast attack task with proper verification
+        if (ghastAttackTask != null && !ghastAttackTask.isCancelled()) {
             ghastAttackTask.cancel();
+            logger.info("[ExplosiveWeek] Ghast attack task paused");
         }
         
-        if (mainTask != null) {
+        // Cancel main task with proper verification
+        if (mainTask != null && !mainTask.isCancelled()) {
             mainTask.cancel();
+            logger.info("[ExplosiveWeek] Main task paused");
         }
+        
+        logger.info("[ExplosiveWeek] All event tasks paused successfully");
     }
     
     @Override
     protected void resumeEventTasks() {
+        logger.info("[ExplosiveWeek] Resuming event tasks...");
         startGhastSpawning();
         startMainTask();
+        logger.info("[ExplosiveWeek] All event tasks resumed successfully");
     }
     
     private void startGhastSpawning() {
+        // Cancel existing ghast spawn task if any
+        if (ghastSpawnTask != null && !ghastSpawnTask.isCancelled()) {
+            ghastSpawnTask.cancel();
+            logger.info("[ExplosiveWeek] Previous ghast spawn task cancelled before starting new one");
+        }
+        
+        // Cancel existing ghast attack task if any
+        if (ghastAttackTask != null && !ghastAttackTask.isCancelled()) {
+            ghastAttackTask.cancel();
+            logger.info("[ExplosiveWeek] Previous ghast attack task cancelled before starting new one");
+        }
+        
         // Check for thunderstorms and spawn ghasts
         ghastSpawnTask = new BukkitRunnable() {
             @Override
@@ -292,6 +319,8 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
                 }
             }
         }.runTaskTimer(plugin, 0L, 20L * 5); // Every 5 seconds
+        
+        logger.info("[ExplosiveWeek] Ghast spawning tasks started successfully");
     }
     
     private void spawnGhastNearPlayer(Player player) {
@@ -407,7 +436,7 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
                 return;
             }
             
-            Bukkit.broadcast(MM.toComponent("<yellow>Desafíos disponibles:"));
+            Bukkit.broadcast(MM.toComponent("<aqua>Desafíos disponibles:"));
             
             for (AbstractWeeklyEvent.ChallengeDefinition challenge : challenges.values()) {
                 String difficultyColor = getDifficultyColor(challenge.getId());
@@ -432,7 +461,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
                 return "<green>"; // Fácil
             case "mob_head_collector":
                 return "<yellow>"; // Intermedio
-            case "player_explosion_killer":
+            case "storm_killer":
+                return "<red>"; // Difícil
+            case "warden_storm_killer":
                 return "<red>"; // Difícil
             default:
                 return "<white>"; // Por defecto
@@ -711,13 +742,8 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
             // Already awarded
             return;
         }
-        
         // Usar el sistema oficial de desafíos
         completeChallengeForPlayer(player.getUniqueId(), "storm_killer");
-        
-        // Mantener el tracking local para compatibilidad
-        playerExplosionKillers.add(player.getUniqueId());
-        
     }
     
 
@@ -749,9 +775,10 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     }
 
     private void startMainTask() {
-        // Cancel existing task if any
-        if (mainTask != null) {
+        // Cancel existing task if any with proper verification
+        if (mainTask != null && !mainTask.isCancelled()) {
             mainTask.cancel();
+            logger.info("[ExplosiveWeek] Previous main task cancelled before starting new one");
         }
         
         // Start the main task
@@ -764,6 +791,8 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
                 }
             }
         }.runTaskTimer(plugin, 0L, 20L * 5); // Check every 5 seconds
+        
+        logger.info("[ExplosiveWeek] Main task started successfully");
     }
     
     // ========== MÉTODOS DE PERSISTENCIA ==========

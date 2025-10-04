@@ -27,13 +27,16 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class HealthSteal implements Listener {
     
     private static final String BAN_REASON = "Has alcanzado el mínimo de corazones permitidos";
     private final Map<UUID, Integer> banCountMap = new HashMap<>();
+    private final Set<UUID> processedDeaths = new HashSet<>(); // Prevenir doble procesamiento
     private final File banDataFile;
     private final HeartlessMain plugin;
     private boolean enabled = true;
@@ -67,6 +70,19 @@ public class HealthSteal implements Listener {
         if (!enabled) return;
         
         Player deadPlayer = event.getEntity();
+        UUID deadPlayerId = deadPlayer.getUniqueId();
+        
+        // Prevenir doble procesamiento de la misma muerte
+        if (processedDeaths.contains(deadPlayerId)) {
+            return;
+        }
+        processedDeaths.add(deadPlayerId);
+        
+        // Limpiar el Set después de un tiempo para evitar memory leaks
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            processedDeaths.remove(deadPlayerId);
+        }, 20L); // 1 segundo después
+        
         EntityDamageEvent lastDamage = deadPlayer.getLastDamageCause();
 
         if (lastDamage == null || !(lastDamage instanceof EntityDamageByEntityEvent)) return;

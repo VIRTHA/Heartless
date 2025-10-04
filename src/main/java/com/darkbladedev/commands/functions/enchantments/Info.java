@@ -13,7 +13,6 @@ import org.bukkit.enchantments.EnchantmentTarget;
 import com.darkbladedev.commands.SubcommandExecutor;
 import com.darkbladedev.commands.TabCompletable;
 import com.darkbladedev.content.custom.CustomEnchantments;
-import com.darkbladedev.content.custom.CustomEnchantments.ENCHANTMENTS;
 import com.darkbladedev.utils.MM;
 
 public class Info implements SubcommandExecutor, TabCompletable {
@@ -39,11 +38,11 @@ public class Info implements SubcommandExecutor, TabCompletable {
         }
 
         String enchantName = args[0].toLowerCase();
-        ENCHANTMENTS[] enchs = CustomEnchantments.ENCHANTMENTS.values();
+        CustomEnchantments.ENCHANTMENTS[] enchs = CustomEnchantments.ENCHANTMENTS.values();
         
         AtomicReference<Enchantment> enchantmentRef = new AtomicReference<>();
 
-        for (ENCHANTMENTS ench : enchs) {
+        for (CustomEnchantments.ENCHANTMENTS ench : enchs) {
             if (ench.getKey().asString().toLowerCase().equals(enchantName)) {
                 enchantmentRef.set(ench.toEnchantment());
                 break;

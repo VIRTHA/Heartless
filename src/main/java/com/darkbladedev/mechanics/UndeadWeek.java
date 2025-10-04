@@ -144,8 +144,6 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         // Anunciar fin del evento
         Bukkit.broadcast(MM.toComponent("<green><bold>¡La Semana de No-Muertos ha terminado!</bold></green>"));
         showEventSummary();
-        
-        logger.info("[UndeadWeek] Evento detenido correctamente");
     }
     
     @Override
