@@ -7,8 +7,6 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 import com.darkbladedev.HeartlessMain;
-import com.darkbladedev.content.custom.CustomPotions;
-import com.darkbladedev.utils.PotionUtils;
 
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
@@ -58,33 +56,24 @@ public class ContentManager {
 
 /*
  * ITEMS SECTION
- * POTIONS
+ * POTIONS - Funcionalidad temporalmente deshabilitada (requiere NMS)
  */
-    public @NotNull ItemStack getFuryPotionItem() {
-        // Crear un ItemStack de Bukkit y convertirlo a ItemStack de Minecraft
-        org.bukkit.inventory.ItemStack bukkitPotion = new org.bukkit.inventory.ItemStack(Material.POTION);
-        net.minecraft.world.item.ItemStack potion = net.minecraft.world.item.ItemStack.fromBukkitCopy(bukkitPotion);
-
-        PotionUtils.setPotion(potion, CustomPotions.FURY_HOLDER);
-        return potion.asBukkitCopy();
-    }
-    public @NotNull ItemStack getZombieInfectionPotionItem() {
-        // Crear un ItemStack de Bukkit y convertirlo a ItemStack de Minecraft
-        org.bukkit.inventory.ItemStack bukkitPotion = new org.bukkit.inventory.ItemStack(Material.POTION);
-        net.minecraft.world.item.ItemStack potion = net.minecraft.world.item.ItemStack.fromBukkitCopy(bukkitPotion);
-        
-        PotionUtils.setPotion(potion, CustomPotions.ZOMBIE_INFECTION_HOLDER);
-        return potion.asBukkitCopy();
-    }
+    // Los métodos de pociones personalizadas han sido eliminados temporalmente
+    // debido a dependencias con NMS que no están disponibles sin paperweight.userdev
 
     public ItemStack getPotion(String potion) {
-        if (potion.equals("fury")) {
-            return getFuryPotionItem();
+        // Funcionalidad de pociones personalizadas temporalmente deshabilitada
+        // debido a dependencias con NMS que no están disponibles sin paperweight.userdev
+        switch (potion.toLowerCase()) {
+            case "fury":
+                // return getFuryPotionItem(); // Deshabilitado temporalmente
+                return new ItemStack(Material.POTION); // Poción básica como fallback
+            case "zombie_infection":
+                // return getZombieInfectionPotionItem(); // Deshabilitado temporalmente
+                return new ItemStack(Material.POTION); // Poción básica como fallback
+            default:
+                return new ItemStack(Material.POTION);
         }
-        if (potion.equals("zombie_infection")) {
-            return getZombieInfectionPotionItem();
-        }
-        return null;
     }
 
 

@@ -8,6 +8,7 @@ import com.darkbladedev.mechanics.AcidWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
 import com.darkbladedev.mechanics.ToxicFog;
 import com.darkbladedev.mechanics.BloodAndIronWeek;
+import com.darkbladedev.persistence.EventDataPersistenceManager;
 import com.darkbladedev.utils.DayCycleUtils;
 import com.darkbladedev.utils.EmptyEvent;
 import com.darkbladedev.utils.EventType;
@@ -1100,7 +1101,32 @@ public class StorageManager {
                 if (event instanceof com.darkbladedev.mechanics.AbstractWeeklyEvent) {
                     com.darkbladedev.mechanics.AbstractWeeklyEvent abstractEvent = (com.darkbladedev.mechanics.AbstractWeeklyEvent) event;
                     
-                    // Cargar challengeProgress
+                    // CORRECCIÓN CRÍTICA: Implementar carga exclusiva para evitar conflictos de datos
+                    EventDataPersistenceManager persistenceManager = HeartlessMain.getEventDataPersistenceManager();
+                    boolean persistenceLoaded = false;
+                    
+                    if (persistenceManager != null) {
+                        try {
+                            persistenceLoaded = persistenceManager.loadEventData(abstractEvent);
+                            if (persistenceLoaded) {
+                                plugin.getLogger().info("Challenge data loaded successfully with EventDataPersistenceManager for event: " + abstractEvent.getId());
+                                plugin.getLogger().info("EXCLUSIVE LOADING: Skipping legacy StorageManager to prevent data conflicts");
+                                // RETORNAR INMEDIATAMENTE para evitar sobrescritura por el método legacy
+                                return;
+                            } else {
+                                plugin.getLogger().info("EventDataPersistenceManager returned false for event: " + abstractEvent.getId());
+                            }
+                        } catch (Exception e) {
+                            plugin.getLogger().warning("Failed to load challenge data with EventDataPersistenceManager: " + e.getMessage());
+                        }
+                    } else {
+                        plugin.getLogger().warning("EventDataPersistenceManager is null, falling back to legacy method");
+                    }
+                    
+                    // Solo usar el método legacy si EventDataPersistenceManager falló completamente
+                    plugin.getLogger().info("FALLBACK: Loading challenge data with legacy StorageManager method for event: " + abstractEvent.getId());
+                    
+                    // Cargar challengeProgress (método legacy)
                     if (eventData.has("challengeProgress")) {
                         JsonObject challengeProgressJson = eventData.getAsJsonObject("challengeProgress");
                         Map<UUID, Map<String, Object>> challengeProgressData = new HashMap<>();
@@ -1149,7 +1175,7 @@ public class StorageManager {
                         abstractEvent.loadChallengeProgress(challengeProgressData);
                     }
                     
-                    // Cargar completedChallenges
+                    // Cargar completedChallenges (método legacy)
                     if (eventData.has("completedChallenges")) {
                         JsonObject completedChallengesJson = eventData.getAsJsonObject("completedChallenges");
                         Map<UUID, Set<String>> completedChallengesData = new HashMap<>();

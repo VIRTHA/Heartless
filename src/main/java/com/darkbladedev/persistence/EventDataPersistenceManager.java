@@ -258,21 +258,29 @@ public class EventDataPersistenceManager {
                     UUID playerId = entry.getKey();
                     Map<String, Object> progress = entry.getValue();
                     
-                    for (Map.Entry<String, Object> progressEntry : progress.entrySet()) {
-                        String key = progressEntry.getKey();
-                        Object value = progressEntry.getValue();
-                        
-                        // Extraer challengeId y tipo de progreso
+                    // Identificar todos los challengeIds únicos
+                    Set<String> challengeIds = new HashSet<>();
+                    for (String key : progress.keySet()) {
                         if (key.endsWith("_current") || key.endsWith("_max")) {
                             String challengeId = key.substring(0, key.lastIndexOf("_"));
-                            
-                            if (key.endsWith("_current")) {
-                                Object maxValue = progress.get(challengeId + "_max");
-                                event.updateChallengeProgress(playerId, challengeId, value, maxValue);
-                            }
+                            challengeIds.add(challengeId);
+                        }
+                    }
+                    
+                    // Aplicar progreso para cada challengeId
+                    for (String challengeId : challengeIds) {
+                        Object currentValue = progress.get(challengeId + "_current");
+                        Object maxValue = progress.get(challengeId + "_max");
+                        
+                        // Solo aplicar si tenemos al menos el valor current
+                        if (currentValue != null) {
+                            event.updateChallengeProgress(playerId, challengeId, currentValue, maxValue);
+                            logger.fine("Aplicado progreso para jugador " + playerId + 
+                                       ", desafío " + challengeId + ": " + currentValue + "/" + maxValue);
                         }
                     }
                 }
+                logger.info("Progreso de desafíos aplicado para " + container.challengeProgress.size() + " jugadores");
             }
             
             // Aplicar desafíos completados

@@ -31,6 +31,7 @@ import com.darkbladedev.mechanics.BloodAndIronWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
 import com.darkbladedev.mechanics.ToxicFog;
 import com.darkbladedev.mechanics.UndeadWeek;
+import com.darkbladedev.persistence.EventDataPersistenceManager;
 import com.darkbladedev.utils.TimeConverter;
 import com.darkbladedev.utils.TimeExpression;
 
@@ -724,6 +725,18 @@ public class WeeklyEventManager {
                     if (currentEvent != null) {
                         // Load event-specific data after creating the instance
                         try {
+                            // Primero intentar cargar con EventDataPersistenceManager
+                            EventDataPersistenceManager persistenceManager = HeartlessMain.getEventDataPersistenceManager();
+                            if (persistenceManager != null) {
+                                boolean persistenceLoaded = persistenceManager.loadEventData(currentEvent);
+                                if (persistenceLoaded) {
+                                    plugin.getLogger().info("Challenge data loaded successfully with EventDataPersistenceManager for: " + eventTypeName);
+                                } else {
+                                    plugin.getLogger().info("No challenge data found in EventDataPersistenceManager for: " + eventTypeName);
+                                }
+                            }
+                            
+                            // Luego cargar datos específicos del evento con StorageManager (para compatibilidad)
                             plugin.getStorageManager().loadEventSpecificData(currentEvent);
                             plugin.getLogger().info("Event-specific data loaded for: " + eventTypeName);
                         } catch (Exception e) {

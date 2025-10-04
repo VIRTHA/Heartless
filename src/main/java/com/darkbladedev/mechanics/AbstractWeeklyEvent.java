@@ -18,6 +18,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 
 /**
@@ -51,6 +53,9 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     protected final Map<UUID, Set<String>> completedChallenges = new ConcurrentHashMap<>();
     protected final Map<UUID, Map<String, Object>> challengeProgress = new ConcurrentHashMap<>();
     protected final Map<UUID, Long> lastChallengeCheck = new ConcurrentHashMap<>();
+    
+    // === SINCRONIZACIÓN DE DATOS ===
+    protected final ReadWriteLock dataLock = new ReentrantReadWriteLock();
     
     // === ESTADÍSTICAS DEL EVENTO ===
     protected final Map<UUID, Map<String, Object>> playerStatistics = new ConcurrentHashMap<>();
@@ -588,13 +593,13 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     private void notifyPlayerChallengeCompleted(Player player, ChallengeDefinition challenge) {
         UUID playerId = player.getUniqueId();
         
-        // Obtener progreso actual y objetivo
+        // Obtener progreso actual y objetivo usando las claves correctas
         Map<String, Object> progress = challengeProgress.getOrDefault(playerId, new HashMap<>());
-        Object currentProgress = progress.getOrDefault(challenge.getId(), 0);
-        int targetProgress = challenge.getRequiredProgress();
+        Object currentProgress = progress.getOrDefault(challenge.getId() + "_current", challenge.getRequiredProgress());
+        Object maxProgress = progress.getOrDefault(challenge.getId() + "_max", challenge.getRequiredProgress());
         
         // Crear el texto del hover con el progreso
-        String hoverText = "<gray>Progreso: <white>" + currentProgress + "/" + targetProgress + "</white></gray>";
+        String hoverText = "<gray>Progreso: <white>" + currentProgress + "/" + maxProgress + "</white></gray>";
         Component hoverComponent = MM.toComponent(hoverText);
         
         // Crear el mensaje principal con hover en el nombre del desafío
@@ -1040,39 +1045,153 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     }
     
     /**
-     * Carga el progreso de desafíos desde los datos persistentes.
+     * Carga el progreso de desafíos desde los datos persistentes usando merge inteligente.
      * Este método es llamado por StorageManager durante la carga del evento.
+     * 
+     * CAMBIO CRÍTICO: Ahora usa merge en lugar de clear() para preservar datos en tiempo real.
      * 
      * @param data Mapa con el progreso de desafíos (UUID -> Map<String, Object>)
      */
     public final void loadChallengeProgress(Map<UUID, Map<String, Object>> data) {
-        if (data != null) {
-            challengeProgress.clear();
+        if (data == null || data.isEmpty()) {
+            plugin.getLogger().info("[" + getId() + "] No hay datos de progreso de desafíos para cargar");
+            return;
+        }
+        
+        dataLock.writeLock().lock();
+        try {
+            plugin.getLogger().info("[" + getId() + "] Iniciando carga inteligente de progreso de desafíos...");
+            
+            int mergedEntries = 0;
+            int newEntries = 0;
+            int preservedEntries = 0;
+            
             for (Map.Entry<UUID, Map<String, Object>> entry : data.entrySet()) {
-                if (entry.getKey() != null && entry.getValue() != null) {
-                    challengeProgress.put(entry.getKey(), new ConcurrentHashMap<>(entry.getValue()));
+                UUID playerId = entry.getKey();
+                Map<String, Object> playerProgress = entry.getValue();
+                
+                if (playerProgress == null || playerProgress.isEmpty()) {
+                    continue;
+                }
+                
+                Map<String, Object> existingProgress = challengeProgress.get(playerId);
+                
+                if (existingProgress == null) {
+                    // Nuevo jugador - agregar todos los datos
+                    challengeProgress.put(playerId, new ConcurrentHashMap<>(playerProgress));
+                    newEntries++;
+                } else {
+                    // Jugador existente - merge inteligente
+                    for (Map.Entry<String, Object> progressEntry : playerProgress.entrySet()) {
+                        String challengeId = progressEntry.getKey();
+                        Object newProgress = progressEntry.getValue();
+                        Object existingValue = existingProgress.get(challengeId);
+                        
+                        if (existingValue == null) {
+                            // Nuevo desafío para este jugador
+                            existingProgress.put(challengeId, newProgress);
+                            mergedEntries++;
+                        } else if (newProgress instanceof Number && existingValue instanceof Number) {
+                            // Comparar valores numéricos y mantener el mayor
+                            double newVal = ((Number) newProgress).doubleValue();
+                            double existingVal = ((Number) existingValue).doubleValue();
+                            
+                            if (newVal > existingVal) {
+                                existingProgress.put(challengeId, newProgress);
+                                mergedEntries++;
+                            } else {
+                                preservedEntries++;
+                            }
+                        } else {
+                            // Para otros tipos, mantener el existente (más reciente)
+                            preservedEntries++;
+                        }
+                    }
                 }
             }
-            logger.info("[" + getId() + "] Progreso de desafíos cargado para " + challengeProgress.size() + " jugadores");
+            
+            plugin.getLogger().info(String.format(
+                "[%s] Carga de progreso completada - Nuevos: %d, Merged: %d, Preservados: %d",
+                getId(), newEntries, mergedEntries, preservedEntries
+            ));
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, 
+                "[" + getId() + "] Error durante la carga de progreso de desafíos", e);
+        } finally {
+            dataLock.writeLock().unlock();
         }
     }
     
     /**
-     * Carga los desafíos completados desde los datos persistentes.
+     * Carga los desafíos completados desde los datos persistentes usando merge inteligente.
      * Este método es llamado por StorageManager durante la carga del evento.
+     * 
+     * CAMBIO CRÍTICO: Ahora usa merge en lugar de clear() para preservar datos en tiempo real.
      * 
      * @param data Mapa con los desafíos completados (UUID -> Set<String>)
      */
     public final void loadCompletedChallenges(Map<UUID, Set<String>> data) {
-        if (data != null) {
-            completedChallenges.clear();
+        if (data == null || data.isEmpty()) {
+            plugin.getLogger().info("[" + getId() + "] No hay datos de desafíos completados para cargar");
+            return;
+        }
+        
+        dataLock.writeLock().lock();
+        try {
+            plugin.getLogger().info("[" + getId() + "] Iniciando carga inteligente de desafíos completados...");
+            
+            int mergedPlayers = 0;
+            int newPlayers = 0;
+            int preservedChallenges = 0;
+            int addedChallenges = 0;
+            
             for (Map.Entry<UUID, Set<String>> entry : data.entrySet()) {
-                if (entry.getKey() != null && entry.getValue() != null) {
-                    completedChallenges.put(entry.getKey(), ConcurrentHashMap.newKeySet());
-                    completedChallenges.get(entry.getKey()).addAll(entry.getValue());
+                UUID playerId = entry.getKey();
+                Set<String> playerCompletedChallenges = entry.getValue();
+                
+                if (playerCompletedChallenges == null || playerCompletedChallenges.isEmpty()) {
+                    continue;
+                }
+                
+                Set<String> existingCompleted = completedChallenges.get(playerId);
+                
+                if (existingCompleted == null) {
+                    // Nuevo jugador - agregar todos los desafíos completados
+                    completedChallenges.put(playerId, ConcurrentHashMap.newKeySet());
+                    completedChallenges.get(playerId).addAll(playerCompletedChallenges);
+                    newPlayers++;
+                    addedChallenges += playerCompletedChallenges.size();
+                } else {
+                    // Jugador existente - merge inteligente (unión de conjuntos)
+                    int sizeBefore = existingCompleted.size();
+                    
+                    for (String challengeId : playerCompletedChallenges) {
+                        if (!existingCompleted.contains(challengeId)) {
+                            existingCompleted.add(challengeId);
+                            addedChallenges++;
+                        } else {
+                            preservedChallenges++;
+                        }
+                    }
+                    
+                    if (existingCompleted.size() > sizeBefore) {
+                        mergedPlayers++;
+                    }
                 }
             }
-            logger.info("[" + getId() + "] Desafíos completados cargados para " + completedChallenges.size() + " jugadores");
+            
+            plugin.getLogger().info(String.format(
+                "[%s] Carga de desafíos completados - Nuevos jugadores: %d, Jugadores merged: %d, " +
+                "Desafíos añadidos: %d, Preservados: %d",
+                getId(), newPlayers, mergedPlayers, addedChallenges, preservedChallenges
+            ));
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, 
+                "[" + getId() + "] Error durante la carga de desafíos completados", e);
+        } finally {
+            dataLock.writeLock().unlock();
         }
     }
 }

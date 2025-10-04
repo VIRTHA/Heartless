@@ -1,12 +1,6 @@
 plugins {
     id 'java'
     id "com.gradleup.shadow" version "9.0.0-rc3"
-    id "io.papermc.paperweight.userdev" version "2.0.0-beta.18"
-}
-
-// Configuración básica de paperweight
-paperweight {
-    // Configuración mínima requerida
 }
 
 group = "com.darkbladedev"
@@ -58,11 +52,11 @@ repositories {
 
 dependencies {
   compileOnly 'io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT'
-  paperweight.paperDevBundle("1.21.5-R0.1-SNAPSHOT")
   shadow("com.zaxxer:HikariCP:7.0.2")
   compileOnly "org.xerial:sqlite-jdbc:3.47.1.0"
   compileOnly "me.clip:placeholderapi:2.11.6"
   implementation 'de.tr7zw:item-nbt-api:2.14.1'
+  implementation 'com.googlecode.json-simple:json-simple:1.1.1'
   
   // Testing dependencies
   testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
@@ -70,13 +64,8 @@ dependencies {
   testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.1'
   testImplementation 'org.mockito:mockito-core:5.8.0'
   testImplementation 'org.mockito:mockito-junit-jupiter:5.8.0'
-  
-  // Excluir Paper API y PluginLoader de MockBukkit para evitar conflictos
-  testImplementation('org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.1.0') {
-    exclude group: 'io.papermc.paper', module: 'paper-api'
-    exclude group: 'org.bukkit', module: 'bukkit'
-    exclude group: 'net.kyori'
-  }
+  testImplementation 'org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.79.0'
+  testImplementation 'io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT'
   testImplementation 'com.zaxxer:HikariCP:7.0.2'
   testImplementation 'org.xerial:sqlite-jdbc:3.47.1.0'
   testImplementation "me.clip:placeholderapi:2.11.6"
@@ -98,15 +87,7 @@ shadowJar {
 }
 
 tasks.jar {
-  manifest {
-    attributes["paperweight-mappings-namespace"] = "mojang"
-  }
-}
-// if you have shadowJar configured
-tasks.shadowJar {
-  manifest {
-    attributes["paperweight-mappings-namespace"] = "mojang"
-  }
+  // Configuración básica del JAR
 }
 
 // Configuración de tests
