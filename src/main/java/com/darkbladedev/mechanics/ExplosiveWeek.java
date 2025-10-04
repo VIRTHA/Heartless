@@ -34,6 +34,7 @@ import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ExplosionPrimeEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.weather.ThunderChangeEvent;
 import org.bukkit.event.weather.WeatherChangeEvent;
 import org.bukkit.inventory.ItemStack;
@@ -60,6 +61,7 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     private final Map<UUID, Set<EntityType>> mobHeadCollectors = new HashMap<>();
     private final Set<UUID> playerExplosionKillers = new HashSet<>();
     private final Set<UUID> wardenKillers = new HashSet<>();
+    private final Set<UUID> stormPvpKillers = new HashSet<>();
     
     // Configuración de mobs hostiles clásicos
     private final Set<EntityType> classicHostileMobs = new HashSet<>(Arrays.asList(
@@ -574,6 +576,68 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
         }
         
     }
+    
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        // Debug log para verificar que el método se ejecuta
+        plugin.getLogger().info("[DEBUG] onPlayerDeath ejecutado");
+        plugin.getLogger().info("[DEBUG] ExplosiveWeek isActive(): " + isActive());
+        plugin.getLogger().info("[DEBUG] ExplosiveWeek isPaused(): " + isPaused());
+        plugin.getLogger().info("[DEBUG] ExplosiveWeek canExecute(): " + canExecute());
+        
+        // Verificar estado del WeeklyEventManager
+        if (plugin.getWeeklyEventManager() != null) {
+            plugin.getLogger().info("[DEBUG] WeeklyEventManager isEventActive(): " + plugin.getWeeklyEventManager().isEventActive());
+            plugin.getLogger().info("[DEBUG] WeeklyEventManager getCurrentEventType(): " + plugin.getWeeklyEventManager().getCurrentEventType());
+            plugin.getLogger().info("[DEBUG] WeeklyEventManager getCurrentEvent(): " + plugin.getWeeklyEventManager().getCurrentEvent());
+        } else {
+            plugin.getLogger().warning("[DEBUG] WeeklyEventManager es null!");
+        }
+        
+        if (!isActive()) {
+            plugin.getLogger().info("[DEBUG] ExplosiveWeek no está activo, saltando evento de muerte");
+            return;
+        }
+
+        Player victim = event.getEntity();
+        Player killer = victim.getKiller();
+        
+        plugin.getLogger().info("[DEBUG] Víctima: " + (victim != null ? victim.getName() : "null") + 
+                               ", Asesino: " + (killer != null ? killer.getName() : "null"));
+
+        if (killer == null || killer.equals(victim)) {
+            return; // No es PvP o es suicidio
+        }
+
+        World world = victim.getWorld();
+        UUID killerUUID = killer.getUniqueId();
+
+        // Verificar si hay tormenta (lluvia + truenos O solo truenos)
+        boolean isStormy = world.isThundering() || (world.hasStorm() && world.isThundering());
+        plugin.getLogger().info("[DEBUG] Condiciones climáticas - hasStorm: " + world.hasStorm() + 
+                               ", isThundering: " + world.isThundering() + ", isStormy: " + isStormy);
+
+        if (isStormy) {
+             // Verificar si el jugador ya completó el desafío
+             if (hasChallengeCompleted(killerUUID, "storm_killer")) {
+                 plugin.getLogger().info("[DEBUG] El jugador " + killer.getName() + " ya completó el desafío storm_killer");
+                 return;
+             }
+            
+            // Agregar al conjunto de asesinos en tormenta
+            stormPvpKillers.add(killerUUID);
+            plugin.getLogger().info("[DEBUG] Agregado " + killer.getName() + " a stormPvpKillers. Total: " + stormPvpKillers.size());
+            
+            // Completar el desafío
+            completeChallengeForPlayer(killerUUID, "storm_killer");
+            plugin.getLogger().info("[DEBUG] Desafío storm_killer completado para " + killer.getName());
+            
+            // Enviar mensaje al jugador
+            killer.sendMessage(MM.toComponent("<gold><b>¡DESAFÍO COMPLETADO!</b> <gray>Has matado a un jugador durante una tormenta."));
+        } else {
+            plugin.getLogger().info("[DEBUG] Kill PvP fuera de tormenta: " + killer.getName() + " mató a " + victim.getName());
+        }
+    }
 
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
@@ -867,6 +931,23 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
      */
     public Set<UUID> getWardenKillers() {
         return new HashSet<>(wardenKillers);
+    }
+    
+    /**
+     * Carga los jugadores que mataron a otros jugadores durante tormentas
+     * @param stormPvpKillers Set con UUIDs de jugadores que mataron en PvP durante tormentas
+     */
+    public void loadStormPvpKillers(Set<UUID> stormPvpKillers) {
+        this.stormPvpKillers.clear();
+        this.stormPvpKillers.addAll(stormPvpKillers);
+    }
+    
+    /**
+     * Obtiene el conjunto de jugadores que mataron a otros jugadores durante tormentas
+     * @return Set de UUIDs de jugadores que mataron en PvP durante tormentas
+     */
+    public Set<UUID> getStormPvpKillers() {
+        return new HashSet<>(stormPvpKillers);
     }
 
     private void awardWardenKillChallenge(Player player) {

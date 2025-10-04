@@ -208,6 +208,7 @@ public class HeartlessMain extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new com.darkbladedev.listeners.WeeklyEventSystemListener(this), this);
         getServer().getPluginManager().registerEvents(new com.darkbladedev.listeners.ChallengeProgressNotificationListener(), this);
         getServer().getPluginManager().registerEvents(new com.darkbladedev.content.custom.listeners.HeadHunterListener(), this);
+        getServer().getPluginManager().registerEvents(new com.darkbladedev.listeners.ChallengeCompletionBroadcastListener(), this);
 
         registerCommands();
     }

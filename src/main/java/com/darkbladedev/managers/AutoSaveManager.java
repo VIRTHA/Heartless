@@ -226,36 +226,75 @@ public class AutoSaveManager {
     private boolean saveWeeklyEventData() {
         try {
             WeeklyEventManager eventManager = plugin.getWeeklyEventManager();
-            if (eventManager != null) {
-                AbstractWeeklyEvent currentEvent = eventManager.getCurrentEvent();
-                if (currentEvent != null) {
-                    // Usar StorageManager para guardar el evento
-                    plugin.getStorageManager().saveEvent(currentEvent);
-                    
-                    // Usar EventDataPersistenceManager para eventos que extienden AbstractWeeklyEvent
-                    EventDataPersistenceManager persistenceManager = HeartlessMain.getEventDataPersistenceManager();
-                    if (persistenceManager != null) {
-                        boolean persistenceSuccess = persistenceManager.saveEventData(currentEvent);
-                        if (persistenceSuccess) {
-                            logger.info("Datos de desafíos guardados exitosamente para evento: " + currentEvent.getId());
-                        } else {
-                            logger.warning("Error guardando datos de desafíos para evento: " + currentEvent.getId());
-                        }
-                        }
-                    }
-                    
-                    // También usar DatabaseManager si está disponible
-                    DatabaseManager dbManager = HeartlessMain.getDatabaseManager();
-                    if (dbManager != null && dbManager.isDatabaseEnabled()) {
-                        dbManager.saveWeeklyEvent(currentEvent);
-                    }
-                    
-                    logger.info("Datos del evento semanal guardados: " + currentEvent.getId());
-                    return true;
+            if (eventManager == null) {
+                logger.warning("WeeklyEventManager es null, no se pueden guardar datos del evento");
+                return true; // No es un error crítico
+            }
+            
+            AbstractWeeklyEvent currentEvent = eventManager.getCurrentEvent();
+            if (currentEvent == null) {
+                logger.info("No hay evento semanal activo, omitiendo guardado de datos del evento");
+                return true; // No hay evento activo, no es un error
+            }
+            
+            // Obtener el ID del evento de forma segura
+            String eventId;
+            try {
+                eventId = currentEvent.getId();
+                if (eventId == null || eventId.trim().isEmpty()) {
+                    logger.warning("El evento actual tiene un ID null o vacío, usando ID por defecto");
+                    eventId = "unknown_event";
                 }
-            return true; // No hay evento activo, no es un error
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "Error obteniendo ID del evento, usando ID por defecto", e);
+                eventId = "unknown_event";
+            }
+            
+            logger.info("Iniciando guardado de datos para evento: " + eventId);
+            
+            // Usar StorageManager para guardar el evento
+            try {
+                plugin.getStorageManager().saveEvent(currentEvent);
+                logger.fine("StorageManager guardó exitosamente el evento: " + eventId);
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "Error guardando evento con StorageManager para evento: " + eventId, e);
+            }
+            
+            // Usar EventDataPersistenceManager para eventos que extienden AbstractWeeklyEvent
+            EventDataPersistenceManager persistenceManager = HeartlessMain.getEventDataPersistenceManager();
+            if (persistenceManager != null) {
+                try {
+                    boolean persistenceSuccess = persistenceManager.saveEventData(currentEvent);
+                    if (persistenceSuccess) {
+                        logger.info("Datos de desafíos guardados exitosamente para evento: " + eventId);
+                    } else {
+                        logger.warning("Error guardando datos de desafíos para evento: " + eventId);
+                    }
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error en EventDataPersistenceManager para evento: " + eventId, e);
+                }
+            } else {
+                logger.fine("EventDataPersistenceManager no disponible");
+            }
+            
+            // También usar DatabaseManager si está disponible
+            DatabaseManager dbManager = HeartlessMain.getDatabaseManager();
+            if (dbManager != null && dbManager.isDatabaseEnabled()) {
+                try {
+                    dbManager.saveWeeklyEvent(currentEvent);
+                    logger.fine("DatabaseManager guardó exitosamente el evento: " + eventId);
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error guardando evento con DatabaseManager para evento: " + eventId, e);
+                }
+            } else {
+                logger.fine("DatabaseManager no disponible o deshabilitado");
+            }
+            
+            logger.info("Datos del evento semanal guardados exitosamente: " + eventId);
+            return true;
+            
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Error guardando datos del evento semanal", e);
+            logger.log(Level.SEVERE, "Error crítico guardando datos del evento semanal", e);
             return false;
         }
     }

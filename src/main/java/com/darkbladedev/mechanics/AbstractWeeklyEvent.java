@@ -252,6 +252,12 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     public final void completeChallengeForPlayer(UUID playerId, String challengeId) {
         if (playerId == null || challengeId == null) return;
         
+        // Verificar si el desafío ya está completado para evitar duplicados
+        Set<String> playerChallenges = completedChallenges.get(playerId);
+        if (playerChallenges != null && playerChallenges.contains(challengeId)) {
+            return; // Ya completado, no hacer nada
+        }
+        
         completedChallenges.computeIfAbsent(playerId, k -> ConcurrentHashMap.newKeySet())
                           .add(challengeId);
         
@@ -266,6 +272,23 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
                 notifyPlayerChallengeCompleted(player, challenge);
                 // Las recompensas se otorgan automáticamente por el sistema de desafíos específico del evento
                 // Eliminada la llamada duplicada: giveRewards(player, challenge.getRewards());
+            }
+            
+            // Disparar evento de completación para difusión global
+            try {
+                com.darkbladedev.challenges.ChallengeDefinition challengeDefForEvent = 
+                    new com.darkbladedev.challenges.ChallengeDefinition(
+                        challengeId, 
+                        challenge.getDisplayName(), 
+                        challenge.getDescription(), 
+                        challenge.getRequiredProgress(), 
+                        challenge.getRewards()
+                    );
+                com.darkbladedev.events.ChallengeCompletedEvent completedEvent = 
+                      new com.darkbladedev.events.ChallengeCompletedEvent(player, challengeId, challengeDefForEvent, this);
+                Bukkit.getPluginManager().callEvent(completedEvent);
+            } catch (Exception e) {
+                logger.warning("Error al disparar ChallengeCompletedEvent: " + e.getMessage());
             }
         }
         
