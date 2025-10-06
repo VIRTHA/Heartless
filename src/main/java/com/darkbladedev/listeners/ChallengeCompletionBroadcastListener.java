@@ -119,7 +119,7 @@ public class ChallengeCompletionBroadcastListener implements Listener {
         // Obtener formato desde configuración
         String format = plugin.getConfigManager().getConfig().getString(
             "messages.challenge-completion.format",
-            "<gradient:#FFD700:#FFA500><bold>🏆 DESAFÍO COMPLETADO 🏆</bold></gradient>\\n<white>El jugador <yellow><bold>{player}</bold></yellow> ha completado el desafío</white>\\n<gold><bold>\\\"{challenge}\\\"</bold></gold> <white>en</white> <aqua><bold>{event}</bold></aqua><white>!</white>"
+            "<yellow><b>LOGROS</b></yellow> <white>- El jugador <yellow>{player}</yellow> ha completado el desafio <yellow>\"{challenge}\"</yellow> en <yellow>{event}</yellow></white>"
         );
         
         // Reemplazar placeholders

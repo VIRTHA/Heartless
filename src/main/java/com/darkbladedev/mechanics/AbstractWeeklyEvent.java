@@ -5,11 +5,14 @@ import com.darkbladedev.challenges.Reward;
 import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.events.ChallengeProgressUpdateEvent;
 import com.darkbladedev.managers.PlayerStatisticsReportManager;
+import com.darkbladedev.managers.ConfigManager;
+import com.darkbladedev.persistence.EventDataPersistenceManager;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.TimeExpression;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -53,6 +56,12 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     protected final Map<UUID, Set<String>> completedChallenges = new ConcurrentHashMap<>();
     protected final Map<UUID, Map<String, Object>> challengeProgress = new ConcurrentHashMap<>();
     protected final Map<UUID, Long> lastChallengeCheck = new ConcurrentHashMap<>();
+    
+    // === GESTIÓN POR MUNDO ===
+    protected final Map<String, Set<UUID>> worldActivePlayers = new ConcurrentHashMap<>();
+    protected final Map<String, AtomicBoolean> worldEventStatus = new ConcurrentHashMap<>();
+    protected final Map<String, Long> worldStartTimes = new ConcurrentHashMap<>();
+    protected final Set<String> activeWorlds = ConcurrentHashMap.newKeySet();
     
     // === SINCRONIZACIÓN DE DATOS ===
     protected final ReadWriteLock dataLock = new ReentrantReadWriteLock();
@@ -102,6 +111,8 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
         globalStatistics.put("event_stops", new AtomicLong(0));
         globalStatistics.put("total_errors", new AtomicLong(0));
         globalStatistics.put("data_saves", new AtomicLong(0));
+        globalStatistics.put("successful_saves", new AtomicLong(0));
+        globalStatistics.put("failed_saves", new AtomicLong(0));
         
         // Configurar desafíos básicos si están habilitados
         if (challengeSystemEnabled.get()) {
@@ -128,8 +139,8 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
         try {
             globalStatistics.get("event_starts").incrementAndGet();
             
-            // Inicializar jugadores online
-            initializeOnlinePlayers();
+            // Inicializar eventos por mundo individual
+            initializeWorldEvents();
             
             // Inicializar datos específicos del evento
             initializeEventSpecificData();
@@ -143,13 +154,64 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
             // Iniciar tareas específicas del evento
             super.start();
             
-            logger.info("[" + getId() + "] Evento iniciado correctamente con " + 
-                       getActivePlayerCount() + " jugadores");
+            logger.info("[" + getId() + "] Evento iniciado correctamente en " + 
+                       activeWorlds.size() + " mundos con " + getActivePlayerCount() + " jugadores");
             
         } catch (Exception e) {
             globalStatistics.get("total_errors").incrementAndGet();
             logger.log(Level.SEVERE, "[" + getId() + "] Error al iniciar el evento", e);
             handleEventError("start", e);
+        }
+    }
+    
+    /**
+     * Inicia el evento solo en un mundo específico.
+     * Este método ejecuta todas las inicializaciones necesarias pero solo para el mundo especificado.
+     * 
+     * @param world El mundo donde inicializar el evento
+     */
+    public final void startInSpecificWorld(World world) {
+        try {
+            globalStatistics.get("event_starts").incrementAndGet();
+            
+            // Marcar el evento como activo para permitir las tareas del sistema
+            isActive.set(true);
+            isPaused.set(false);
+            
+            // Asegurar que los eventos estén registrados
+            ensureEventHandlersRegistered();
+            
+            // Inicializar el evento solo en el mundo específico
+            initializeWorldEvent(world);
+            
+            // Inicializar datos específicos del evento
+            initializeEventSpecificData();
+            
+            // Inicializar tareas del sistema (auto-guardado y limpieza)
+            initializeSystemTasks();
+            
+            // Iniciar tareas del sistema abstracto
+            startAbstractEventTasks();
+            
+            // Llamar al método específico del evento
+            onEventStart();
+            
+            // Iniciar tareas específicas del evento
+            startEventTasks();
+            
+            // Anunciar el inicio del evento
+            announceEventStart();
+            
+            // Establecer tiempo de inicio
+            startTime.set(System.currentTimeMillis());
+            
+            logger.info("[" + getId() + "] Evento iniciado correctamente en el mundo específico: " + 
+                       world.getName() + " con " + world.getPlayers().size() + " jugadores");
+            
+        } catch (Exception e) {
+            globalStatistics.get("total_errors").incrementAndGet();
+            logger.log(Level.SEVERE, "[" + getId() + "] Error al iniciar el evento en mundo específico: " + world.getName(), e);
+            handleEventError("startInSpecificWorld", e);
         }
     }
     
@@ -168,6 +230,9 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
             
             // Procesar estadísticas finales
             processFinalStatistics();
+            
+            // Anunciar el fin del evento
+            announceEventEnd();
             
             // Llamar al método específico del evento
             onEventStop();
@@ -215,6 +280,235 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
      * Llamado periódicamente durante el evento.
      */
     protected abstract void processEventStatistics();
+    
+    // === IMPLEMENTACIÓN DE PERSISTENCIA ===
+    
+    /**
+     * Implementación del método saveEventData para AbstractWeeklyEvent.
+     * Este método coordina el guardado de todos los datos del evento.
+     */
+    @Override
+    protected void saveEventData() {
+        if (!isActive.get()) {
+            return; // No guardar si el evento no está activo
+        }
+        
+        try {
+            // Marcar datos como "sucios" para forzar el guardado
+            dataDirty.set(true);
+            
+            // Guardar datos específicos del evento
+            saveEventSpecificData();
+            
+            // Usar EventDataPersistenceManager si está disponible
+            EventDataPersistenceManager persistenceManager = HeartlessMain.getEventDataPersistenceManager();
+            if (persistenceManager != null) {
+                persistenceManager.saveEventDataAsync(this).thenAccept(success -> {
+                    if (success) {
+                        logger.fine("[" + getId() + "] Datos de evento guardados exitosamente via EventDataPersistenceManager");
+                        globalStatistics.get("successful_saves").incrementAndGet();
+                    } else {
+                        logger.warning("[" + getId() + "] Error guardando datos via EventDataPersistenceManager");
+                        globalStatistics.get("failed_saves").incrementAndGet();
+                    }
+                }).exceptionally(throwable -> {
+                    logger.log(Level.WARNING, "[" + getId() + "] Excepción en guardado asíncrono", throwable);
+                    globalStatistics.get("failed_saves").incrementAndGet();
+                    return null;
+                });
+            }
+            
+            // Usar StorageManager como respaldo
+            try {
+                plugin.getStorageManager().saveEvent(this);
+                logger.fine("[" + getId() + "] Datos guardados via StorageManager");
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "[" + getId() + "] Error guardando via StorageManager", e);
+            }
+            
+            // Actualizar tiempo de último guardado
+            lastDataSave.set(System.currentTimeMillis());
+            dataDirty.set(false);
+            
+        } catch (Exception e) {
+            globalStatistics.get("total_errors").incrementAndGet();
+            globalStatistics.get("failed_saves").incrementAndGet();
+            logger.log(Level.SEVERE, "[" + getId() + "] Error crítico en saveEventData", e);
+        }
+    }
+    
+    // === GESTIÓN POR MUNDO ===
+    
+    /**
+     * Inicializa el evento en todos los mundos disponibles, aplicando exclusiones.
+     */
+    protected final void initializeWorldEvents() {
+        for (World world : Bukkit.getWorlds()) {
+            String worldName = world.getName();
+            
+            // Verificar si el mundo está excluido
+            if (isWorldExcluded(world)) {
+                logger.info("[" + getId() + "] Mundo excluido del evento: " + worldName);
+                continue;
+            }
+            
+            // Inicializar el evento en este mundo
+            initializeWorldEvent(world);
+        }
+        
+        logger.info("[" + getId() + "] Evento inicializado en " + activeWorlds.size() + " mundos");
+    }
+    
+    /**
+     * Inicializa el evento en un mundo específico.
+     * 
+     * @param world El mundo donde inicializar el evento
+     */
+    public final void initializeWorldEvent(World world) {
+        String worldName = world.getName();
+        
+        try {
+            // Marcar el mundo como activo
+            activeWorlds.add(worldName);
+            worldEventStatus.put(worldName, new AtomicBoolean(true));
+            worldStartTimes.put(worldName, System.currentTimeMillis());
+            
+            // Inicializar jugadores en este mundo
+            Set<UUID> worldPlayers = new HashSet<>();
+            for (Player player : world.getPlayers()) {
+                UUID playerId = player.getUniqueId();
+                worldPlayers.add(playerId);
+                activePlayers.add(playerId);
+                playerJoinTimes.put(playerId, System.currentTimeMillis());
+                onPlayerJoinEvent(player);
+            }
+            
+            worldActivePlayers.put(worldName, worldPlayers);
+            
+            // Llamar al hook específico del evento para este mundo
+            onWorldEventStart(world);
+            
+            logger.info("[" + getId() + "] Evento iniciado en mundo: " + worldName + 
+                       " con " + worldPlayers.size() + " jugadores");
+            
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "[" + getId() + "] Error al inicializar evento en mundo: " + worldName, e);
+            // Remover el mundo de la lista activa si falló la inicialización
+            activeWorlds.remove(worldName);
+            worldEventStatus.remove(worldName);
+            worldStartTimes.remove(worldName);
+            worldActivePlayers.remove(worldName);
+        }
+    }
+    
+    /**
+     * Verifica si un mundo está excluido del evento.
+     * 
+     * @param world El mundo a verificar
+     * @return true si el mundo está excluido
+     */
+    protected final boolean isWorldExcluded(World world) {
+        ConfigManager configManager = plugin.getConfigManager();
+        if (configManager == null) {
+            return false;
+        }
+        
+        List<String> excludedWorlds = configManager.getExcludedWorlds();
+        return excludedWorlds != null && excludedWorlds.contains(world.getName());
+    }
+    
+    /**
+     * Verifica si un jugador está en un mundo excluido.
+     * 
+     * @param player El jugador a verificar
+     * @return true si el jugador está en un mundo excluido
+     */
+    protected final boolean isPlayerInExcludedWorld(Player player) {
+        return isWorldExcluded(player.getWorld());
+    }
+    
+    /**
+     * Obtiene el estado del evento en un mundo específico.
+     * 
+     * @param worldName Nombre del mundo
+     * @return true si el evento está activo en ese mundo
+     */
+    protected final boolean isEventActiveInWorld(String worldName) {
+        AtomicBoolean status = worldEventStatus.get(worldName);
+        return status != null && status.get();
+    }
+
+    /**
+     * Obtiene el conjunto de mundos donde el evento está activo
+     * @return Set de nombres de mundos activos
+     */
+    public final Set<String> getActiveWorlds() {
+        return new HashSet<>(activeWorlds);
+    }
+    
+    /**
+     * Detiene el evento en un mundo específico.
+     * 
+     * @param world El mundo donde detener el evento
+     */
+    public final void stopWorldEvent(World world) {
+        String worldName = world.getName();
+        
+        if (!activeWorlds.contains(worldName)) {
+            return;
+        }
+        
+        try {
+            // Marcar el mundo como inactivo
+            AtomicBoolean status = worldEventStatus.get(worldName);
+            if (status != null) {
+                status.set(false);
+            }
+            
+            // Limpiar jugadores de este mundo
+            Set<UUID> worldPlayers = worldActivePlayers.get(worldName);
+            if (worldPlayers != null) {
+                for (UUID playerId : worldPlayers) {
+                    activePlayers.remove(playerId);
+                    playerJoinTimes.remove(playerId);
+                }
+            }
+            
+            // Llamar al hook específico del evento para este mundo
+            onWorldEventStop(world);
+            
+            // Remover de las estructuras de datos
+            activeWorlds.remove(worldName);
+            worldEventStatus.remove(worldName);
+            worldStartTimes.remove(worldName);
+            worldActivePlayers.remove(worldName);
+            
+            logger.info("[" + getId() + "] Evento detenido en mundo: " + worldName);
+            
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "[" + getId() + "] Error al detener evento en mundo: " + worldName, e);
+        }
+    }
+    
+    /**
+     * Hook llamado cuando el evento se inicia en un mundo específico.
+     * Los eventos pueden sobrescribir este método para lógica específica por mundo.
+     * 
+     * @param world El mundo donde se inicia el evento
+     */
+    protected void onWorldEventStart(World world) {
+        // Implementación por defecto vacía
+    }
+    
+    /**
+     * Hook llamado cuando el evento se detiene en un mundo específico.
+     * Los eventos pueden sobrescribir este método para lógica específica por mundo.
+     * 
+     * @param world El mundo donde se detiene el evento
+     */
+    protected void onWorldEventStop(World world) {
+        // Implementación por defecto vacía
+    }
     
     // === SISTEMA DE DESAFÍOS ===
     

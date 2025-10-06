@@ -1,5 +1,7 @@
 package com.darkbladedev.managers;
 
+import java.lang.reflect.Field;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
@@ -126,10 +128,38 @@ public class PlaceholderApiManager extends PlaceholderExpansion {
         }
 
         if (identifier.equals("event_name")) {
-            if (!eventManager.isEventActive() || eventManager.getCurrentEventType() == null) {
+            if (!eventManager.isEventActive() || eventManager.getCurrentEvent() == null) {
                 return "Ninguno";
             }
-            return getDisplayName(eventManager.getCurrentEventType().getEventName());
+            
+            // Obtener el mundo del jugador
+            String playerWorldName = player.getWorld().getName();
+            
+            // Verificar si el evento está activo en el mundo del jugador
+            AbstractWeeklyEvent currentEvent = eventManager.getCurrentEvent();
+            if (!isEventActiveInPlayerWorld(currentEvent, playerWorldName)) {
+                return "Ninguno";
+            }
+            
+            return getDisplayName(currentEvent.getId());
+        }
+        
+        // Nuevo placeholder para eventos específicos por mundo
+        if (identifier.equals("event_name_world")) {
+            if (!eventManager.isEventActive() || eventManager.getCurrentEvent() == null) {
+                return "Ninguno";
+            }
+            
+            // Obtener el mundo del jugador
+            String playerWorldName = player.getWorld().getName();
+            
+            // Verificar si el evento está activo en el mundo del jugador
+            AbstractWeeklyEvent currentEvent = eventManager.getCurrentEvent();
+            if (!isEventActiveInPlayerWorld(currentEvent, playerWorldName)) {
+                return "Ninguno";
+            }
+            
+            return getDisplayName(currentEvent.getId());
         }
         
         // Time remaining
@@ -387,5 +417,32 @@ public class PlaceholderApiManager extends PlaceholderExpansion {
         }
         
         return false;
+    }
+    
+    /**
+     * Verifica si un evento está activo en el mundo específico del jugador
+     * usando reflexión para acceder al campo protegido worldEventStatus
+     */
+    private boolean isEventActiveInPlayerWorld(AbstractWeeklyEvent event, String worldName) {
+        try {
+            Field worldEventStatusField = AbstractWeeklyEvent.class.getDeclaredField("worldEventStatus");
+            worldEventStatusField.setAccessible(true);
+            
+            @SuppressWarnings("unchecked")
+            Map<String, java.util.concurrent.atomic.AtomicBoolean> worldEventStatus = 
+                (Map<String, java.util.concurrent.atomic.AtomicBoolean>) worldEventStatusField.get(event);
+            
+            // Si el mundo no está en el mapa, el evento no está activo
+            if (worldEventStatus == null) {
+                return false;
+            }
+            
+            java.util.concurrent.atomic.AtomicBoolean status = worldEventStatus.get(worldName);
+            return status != null && status.get();
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            // En caso de error, asumir que el evento no está activo en el mundo
+            plugin.getLogger().warning("Error al acceder al estado del evento por mundo: " + e.getMessage());
+            return false;
+        }
     }
 }

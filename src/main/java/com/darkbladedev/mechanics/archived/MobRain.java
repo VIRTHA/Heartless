@@ -1,4 +1,4 @@
-package com.darkbladedev.mechanics;
+package com.darkbladedev.mechanics.archived;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -14,6 +14,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * CLASE ARCHIVADA - NO UTILIZAR EN PRODUCCIÓN
+ * 
+ * Esta clase ha sido archivada temporalmente y no debe ser utilizada
+ * en el sistema de eventos actual del plugin Heartless.
+ * 
+ * Propósito Original: Mecánica de lluvia de entidades (MobRain)
+ * Fecha de Archivo: 5/10/2025
+ * Estado: INACTIVO
+ * 
+ * Para reactivar esta funcionalidad:
+ * 1. Mover la clase de vuelta al paquete com.darkbladedev.mechanics
+ * 2. Actualizar las referencias en el código principal
+ * 3. Verificar compatibilidad con la versión actual del plugin
+ * 
+ * @deprecated Esta clase está archivada y no debe utilizarse
+ */
+@Deprecated
 public class MobRain {
     
     private final Plugin plugin;

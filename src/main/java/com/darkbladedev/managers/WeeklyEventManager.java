@@ -255,6 +255,110 @@ public class WeeklyEventManager {
             eventLock.writeLock().unlock();
         }
     }
+
+    /**
+     * Inicia un evento en un mundo específico desde comando
+     * @param eventType Tipo de evento a iniciar
+     * @param duration Duración del evento en milisegundos
+     * @param world Mundo donde iniciar el evento
+     * @return true si el evento se inició correctamente
+     */
+    public boolean startEventInWorldFromCommand(EventType eventType, long duration, org.bukkit.World world) {
+        String worldName = world.getName();
+        eventLock.writeLock().lock();
+        try {
+            // Verificar si ya hay un evento activo
+            if (isEventActive.get()) {
+                Bukkit.getConsoleSender().sendMessage(
+                    MM.toComponent("<red>Ya hay un evento activo. Detén el evento actual antes de iniciar uno nuevo.")
+                );
+                return false;
+            }
+            
+            // Cancelar tareas programadas
+            cancelWeeklyTask();
+            
+            // Crear instancia del evento
+            AbstractWeeklyEvent event = createEventInstance(eventType, duration);
+            if (event == null) {
+                Bukkit.getConsoleSender().sendMessage(
+                    MM.toComponent("<red>Error al crear la instancia del evento " + eventType)
+                );
+                return false;
+            }
+            
+            // Configurar el evento actual
+            this.currentEvent = event;
+            this.currentEventType = eventType;
+            this.isEventActive.set(true);
+            this.eventStartTime.set(System.currentTimeMillis());
+            this.eventEndTime.set(System.currentTimeMillis() + duration);
+            
+            // Iniciar seguimiento de estadísticas
+            try {
+                statisticsManager.startTracking(eventType.getEventName(), eventType.getEventName());
+                plugin.getLogger().info("Seguimiento de estadísticas iniciado para: " + eventType.getEventName());
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error al iniciar seguimiento de estadísticas: " + e.getMessage());
+            }
+            
+            // Iniciar el evento solo en el mundo específico
+            event.startInSpecificWorld(world);
+            
+            // Guardar datos del evento
+            saveEventData();
+            
+            // Programar la finalización del evento
+            scheduleNextEvent(duration);
+            
+            Bukkit.getConsoleSender().sendMessage(
+                MM.toComponent("<green>Evento " + eventType + " iniciado en el mundo '" + worldName + "' por " + 
+                              TimeConverter.formatTicksToTime(duration / 50L)) // Convertir ms a ticks
+            );
+            
+            return true;
+        } finally {
+            eventLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Detiene un evento en un mundo específico desde comando
+     * @param world Mundo donde detener el evento
+     * @return true si el evento se detuvo correctamente
+     */
+    public boolean stopEventInWorldFromCommand(org.bukkit.World world) {
+        String worldName = world.getName();
+        eventLock.writeLock().lock();
+        try {
+            // Verificar si hay un evento activo
+            if (!isEventActive.get() || currentEvent == null) {
+                Bukkit.getConsoleSender().sendMessage(
+                    MM.toComponent("<red>No hay ningún evento activo para detener.")
+                );
+                return false;
+            }
+            
+            // Detener el evento solo en el mundo específico
+            currentEvent.stopWorldEvent(world);
+            
+            Bukkit.getConsoleSender().sendMessage(
+                MM.toComponent("<green>Evento detenido en el mundo '" + worldName + "'.")
+            );
+            
+            // Si no quedan mundos activos, detener completamente el evento
+            if (currentEvent.getActiveWorlds().isEmpty()) {
+                stopCurrentEvent();
+                Bukkit.getConsoleSender().sendMessage(
+                    MM.toComponent("<yellow>El evento se ha detenido completamente ya que no quedan mundos activos.")
+                );
+            }
+            
+            return true;
+        } finally {
+            eventLock.writeLock().unlock();
+        }
+    }
     
     /**
      * Thread-safe task cancellation

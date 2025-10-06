@@ -2,6 +2,8 @@ package com.darkbladedev.commands.functions.events;
 
 import java.util.Collections;
 import java.util.List;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.commands.SubcommandExecutor;
@@ -28,14 +30,10 @@ public class Start implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        // Los args aquí incluyen todos los argumentos del comando, incluyendo grupo y acción
-        // Necesitamos ajustar el índice para que coincida con los argumentos específicos de este subcomando
-        // args[0] y args[1] son el grupo y la acción, por lo que args[2] es el primer argumento real del subcomando
+        // El CommandHandler ya ha removido los primeros dos argumentos (grupo y acción)
+        // Por lo que args[0] sería el primer argumento real del subcomando (tipo de evento)
         
-        // Calculamos el índice real restando 2 (grupo y acción)
-        int adjustedIndex = args.length;
-        
-        switch (adjustedIndex) {
+        switch (args.length) {
             case 1: // Primer argumento del subcomando (tipo de evento)
                 return EventType.getEventNames();
             
@@ -47,7 +45,14 @@ public class Start implements SubcommandExecutor, TabCompletable {
                     return java.util.Arrays.asList("30s", "1m", "5m", "10m", "30m", "1h", "2h", "6h", "12h", "1d", "2d", "3d", "7d", "1w", "2w", "1mo");
                 }
             
-            case 3:
+            case 3: // Tercer argumento del subcomando (mundo opcional)
+                String currentArg = args[2].toLowerCase();
+                return Bukkit.getWorlds().stream()
+                    .map(World::getName)
+                    .filter(worldName -> worldName.toLowerCase().startsWith(currentArg))
+                    .collect(java.util.stream.Collectors.toList());
+            
+            case 4:
                 return java.util.Arrays.asList("--force");
 
             default:
@@ -64,12 +69,14 @@ public class Start implements SubcommandExecutor, TabCompletable {
         }
         
         if (args.length <= 1) {
-            sender.sendMessage(MM.toComponent("<red>Uso: <gray>/heartless start <event-type> <duration> [--force]"));
+            sender.sendMessage(MM.toComponent("<red>Uso: <gray>/heartless start <event-type> <duration> [mundo] [--force]"));
             return;
         }
         
         String eventTypeName = args[0];
         long duration = TimeConverter.parseTimeToMillis(args[1]);
+        String worldName = null;
+        World targetWorld = null;
         boolean force = false;
         
         EventType eventType = EventType.getByName(eventTypeName);
@@ -79,8 +86,23 @@ public class Start implements SubcommandExecutor, TabCompletable {
             return;
         }
 
-        if (args.length > 2 && args[2] != null && args[2].equalsIgnoreCase("--force")) {
-            force = true;
+        // Verificar si se proporciona un mundo específico
+        if (args.length > 2 && !args[2].equalsIgnoreCase("--force")) {
+            worldName = args[2];
+            targetWorld = Bukkit.getWorld(worldName);
+            
+            if (targetWorld == null) {
+                sender.sendMessage(MM.toComponent("<red>El mundo '" + worldName + "' no existe."));
+                return;
+            }
+        }
+
+        // Verificar el flag --force
+        if (args.length > 2) {
+            String lastArg = args[args.length - 1];
+            if (lastArg.equalsIgnoreCase("--force")) {
+                force = true;
+            }
         }
         
         // Get the needed instances
@@ -88,7 +110,11 @@ public class Start implements SubcommandExecutor, TabCompletable {
         WeeklyEventManager eventManager = plugin.getWeeklyEventManager();
 
         if (force) {
-            eventManager.startEventFromCommand(eventType, duration);
+            if (targetWorld != null) {
+                eventManager.startEventInWorldFromCommand(eventType, duration, targetWorld);
+            } else {
+                eventManager.startEventFromCommand(eventType, duration);
+            }
             return;
         }
 
@@ -99,7 +125,15 @@ public class Start implements SubcommandExecutor, TabCompletable {
         }
         
         // Si no hay evento activo, iniciar el nuevo evento
-        eventManager.startEventFromCommand(eventType, duration);
+        if (targetWorld != null) {
+            eventManager.startEventInWorldFromCommand(eventType, duration, targetWorld);
+            String durationText = TimeConverter.formatTicksToTime(duration / 50L); // Convertir ms a ticks
+            sender.sendMessage(MM.toComponent("<green>Evento '" + eventTypeName + "' iniciado exitosamente en el mundo '" + worldName + "' por " + durationText + "."));
+        } else {
+            eventManager.startEventFromCommand(eventType, duration);
+            String durationText = TimeConverter.formatTicksToTime(duration / 50L); // Convertir ms a ticks
+            sender.sendMessage(MM.toComponent("<green>Evento '" + eventTypeName + "' iniciado exitosamente en todos los mundos por " + durationText + "."));
+        }
     }
 
 }

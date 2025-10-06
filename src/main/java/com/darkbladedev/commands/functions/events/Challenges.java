@@ -50,6 +50,14 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             sender.sendMessage(MM.toComponent(HeartlessMain.getInstance().getPrefix() + " <red>No tienes permisos para usar este comando."));
             return;
         }
+        
+        // Solo los jugadores pueden usar este comando ya que necesitamos verificar su mundo
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(MM.toComponent(HeartlessMain.getInstance().getPrefix() + " <red>Este comando solo puede ser usado por jugadores."));
+            return;
+        }
+        
+        Player player = (Player) sender;
         HeartlessMain plugin = HeartlessMain.getInstance();
         
         // Verificar si hay un evento activo
@@ -57,6 +65,13 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
         
         if (currentEvent == null || !currentEvent.isActive()) {
             sender.sendMessage(MM.toComponent(plugin.getPrefix() + " <red>No hay ningún evento semanal activo en este momento."));
+            return;
+        }
+        
+        // Verificar si el evento está activo en el mundo del jugador
+        String playerWorldName = player.getWorld().getName();
+        if (!isEventActiveInPlayerWorld((AbstractWeeklyEvent) currentEvent, playerWorldName)) {
+            sender.sendMessage(MM.toComponent(plugin.getPrefix() + " <red>No hay ningún evento activo en tu mundo actual (" + playerWorldName + ")."));
             return;
         }
         
@@ -281,29 +296,61 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
      */
     private String getProgressHover(Object event, UUID playerId, String challengeId, int targetProgress) {
         int currentProgress = 0;
+        boolean isCompleted = false;
         
         // Obtener el progreso actual del desafío desde el evento
         if (event instanceof AbstractWeeklyEvent) {
             AbstractWeeklyEvent weeklyEvent = (AbstractWeeklyEvent) event;
-            Map<String, Object> playerProgress = weeklyEvent.getChallengeProgress(playerId);
             
-            // Buscar el progreso actual del desafío específico
-            Object progressObj = playerProgress.get(challengeId + "_current");
-            if (progressObj instanceof Integer) {
-                currentProgress = (Integer) progressObj;
-            } else if (progressObj instanceof Number) {
-                currentProgress = ((Number) progressObj).intValue();
+            // Primero verificar si el desafío está completado
+            isCompleted = weeklyEvent.hasChallengeCompleted(playerId, challengeId);
+            
+            // Si está completado, mostrar progreso completo
+            if (isCompleted) {
+                currentProgress = targetProgress;
+            } else {
+                // Si no está completado, buscar el progreso actual
+                Map<String, Object> playerProgress = weeklyEvent.getChallengeProgress(playerId);
+                Object progressObj = playerProgress.get(challengeId + "_current");
+                if (progressObj instanceof Integer) {
+                    currentProgress = (Integer) progressObj;
+                } else if (progressObj instanceof Number) {
+                    currentProgress = ((Number) progressObj).intValue();
+                }
             }
         }
         
         // Colorear el progreso basado en el estado
         String progressColor = "<red>";
-        if (currentProgress >= targetProgress) {
+        if (isCompleted || currentProgress >= targetProgress) {
             progressColor = "<green>";
         } else if (currentProgress > 0) {
             progressColor = "<yellow>";
         }
         
-        return "<gray>Progreso: " + progressColor + currentProgress + "/" + targetProgress + "</gray>";
+        // Formatear el texto de hover
+        String status = isCompleted ? "<green>✓ Completado</green>" : "<yellow>En progreso</yellow>";
+        return "<white>Progreso: " + currentProgress + "/" + targetProgress + "</white>\n" + status;
+    }
+    
+    /**
+     * Verifica si un evento está activo en el mundo específico del jugador
+     * usando reflexión para acceder al campo protegido worldEventStatus
+     */
+    private boolean isEventActiveInPlayerWorld(AbstractWeeklyEvent event, String worldName) {
+        try {
+            java.lang.reflect.Field worldEventStatusField = AbstractWeeklyEvent.class.getDeclaredField("worldEventStatus");
+            worldEventStatusField.setAccessible(true);
+            
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Boolean> worldEventStatus = (java.util.Map<String, Boolean>) worldEventStatusField.get(event);
+            
+            // Si el mundo no está en el mapa o está marcado como false, el evento no está activo
+            return worldEventStatus != null && worldEventStatus.getOrDefault(worldName, false);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            // En caso de error, asumir que el evento no está activo en el mundo
+            HeartlessMain.getInstance().getLogger().warning("Error al acceder al estado del evento por mundo: " + e.getMessage());
+            return false;
+        }
     }
 }

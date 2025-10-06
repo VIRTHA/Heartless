@@ -1011,6 +1011,11 @@ public class AcidWeek extends AbstractWeeklyEvent {
                 return;
             }
             
+            // Verificar si el jugador está en un mundo excluido
+            if (isPlayerInExcludedWorld(player)) {
+                return;
+            }
+            
             Location to = event.getTo();
             if (to == null || to.getWorld() == null) {
                 return;
@@ -1041,6 +1046,11 @@ public class AcidWeek extends AbstractWeeklyEvent {
             if (event.getDamager() instanceof ThrownPotion && event.getEntity() instanceof Player) {
                 Player player = (Player) event.getEntity();
                 if (player == null || !player.isOnline()) {
+                    return;
+                }
+                
+                // Verificar si el jugador está en un mundo excluido
+                if (isPlayerInExcludedWorld(player)) {
                     return;
                 }
                 
@@ -1142,6 +1152,11 @@ public class AcidWeek extends AbstractWeeklyEvent {
                 return;
             }
             
+            // Verificar si el jugador está en un mundo excluido
+            if (isPlayerInExcludedWorld(player)) {
+                return;
+            }
+            
             // Aumentar daño a items durante la semana ácida
             if (playersInWater.contains(player.getUniqueId()) || playersInRain.contains(player.getUniqueId())) {
                 ItemStack item = event.getItem();
@@ -1234,18 +1249,80 @@ public class AcidWeek extends AbstractWeeklyEvent {
      @Override
      protected void onEventStart() {
          try {
-             // Lógica específica de inicio de semana ácida
-             for (World world : Bukkit.getWorlds()) {
-                 if (world != null) {
-                     world.setStorm(true);
-                     world.setWeatherDuration(Integer.MAX_VALUE);
-                 }
-             }
+             // Lógica específica de inicio de semana ácida global
+             // El clima se configurará por mundo en onWorldEventStart
              
              plugin.getLogger().info("[AcidWeek] Semana Ácida iniciada correctamente");
          } catch (Exception e) {
              plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al iniciar Semana Ácida", e);
          }
+     }
+     
+     @Override
+     protected void onWorldEventStart(World world) {
+         logger.info("[AcidWeek] Iniciando evento en mundo: " + world.getName());
+         
+         try {
+             // Configurar clima ácido específico para este mundo
+             if (!isWorldExcluded(world)) {
+                 world.setStorm(true);
+                 world.setWeatherDuration(Integer.MAX_VALUE);
+             }
+             
+             // Inicializar jugadores específicos de este mundo
+             for (Player player : world.getPlayers()) {
+                 if (!isPlayerInExcludedWorld(player)) {
+                     initializePlayerData(player.getUniqueId());
+                 }
+             }
+             
+             logger.info("[AcidWeek] Evento iniciado en mundo: " + world.getName() + 
+                        " con " + world.getPlayers().size() + " jugadores");
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al iniciar evento en mundo: " + world.getName(), e);
+         }
+     }
+     
+     @Override
+     protected void onWorldEventStop(World world) {
+         logger.info("[AcidWeek] Deteniendo evento en mundo: " + world.getName());
+         
+         try {
+             // Restaurar clima normal en este mundo
+             world.setStorm(false);
+             world.setClearWeatherDuration(Integer.MAX_VALUE);
+             
+             // Limpiar efectos específicos del mundo
+             for (Player player : world.getPlayers()) {
+                 cleanupPlayerEffects(player);
+             }
+             
+             logger.info("[AcidWeek] Evento detenido en mundo: " + world.getName());
+         } catch (Exception e) {
+             plugin.getLogger().log(Level.SEVERE, "[AcidWeek] Error al detener evento en mundo: " + world.getName(), e);
+         }
+     }
+     
+     /**
+      * Inicializa los datos específicos de un jugador para el evento AcidWeek.
+      * 
+      * @param playerId UUID del jugador a inicializar
+      */
+     private void initializePlayerData(UUID playerId) {
+         if (playerId == null) return;
+         
+         // Inicializar estadísticas del jugador en el mapa heredado
+         playerStatistics.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
+         
+         // Inicializar contadores específicos del evento
+         Map<String, Object> stats = playerStatistics.get(playerId);
+         stats.putIfAbsent("fish_collected", 0);
+         stats.putIfAbsent("acid_damage_taken", 0.0);
+         stats.putIfAbsent("water_bottle_kills", 0);
+         stats.putIfAbsent("blue_axolotl_owned", false);
+         stats.putIfAbsent("acid_rain_survival_time", 0L);
+         
+         logger.info("[AcidWeek] Datos del jugador " + playerId + " inicializados");
      }
      
      @Override
@@ -1266,21 +1343,25 @@ public class AcidWeek extends AbstractWeeklyEvent {
      private void cleanupPlayerEffects() {
          try {
              for (Player player : Bukkit.getOnlinePlayers()) {
-                 if (player != null && player.isOnline()) {
-                     try {
-                         // Remover efectos específicos del evento si es necesario
-                         // Por ahora, solo limpiar de las listas
-                         UUID playerId = player.getUniqueId();
-                         playersInWater.remove(playerId);
-                         playersInRain.remove(playerId);
-                     } catch (Exception e) {
-                         plugin.getLogger().log(Level.WARNING, 
-                             "[AcidWeek] Error al limpiar efectos de " + player.getName(), e);
-                     }
-                 }
+                 cleanupPlayerEffects(player);
              }
          } catch (Exception e) {
              plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al limpiar efectos de jugadores", e);
+         }
+     }
+     
+     private void cleanupPlayerEffects(Player player) {
+         if (player != null && player.isOnline()) {
+             try {
+                 // Remover efectos específicos del evento si es necesario
+                 // Por ahora, solo limpiar de las listas
+                 UUID playerId = player.getUniqueId();
+                 playersInWater.remove(playerId);
+                 playersInRain.remove(playerId);
+             } catch (Exception e) {
+                 plugin.getLogger().log(Level.WARNING, 
+                     "[AcidWeek] Error al limpiar efectos de " + player.getName(), e);
+             }
          }
      }
      
@@ -1754,6 +1835,12 @@ public class AcidWeek extends AbstractWeeklyEvent {
     public void onPlayerDeath(PlayerDeathEvent event) {
         try {
             Player victim = event.getEntity();
+            
+            // Verificar si el jugador está en un mundo excluido
+            if (isPlayerInExcludedWorld(victim)) {
+                return;
+            }
+            
             UUID victimId = victim.getUniqueId();
             
             // Verificar si hay un atacante registrado con botella de agua
@@ -1806,6 +1893,12 @@ public class AcidWeek extends AbstractWeeklyEvent {
         
         try {
             ThrownPotion potion = event.getPotion();
+            
+            // Verificar si el evento ocurre en un mundo excluido
+            if (potion != null && potion.getLocation() != null && isWorldExcluded(potion.getLocation().getWorld())) {
+                return;
+            }
+            
             ItemStack potionItem = potion.getItem();
             
             plugin.getLogger().info("[AcidWeek] Poción detectada: " + (potionItem != null ? potionItem.getType() : "null"));

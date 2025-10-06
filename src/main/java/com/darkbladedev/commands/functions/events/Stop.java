@@ -1,8 +1,11 @@
 package com.darkbladedev.commands.functions.events;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 
 import com.darkbladedev.HeartlessMain;
@@ -28,10 +31,26 @@ public class Stop implements SubcommandExecutor, TabCompletable {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        // Los args aquí incluyen todos los argumentos del comando, incluyendo grupo y acción
-        // Necesitamos ajustar el índice para que coincida con los argumentos específicos de este subcomando
-        // args[0] y args[1] son el grupo y la acción, por lo que args[2] sería el primer argumento real del subcomando
-        // En este caso no hay argumentos adicionales para este comando
+        // El CommandHandler ya ha removido los primeros dos argumentos (grupo y acción)
+        // Por lo que args[0] sería el primer argumento real del subcomando (mundo opcional)
+        
+        // Si estamos completando el primer argumento (mundo opcional)
+        // args.length == 0 significa "/hs event stop " (sin argumentos adicionales, pero con espacio)
+        // args.length == 1 significa "/hs event stop <parcial>" (escribiendo el mundo)
+        if (args.length == 0 || args.length == 1) {
+            List<String> worldNames = new ArrayList<>();
+            String currentArg = args.length == 1 ? args[0].toLowerCase() : "";
+            
+            for (World world : Bukkit.getWorlds()) {
+                String worldName = world.getName();
+                // Filtrar mundos que coincidan con lo que el usuario está escribiendo
+                if (worldName.toLowerCase().startsWith(currentArg)) {
+                    worldNames.add(worldName);
+                }
+            }
+            return worldNames;
+        }
+        
         return Collections.emptyList();
     }
 
@@ -52,11 +71,29 @@ public class Stop implements SubcommandExecutor, TabCompletable {
             return;
         }
         
-        // Detener el evento actual
-        eventManager.forceStopCurrentEvent();
-        
-        // Notificar al remitente
-        sender.sendMessage(MM.toComponent("<green>Has detenido el evento semanal actual."));
+        // Verificar si se especificó un mundo
+        if (args.length >= 3) {
+            String worldName = args[2];
+            World world = Bukkit.getWorld(worldName);
+            
+            if (world == null) {
+                sender.sendMessage(MM.toComponent("<red>El mundo '" + worldName + "' no existe o no está cargado."));
+                return;
+            }
+            
+            // Detener el evento en el mundo específico
+            boolean success = eventManager.stopEventInWorldFromCommand(world);
+            
+            if (success) {
+                sender.sendMessage(MM.toComponent("<green>Has detenido el evento semanal en el mundo '" + worldName + "'."));
+            } else {
+                sender.sendMessage(MM.toComponent("<red>No se pudo detener el evento en el mundo '" + worldName + "'."));
+            }
+        } else {
+            // Detener el evento en todos los mundos (comportamiento original)
+            eventManager.forceStopCurrentEvent();
+            sender.sendMessage(MM.toComponent("<green>Has detenido el evento semanal actual en todos los mundos."));
+        }
     }
 
 }

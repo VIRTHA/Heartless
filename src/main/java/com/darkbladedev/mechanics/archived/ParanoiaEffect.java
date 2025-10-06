@@ -1,4 +1,4 @@
-package com.darkbladedev.mechanics;
+package com.darkbladedev.mechanics.archived;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -19,6 +19,24 @@ import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.utils.MM;
 
+/**
+ * CLASE ARCHIVADA - NO UTILIZAR EN PRODUCCIÓN
+ * 
+ * Esta clase ha sido archivada temporalmente y no debe ser utilizada
+ * en el sistema de eventos actual del plugin Heartless.
+ * 
+ * Propósito Original: Efecto de paranoia con efectos visuales y auditivos
+ * Fecha de Archivo: 5/10/2025
+ * Estado: INACTIVO
+ * 
+ * Para reactivar esta funcionalidad:
+ * 1. Mover la clase de vuelta al paquete com.darkbladedev.mechanics
+ * 2. Actualizar las referencias en el código principal
+ * 3. Verificar compatibilidad con la versión actual del plugin
+ * 
+ * @deprecated Esta clase está archivada y no debe utilizarse
+ */
+@Deprecated
 public class ParanoiaEffect {
 
     private final Random random = new Random();

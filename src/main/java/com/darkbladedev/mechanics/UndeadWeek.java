@@ -109,23 +109,70 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         
         // Inicializar datos del evento
         initializeEventSpecificData();
-        
-        // Inicializar jugadores conectados
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            initializePlayerData(player.getUniqueId());
-        }
-        
-        // Iniciar tareas del evento
         startEventTasks();
         
-        // Anunciar inicio del evento
-        Bukkit.broadcast(MM.toComponent("<red><bold>¡La Semana de No-Muertos ha comenzado!</bold></red>"));
-        Bukkit.broadcast(MM.toComponent("<gray>Los zombies son más peligrosos y pueden infectarte...</gray>"));
+        logger.info("[UndeadWeek] Evento iniciado correctamente");
+    }
+    
+    @Override
+    protected void announceEventStart() {
+        try {
+            // Anunciar inicio del evento
+            Bukkit.broadcast(MM.toComponent("<red><bold>¡La Semana de No-Muertos ha comenzado!</bold></red>"));
+            Bukkit.broadcast(MM.toComponent("<gray>Los zombies son más peligrosos y pueden infectarte...</gray>"));
+            
+            // Anunciar desafíos disponibles
+            announceRegisteredChallenges();
+            
+            logger.info("[UndeadWeek] Anuncios de inicio del evento enviados");
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "[UndeadWeek] Error al anunciar inicio del evento", e);
+        }
+    }
+    
+    @Override
+    protected void announceEventEnd() {
+        try {
+            Bukkit.broadcast(MM.toComponent("<green><bold>¡La Semana de No-Muertos ha terminado!</bold></green>"));
+            showEventSummary();
+            
+            logger.info("[UndeadWeek] Anuncios de fin del evento enviados");
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "[UndeadWeek] Error al anunciar fin del evento", e);
+        }
+    }
+    
+    @Override
+    protected void onWorldEventStart(World world) {
+        logger.info("[UndeadWeek] Iniciando evento en mundo: " + world.getName());
         
-        // Anunciar desafíos disponibles
-        announceRegisteredChallenges();
+        // Inicializar jugadores específicos de este mundo
+        for (Player player : world.getPlayers()) {
+            if (!isPlayerInExcludedWorld(player)) {
+                initializePlayerData(player.getUniqueId());
+            }
+        }
+        
+        // Los anuncios se manejan en announceEventStart()
         
         logger.info("[UndeadWeek] Evento iniciado correctamente");
+
+        
+        logger.info("[UndeadWeek] Evento iniciado en mundo: " + world.getName() + 
+                   " con " + world.getPlayers().size() + " jugadores");
+    }
+    
+    @Override
+    protected void onWorldEventStop(World world) {
+        logger.info("[UndeadWeek] Deteniendo evento en mundo: " + world.getName());
+        
+        // Limpiar efectos específicos del mundo
+        for (Player player : world.getPlayers()) {
+            cleanupPlayerEffects(player);
+        }
+        
+        logger.info("[UndeadWeek] Evento detenido en mundo: " + world.getName());
+    
     }
     
     @Override
@@ -141,9 +188,8 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         // Guardar datos finales
         saveEventSpecificData();
         
-        // Anunciar fin del evento
-        Bukkit.broadcast(MM.toComponent("<green><bold>¡La Semana de No-Muertos ha terminado!</bold></green>"));
-        showEventSummary();
+        // El anuncio de fin y estadísticas se manejan automáticamente en stop()
+        // No necesitamos llamar announceEventEnd() aquí para evitar duplicación
     }
     
     @Override
@@ -332,6 +378,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         
         Player player = (Player) event.getEntity();
         
+        // Verificar si el jugador está en un mundo excluido
+        if (isPlayerInExcludedWorld(player)) return;
+        
         // Aplicar infección si no está ya infectado usando el efecto personalizado
         if (zombieInfectionEffect == null || !zombieInfectionEffect.isAffected(player)) {
             if (ThreadLocalRandom.current().nextDouble() < INFECTION_CHANCE) {
@@ -347,6 +396,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     public void onEntityDeath(EntityDeathEvent event) {
         Player killer = event.getEntity().getKiller();
         if (killer == null) return;
+        
+        // Verificar si el jugador está en un mundo excluido
+        if (isPlayerInExcludedWorld(killer)) return;
         
         UUID killerId = killer.getUniqueId();
         
@@ -370,9 +422,21 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         
         // Manejo específico para Wither
         if (event.getEntity() instanceof Wither) {
+            logger.info("[UndeadWeek] Wither eliminado por jugador: " + killer.getName() + " (UUID: " + killerId + ")");
+            
             // Verificar desafío del Wither
-            if (!hasChallengeCompleted(killerId, "wither_slayer")) {
+            boolean alreadyCompleted = hasChallengeCompleted(killerId, "wither_slayer");
+            logger.info("[UndeadWeek] Estado del desafío wither_slayer para " + killer.getName() + ": " + 
+                       (alreadyCompleted ? "YA COMPLETADO" : "NO COMPLETADO"));
+            
+            if (!alreadyCompleted) {
+                logger.info("[UndeadWeek] Completando desafío wither_slayer para " + killer.getName());
                 completeChallenge(killer, "wither_slayer");
+                
+                // Verificar si se completó correctamente
+                boolean nowCompleted = hasChallengeCompleted(killerId, "wither_slayer");
+                logger.info("[UndeadWeek] Verificación post-completado para " + killer.getName() + ": " + 
+                           (nowCompleted ? "ÉXITO" : "FALLÓ"));
                 
                 // Otorgar corazón permanente
                 killer.sendMessage(MM.toComponent("<gold><bold>¡Has completado el desafío Wither Slayer!</bold></gold>"));
@@ -384,7 +448,11 @@ public class UndeadWeek extends AbstractWeeklyEvent {
                     double currentMaxHealth = healthAttribute.getBaseValue();
                     healthAttribute.setBaseValue(currentMaxHealth + 2.0); // +1 corazón = +2 HP
                     killer.setHealth(killer.getHealth() + 2.0); // Curar también
+                    logger.info("[UndeadWeek] Vida máxima incrementada para " + killer.getName() + 
+                               " de " + currentMaxHealth + " a " + (currentMaxHealth + 2.0));
                 }
+            } else {
+                logger.info("[UndeadWeek] Desafío wither_slayer ya completado para " + killer.getName() + ", omitiendo recompensa");
             }
         }
     }
@@ -392,6 +460,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
+        
+        // Verificar si el jugador está en un mundo excluido
+        if (isPlayerInExcludedWorld(player)) return;
         UUID playerId = player.getUniqueId();
         
         // Si el jugador muere durante la Noche Roja, marcar que falló el desafío
@@ -584,7 +655,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             for (ChallengeDefinition challenge : availableChallenges.values()) {
                 String difficultyColor = getDifficultyColor(challenge.getId());
                 Bukkit.broadcast(MM.toComponent(difficultyColor + "• " + 
-                    challenge.getDisplayName() + " - <gray>" + challenge.getDescription()));
+                    challenge.getDisplayName() + " - <white>" + challenge.getDescription()));
             }
             
         } catch (Exception e) {
@@ -606,7 +677,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         registerChallenge("infection_survivor", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
             "infection_survivor",
             "Superviviente de Infección",
-            "Curarse infección zombie 10 veces",
+            "Curarse de la infección zombie 10 veces",
             10,
             Arrays.asList("enchant:first_strike:1")
         ));
@@ -685,17 +756,26 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     }
     
     private void completeChallenge(Player player, String challengeId) {
+        logger.info("[UndeadWeek] DEBUG - Iniciando completeChallenge para jugador: " + player.getName() + " (" + player.getUniqueId() + "), desafío: " + challengeId);
+        
         ChallengeDefinition challenge = availableChallenges.get(challengeId);
-        if (challenge == null) return;
+        if (challenge == null) {
+            logger.warning("[UndeadWeek] DEBUG - Desafío no encontrado en availableChallenges: " + challengeId);
+            return;
+        }
         
         UUID playerId = player.getUniqueId();
         Set<String> completed = completedChallenges.computeIfAbsent(playerId, k -> new HashSet<>());
         
+        logger.info("[UndeadWeek] DEBUG - Desafíos completados actuales para " + player.getName() + ": " + completed);
+        
         if (!completed.contains(challengeId)) {
+            logger.info("[UndeadWeek] DEBUG - Desafío " + challengeId + " no estaba completado, agregándolo...");
             completed.add(challengeId);
             
             // Otorgar recompensas
             for (String reward : challenge.getRewards()) {
+                logger.info("[UndeadWeek] DEBUG - Otorgando recompensa: " + reward + " a " + player.getName());
                 Reward rewardObj = new Reward(reward);
                 rewardObj.grantTo(player, prefix);
             }
@@ -704,9 +784,12 @@ public class UndeadWeek extends AbstractWeeklyEvent {
                              challenge.getDisplayName() + "</gold>!</green>"));
             
             dataDirty.set(true);
+            logger.info("[UndeadWeek] DEBUG - Desafío " + challengeId + " completado exitosamente para " + player.getName() + ". dataDirty establecido a true");
+        } else {
+            logger.info("[UndeadWeek] DEBUG - Desafío " + challengeId + " ya estaba completado para " + player.getName());
         }
         
-        logger.info("[UndeadWeek] Jugador " + player.getName() + " completó desafío: " + challengeId);
+        logger.info("[UndeadWeek] DEBUG - Estado final de desafíos completados para " + player.getName() + ": " + completed);
     }
     
     // === MÉTODOS DE UTILIDAD ===
@@ -737,24 +820,51 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     
     private void cleanupPlayerEffects() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            // Remover el efecto de infección zombie usando el método de sincronización
-            if (zombieInfectionEffect != null && zombieInfectionEffect.isAffected(player)) {
-                // Por ahora se desactiva porque la idea es que el efecto siga activo en los jugadores luego del evento.
-                // zombieInfectionEffect.cureInfectionFromEvent(player, "event_end");
-            }
-            
-            // Remover efectos adicionales del evento
-            player.removePotionEffect(PotionEffectType.HUNGER);
+            cleanupPlayerEffects(player);
         }
+    }
+    
+    private void cleanupPlayerEffects(Player player) {
+        // Remover el efecto de infección zombie usando el método de sincronización
+        if (zombieInfectionEffect != null && zombieInfectionEffect.isAffected(player)) {
+            // Por ahora se desactiva porque la idea es que el efecto siga activo en los jugadores luego del evento.
+            // zombieInfectionEffect.cureInfectionFromEvent(player, "event_end");
+        }
+        
+        // Remover efectos adicionales del evento
+        player.removePotionEffect(PotionEffectType.HUNGER);
     }
     
     private void showEventSummary() {
         Bukkit.broadcast(MM.toComponent("<gold>========== RESUMEN DEL EVENTO ==========</gold>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>Zombies eliminados: " + globalStatistics.get("total_zombies_killed").get() + "</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>Jugadores infectados: " + globalStatistics.get("total_infections").get() + "</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>Infecciones curadas: " + globalStatistics.get("total_cures").get() + "</yellow>"));
-       // Bukkit.broadcast(MM.toComponent("<yellow>Lunas rojas activadas: " + globalStatistics.get("red_moon_activations").get() + "</yellow>"));
+        
+        // Obtener estadísticas de forma segura con valores por defecto
+        long zombiesKilled = getGlobalStatisticSafely("total_zombies_killed");
+        long totalInfections = getGlobalStatisticSafely("total_infections");
+        long totalCures = getGlobalStatisticSafely("total_cures");
+        long redMoonActivations = getGlobalStatisticSafely("red_moon_activations");
+        
+        Bukkit.broadcast(MM.toComponent("<yellow>Zombies eliminados: " + zombiesKilled + "</yellow>"));
+        Bukkit.broadcast(MM.toComponent("<yellow>Jugadores infectados: " + totalInfections + "</yellow>"));
+        Bukkit.broadcast(MM.toComponent("<yellow>Infecciones curadas: " + totalCures + "</yellow>"));
+        Bukkit.broadcast(MM.toComponent("<yellow>Lunas rojas activadas: " + redMoonActivations + "</yellow>"));
         Bukkit.broadcast(MM.toComponent("<gold>=======================================</gold>"));
+    }
+    
+    /**
+     * Obtiene una estadística global de forma segura, retornando 0 si no existe o es null.
+     * 
+     * @param statisticName Nombre de la estadística
+     * @return Valor de la estadística o 0 si no existe
+     */
+    private long getGlobalStatisticSafely(String statisticName) {
+        try {
+            AtomicLong statistic = globalStatistics.get(statisticName);
+            return statistic != null ? statistic.get() : 0L;
+        } catch (Exception e) {
+            logger.warning("[UndeadWeek] Error al obtener estadística '" + statisticName + "': " + e.getMessage());
+            return 0L;
+        }
     }
     
     // === GETTERS Y SETTERS PÚBLICOS ===
@@ -892,19 +1002,35 @@ public class UndeadWeek extends AbstractWeeklyEvent {
      * @param data Mapa con los desafíos completados serializados
      */
     public void loadCompletedChallengesFromString(Map<String, Set<String>> data) {
+        logger.info("[UndeadWeek] Iniciando carga de desafíos completados desde base de datos");
+        logger.info("[UndeadWeek] Estado actual de completedChallenges antes de cargar: " + completedChallenges.size() + " jugadores");
+        
         if (data != null) {
-            completedChallenges.clear();
+            logger.info("[UndeadWeek] Datos de base de datos contienen " + data.size() + " jugadores");
+            
+            // Usar merge en lugar de clear para preservar datos en tiempo real
             data.forEach((playerIdStr, challengeSet) -> {
                 try {
                     UUID playerId = UUID.fromString(playerIdStr);
-                    completedChallenges.put(playerId, ConcurrentHashMap.newKeySet());
-                    completedChallenges.get(playerId).addAll(challengeSet);
+                    logger.info("[UndeadWeek] Cargando desafíos para jugador " + playerIdStr + ": " + challengeSet);
+                    
+                    Set<String> playerChallenges = completedChallenges.computeIfAbsent(playerId, k -> ConcurrentHashMap.newKeySet());
+                    int sizeBefore = playerChallenges.size();
+                    playerChallenges.addAll(challengeSet);
+                    int sizeAfter = playerChallenges.size();
+                    
+                    logger.info("[UndeadWeek] Jugador " + playerIdStr + " - desafíos antes: " + sizeBefore + 
+                               ", después: " + sizeAfter + " (agregados: " + (sizeAfter - sizeBefore) + ")");
                 } catch (IllegalArgumentException e) {
                     logger.warning("[UndeadWeek] UUID inválido en completedChallenges: " + playerIdStr);
                 }
             });
-            logger.info("[UndeadWeek] Desafíos completados cargados para " + completedChallenges.size() + " jugadores");
+            logger.info("[UndeadWeek] Desafíos completados cargados/fusionados para " + completedChallenges.size() + " jugadores");
+        } else {
+            logger.warning("[UndeadWeek] No hay datos de desafíos completados para cargar (data es null)");
         }
+        
+        logger.info("[UndeadWeek] Estado final de completedChallenges después de cargar: " + completedChallenges.size() + " jugadores");
     }
     
     // Método removido - hasChallengeCompleted es final en AbstractWeeklyEvent

@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.logging.Level;
 
 import org.bukkit.configuration.file.FileConfiguration;
@@ -38,6 +39,7 @@ public class ConfigManager {
     private int eventsSaveInterval;
     private int eventsMaxConcurrent;
     private int eventsNotificationRadius;
+    private List<String> eventsExcludedWorlds;
     
     private double healthDefaultMax;
     private double healthMinimum;
@@ -155,6 +157,7 @@ public class ConfigManager {
         eventsSaveInterval = config.getInt("events.save-interval", 300);
         eventsMaxConcurrent = config.getInt("events.max-concurrent-events", 1);
         eventsNotificationRadius = config.getInt("events.notification-radius", 100);
+        eventsExcludedWorlds = config.getStringList("events.excluded-worlds");
         
         // Health configuration
         healthDefaultMax = config.getDouble("health.default-max-health", 20.0);
@@ -272,6 +275,7 @@ public class ConfigManager {
     public int getEventsSaveInterval() { return eventsSaveInterval; }
     public int getEventsMaxConcurrent() { return eventsMaxConcurrent; }
     public int getEventsNotificationRadius() { return eventsNotificationRadius; }
+    public List<String> getExcludedWorlds() { return eventsExcludedWorlds; }
     
     // Health getters
     public double getHealthDefaultMax() { return healthDefaultMax; }

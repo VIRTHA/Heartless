@@ -44,7 +44,7 @@ public abstract class WeeklyEvent implements Listener {
     protected final AtomicBoolean isInitialized = new AtomicBoolean(false);
     protected final AtomicBoolean isCleaningUp = new AtomicBoolean(false);
     
-    private final AtomicLong startTime = new AtomicLong(0);
+    protected final AtomicLong startTime = new AtomicLong(0);
     private final AtomicLong endTime = new AtomicLong(0);
     private final AtomicLong pauseStartTime = new AtomicLong(0);
     private final AtomicLong totalPausedTime = new AtomicLong(0);
@@ -201,7 +201,7 @@ public abstract class WeeklyEvent implements Listener {
     /**
      * Asegura que los EventHandlers estén registrados sin duplicados
      */
-    private void ensureEventHandlersRegistered() {
+    protected void ensureEventHandlersRegistered() {
         try {
             // Primero desregistrar para evitar duplicados
             HandlerList.unregisterAll(this);
@@ -368,7 +368,7 @@ public abstract class WeeklyEvent implements Listener {
     /**
      * Inicializa las tareas del sistema (auto-guardado y limpieza)
      */
-    private void initializeSystemTasks() {
+    protected void initializeSystemTasks() {
         // Auto-guardado cada 5 minutos
         autoSaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
             try {

@@ -3,7 +3,6 @@ package com.darkbladedev.listeners;
 import com.darkbladedev.events.ChallengeProgressUpdateEvent;
 import com.darkbladedev.utils.MM;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -11,12 +10,14 @@ import org.bukkit.event.Listener;
 
 /**
  * Listener que maneja las notificaciones de progreso de desafíos en tiempo real.
- * Envía mensajes actualizados al jugador cuando su progreso cambia.
+ * Registra internamente el progreso pero oculta mensajes repetitivos del chat.
+ * Solo muestra mensajes de completado para evitar saturar al jugador.
  */
 public class ChallengeProgressNotificationListener implements Listener {
     
     /**
      * Maneja los eventos de actualización de progreso de desafíos.
+     * Oculta mensajes de progreso repetitivos pero mantiene notificaciones de completado.
      * 
      * @param event El evento de actualización de progreso
      */
@@ -35,39 +36,26 @@ public class ChallengeProgressNotificationListener implements Listener {
         // Determinar el nombre del desafío para mostrar
         String challengeName = getChallengeDisplayName(challengeId);
         
-        // Crear el mensaje de progreso
+        // Solo mostrar mensajes cuando el desafío se completa
+        // Los mensajes de progreso se ocultan para evitar spam
         if (isCompleted) {
-            // Mensaje de completado
+            // Mensaje de completado (se mantiene visible)
             Component completedMessage = MM.toComponent(
                 "<green>✓ Desafío completado: <yellow>" + challengeName + "</yellow> " +
                 "<gray>(" + currentProgress + "/" + maxProgress + ")</gray></green>"
             );
             player.sendMessage(completedMessage);
-        } else {
-            // Mensaje de progreso actualizado
-            String progressColor = getProgressColor(currentProgress, maxProgress);
             
-            // Crear hover text con detalles
-            String hoverText = "<yellow>Desafío: " + challengeName + "</yellow>\n" +
-                             "<gray>Progreso: " + progressColor + currentProgress + "/" + maxProgress + "</gray>\n" +
-                             "<gray>Restante: <white>" + (maxProgress - currentProgress) + "</white></gray>";
-            
-            Component hoverComponent = MM.toComponent(hoverText);
-            
-            // Mensaje principal con hover
-            Component progressMessage = MM.toComponent(
-                "<yellow>⚡ Progreso actualizado: " + progressColor + currentProgress + "/" + maxProgress + "</yellow>"
-            ).hoverEvent(HoverEvent.showText(hoverComponent));
-            
-            player.sendMessage(progressMessage);
+            // Sonido de completado
+            player.playSound(player.getLocation(), "entity.player.levelup", 0.7f, 1.2f);
         }
         
-        // Enviar sonido de notificación
-        if (isCompleted) {
-            player.playSound(player.getLocation(), "entity.player.levelup", 0.7f, 1.2f);
-        } else {
-            player.playSound(player.getLocation(), "block.note_block.pling", 0.5f, 1.5f);
-        }
+        // NOTA: Los mensajes de progreso intermedio se han ocultado intencionalmente
+        // para evitar saturar el chat del jugador con notificaciones repetitivas.
+        // El progreso sigue siendo registrado internamente por el sistema de eventos.
+        
+        // El registro interno del progreso se mantiene automáticamente a través del
+        // sistema de eventos de AbstractWeeklyEvent.updateChallengeProgress()
     }
     
     /**

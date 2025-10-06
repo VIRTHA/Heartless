@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
@@ -90,6 +91,62 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
         announceEventStart();
         
         logger.info("[ExplosiveWeek] Evento iniciado - Todas las explosiones son más poderosas");
+    }
+    
+    @Override
+    protected void onWorldEventStart(World world) {
+        logger.info("[ExplosiveWeek] Iniciando evento en mundo: " + world.getName());
+        
+        // Inicializar jugadores específicos de este mundo
+        for (Player player : world.getPlayers()) {
+            if (!isPlayerInExcludedWorld(player)) {
+                initializePlayerData(player.getUniqueId());
+            }
+        }
+        
+        // Configurar efectos específicos del mundo si es necesario
+        // (por ejemplo, spawns de ghasts específicos del mundo)
+        
+        logger.info("[ExplosiveWeek] Evento iniciado en mundo: " + world.getName() + 
+                   " con " + world.getPlayers().size() + " jugadores");
+    }
+    
+    @Override
+    protected void onWorldEventStop(World world) {
+        logger.info("[ExplosiveWeek] Deteniendo evento en mundo: " + world.getName());
+        
+        // Limpiar efectos específicos del mundo si es necesario
+        // (por ejemplo, remover ghasts específicos del mundo)
+        for (Entity entity : world.getEntities()) {
+            if (entity.getType() == EntityType.GHAST && entity.getLocation().getWorld().getEnvironment() == Environment.NORMAL) {
+                entity.remove();
+            }
+        }
+        
+        logger.info("[ExplosiveWeek] Evento detenido en mundo: " + world.getName());
+    }
+    
+    /**
+     * Inicializa los datos específicos de un jugador para el evento ExplosiveWeek.
+     * 
+     * @param playerId UUID del jugador a inicializar
+     */
+    private void initializePlayerData(UUID playerId) {
+        if (playerId == null) return;
+        
+        // Inicializar estadísticas del jugador en el mapa heredado
+        playerStatistics.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
+        
+        // Inicializar contadores específicos del evento
+        Map<String, Object> stats = playerStatistics.get(playerId);
+        stats.putIfAbsent("ghasts_killed", 0);
+        stats.putIfAbsent("explosions_survived", 0);
+        stats.putIfAbsent("players_killed_with_explosions", 0);
+        stats.putIfAbsent("wardens_killed", 0);
+        stats.putIfAbsent("storm_pvp_kills", 0);
+        stats.putIfAbsent("mob_heads_collected", 0);
+        
+        logger.info("[ExplosiveWeek] Datos del jugador " + playerId + " inicializados");
     }
     
     @Override
@@ -476,6 +533,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     public void onCreatureSpawn(CreatureSpawnEvent event) {
         if (!isActive.get()) return;
         
+        // Verificar si el spawn es en un mundo excluido
+        if (isWorldExcluded(event.getLocation().getWorld())) return;
+        
         if (event.getEntityType() == EntityType.CREEPER) {
             Creeper creeper = (Creeper) event.getEntity();
             creeper.setPowered(true); // Make all creepers charged
@@ -485,6 +545,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityExplode(EntityExplodeEvent event) {
         if (!isActive.get()) return;
+        
+        // Verificar si la explosión es en un mundo excluido
+        if (isWorldExcluded(event.getLocation().getWorld())) return;
         
         // TNT explosions are handled in ExplosionPrimeEvent
     }
@@ -533,8 +596,11 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         if (!isActive.get()) return;
         
-        Entity damager = event.getDamager();
         Entity victim = event.getEntity();
+        Entity damager = event.getDamager();
+        
+        // Verificar si el evento es en un mundo excluido
+        if (victim instanceof Player && isPlayerInExcludedWorld((Player) victim)) return;
         
         // Track player kills by explosion for challenge (during storm)
         if (victim instanceof Player && 
@@ -600,6 +666,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
         }
 
         Player victim = event.getEntity();
+        
+        // Verificar si el jugador está en un mundo excluido
+        if (isPlayerInExcludedWorld(victim)) return;
         Player killer = victim.getKiller();
         
         plugin.getLogger().info("[DEBUG] Víctima: " + (victim != null ? victim.getName() : "null") + 
@@ -645,6 +714,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
         
         LivingEntity entity = event.getEntity();
         Player killer = entity.getKiller();
+        
+        // Verificar si el evento es en un mundo excluido
+        if (isWorldExcluded(entity.getWorld())) return;
         
         // Iron Golem death explosion
         if (entity instanceof IronGolem) {
@@ -708,6 +780,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
         if (!isActive.get()) return;
+        
+        // Verificar si el jugador está en un mundo excluido
+        if (isPlayerInExcludedWorld(event.getPlayer())) return;
         
         Block block = event.getBlock();
         Material type = block.getType();
@@ -796,8 +871,6 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
             // Usar el sistema oficial de desafíos
             completeChallengeForPlayer(player.getUniqueId(), "mob_head_collector");
             
-            // Announce to server
-            Bukkit.broadcast(MM.toComponent("<gold>" + player.getName() + " <yellow>ha completado el desafío: <gray>Coleccionar todas las cabezas de mobs hostiles clásicos</gray></yellow></gold>"));
         }
     }
     

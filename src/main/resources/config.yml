@@ -37,6 +37,9 @@ events:
   save-interval: 300  # segundos
   max-concurrent-events: 1
   notification-radius: 100
+  exclude-worlds:
+    - "world_nether"
+    - "world_the_end"
   
 # Configuración del sistema de salud
 health:
