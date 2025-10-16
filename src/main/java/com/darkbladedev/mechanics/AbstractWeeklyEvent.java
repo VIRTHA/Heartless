@@ -5,10 +5,11 @@ import com.darkbladedev.challenges.Reward;
 import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.events.ChallengeProgressUpdateEvent;
 import com.darkbladedev.managers.PlayerStatisticsReportManager;
+import com.darkbladedev.managers.UnifiedEventReportManager;
 import com.darkbladedev.managers.ConfigManager;
 import com.darkbladedev.persistence.EventDataPersistenceManager;
 import com.darkbladedev.utils.MM;
-import com.darkbladedev.utils.TimeExpression;
+import com.darkbladedev.models.TimeExpression;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.Bukkit;
@@ -84,6 +85,7 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     
     // === SISTEMA DE REPORTES ===
     protected final PlayerStatisticsReportManager reportManager;
+    protected final UnifiedEventReportManager unifiedReportManager;
     
     // === CONFIGURACIÓN DEL SISTEMA ===
     protected final AtomicBoolean challengeSystemEnabled = new AtomicBoolean(true);
@@ -99,7 +101,41 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     public AbstractWeeklyEvent(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
         this.reportManager = new PlayerStatisticsReportManager(plugin);
+        this.unifiedReportManager = new UnifiedEventReportManager(plugin);
         initializeEventSystems();
+    }
+    
+    /**
+     * Inicia el evento solo en mundos que no están en la blacklist.
+     * Este método es similar a start() pero filtra los mundos excluidos.
+     */
+    public final void startInNonExcludedWorlds() {
+        try {
+            globalStatistics.get("event_starts").incrementAndGet();
+            
+            // Inicializar eventos solo en mundos no excluidos
+            initializeWorldEvents();
+            
+            // Inicializar datos específicos del evento
+            initializeEventSpecificData();
+            
+            // Iniciar tareas del sistema abstracto
+            startAbstractEventTasks();
+            
+            // Llamar al método específico del evento
+            onEventStart();
+            
+            // Iniciar tareas específicas del evento
+            super.start();
+            
+            logger.info("[" + getId() + "] Evento iniciado correctamente en " + 
+                       activeWorlds.size() + " mundos no excluidos con " + getActivePlayerCount() + " jugadores");
+            
+        } catch (Exception e) {
+            globalStatistics.get("total_errors").incrementAndGet();
+            logger.log(Level.SEVERE, "[" + getId() + "] Error al iniciar el evento en mundos no excluidos", e);
+            handleEventError("startInNonExcludedWorlds", e);
+        }
     }
     
     /**
@@ -866,16 +902,16 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
     
     /**
      * Genera y envía reportes individuales de estadísticas a todos los jugadores participantes.
-     * Utiliza el PlayerStatisticsReportManager para crear reportes personalizados.
+     * Utiliza el UnifiedEventReportManager para crear reportes unificados sin duplicación.
      */
     private void generateAndSendPlayerReports() {
-        if (reportManager == null) {
-            plugin.getLogger().warning("ReportManager no está inicializado para el evento " + getId());
+        if (unifiedReportManager == null) {
+            plugin.getLogger().warning("UnifiedReportManager no está inicializado para el evento " + getId());
             return;
         }
 
-        // Usar el método público generateAndSendFinalReports que maneja todo el proceso
-        reportManager.generateAndSendFinalReports(this);
+        // Usar el nuevo sistema unificado que elimina duplicación de mensajes
+        unifiedReportManager.generateAndSendUnifiedEventReport(this);
     }
     
     /**

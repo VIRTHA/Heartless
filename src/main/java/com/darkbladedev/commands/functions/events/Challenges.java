@@ -343,10 +343,17 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             worldEventStatusField.setAccessible(true);
             
             @SuppressWarnings("unchecked")
-            java.util.Map<String, Boolean> worldEventStatus = (java.util.Map<String, Boolean>) worldEventStatusField.get(event);
+            java.util.Map<String, java.util.concurrent.atomic.AtomicBoolean> worldEventStatus = 
+                (java.util.Map<String, java.util.concurrent.atomic.AtomicBoolean>) worldEventStatusField.get(event);
             
-            // Si el mundo no está en el mapa o está marcado como false, el evento no está activo
-            return worldEventStatus != null && worldEventStatus.getOrDefault(worldName, false);
+            // Si el mundo no está en el mapa, el evento no está activo
+            if (worldEventStatus == null || !worldEventStatus.containsKey(worldName)) {
+                return false;
+            }
+            
+            // Obtener el AtomicBoolean y verificar su valor
+            java.util.concurrent.atomic.AtomicBoolean atomicStatus = worldEventStatus.get(worldName);
+            return atomicStatus != null && atomicStatus.get();
         } catch (NoSuchFieldException | IllegalAccessException e) {
             // En caso de error, asumir que el evento no está activo en el mundo
             HeartlessMain.getInstance().getLogger().warning("Error al acceder al estado del evento por mundo: " + e.getMessage());

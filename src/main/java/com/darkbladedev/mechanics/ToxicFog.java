@@ -9,7 +9,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
-import com.darkbladedev.utils.TimeExpression;
+import com.darkbladedev.models.TimeExpression;
 
 import java.util.ArrayList;
 import java.util.HashSet;

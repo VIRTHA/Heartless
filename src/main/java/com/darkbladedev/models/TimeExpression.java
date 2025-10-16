@@ -1,11 +1,16 @@
-package com.darkbladedev.utils;
+package com.darkbladedev.models;
+
+import com.darkbladedev.utils.TimeConverter;
 
 /**
- * Clase que representa una expresión de tiempo que puede ser parseada
+ * Modelo de datos que representa una expresión de tiempo que puede ser parseada
  * a diferentes unidades (ticks, milisegundos, segundos).
  * 
  * Permite usar expresiones como "1w", "2d 3h", "30m", etc.
  * y convertirlas automáticamente a las unidades necesarias.
+ * 
+ * @author DarkBladeDev
+ * @version 1.0
  */
 public class TimeExpression {
     

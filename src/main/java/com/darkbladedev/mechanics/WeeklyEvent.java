@@ -13,8 +13,8 @@ import org.bukkit.scheduler.BukkitTask;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.utils.RewardPool;
-import com.darkbladedev.utils.TimeExpression;
-import com.darkbladedev.utils.WeeklyEventData;
+import com.darkbladedev.models.TimeExpression;
+import com.darkbladedev.models.WeeklyEventData;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -701,5 +701,14 @@ public abstract class WeeklyEvent implements Listener {
       
       public final TimeExpression getDuration() {
           return duration;
+      }
+      
+      /**
+       * Obtiene el prefijo del evento.
+       * 
+       * @return El prefijo del evento
+       */
+      public final String getPrefix() {
+          return prefix;
       }
   }

@@ -81,7 +81,7 @@ public class EnchantmentListeners implements Listener {
     /**
      * Handles the TicTac and Acid Infection enchantment logic when a player attacks an entity
      */
-    @EventHandler(priority = EventPriority.NORMAL)
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         // Check if the damager is a player
         if (!(event.getDamager() instanceof Player)) {

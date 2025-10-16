@@ -3,7 +3,7 @@ package com.darkbladedev.mechanics;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.challenges.Reward;
 import com.darkbladedev.utils.MM;
-import com.darkbladedev.utils.TimeExpression;
+import com.darkbladedev.models.TimeExpression;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -382,20 +382,7 @@ public class BloodAndIronWeek extends AbstractWeeklyEvent {
             Bukkit.broadcast(MM.toComponent(prefix + " <red>El coliseo del caos ha cerrado sus puertas... por ahora."));
             Bukkit.broadcast(MM.toComponent(prefix + " <yellow>¡Revisando las estadísticas de los gladiadores!"));
             
-            // Enviar estadísticas individuales
-            Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
-            if (onlinePlayers != null) {
-                for (Player player : onlinePlayers) {
-                    if (player != null && player.isOnline()) {
-                        try {
-                            sendPlayerStatistics(player);
-                        } catch (Exception e) {
-                            plugin.getLogger().log(Level.WARNING, 
-                                "Error al enviar estadísticas a " + player.getName(), e);
-                        }
-                    }
-                }
-            }
+            // Las estadísticas individuales ahora son manejadas por el UnifiedEventReportManager
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error al anunciar fin del evento", e);
         }
@@ -583,7 +570,7 @@ public class BloodAndIronWeek extends AbstractWeeklyEvent {
             
             // Verificar timeout de 15 minutos
             if (timeSinceLastKill > MOB_KILL_TIMEOUT) {
-                reducePlayerHealth(player, 4.0); // 2 corazones
+                applyDirectDamage(player, 4.0);
                 player.sendMessage(MM.toComponent("<red>¡No has matado a un mob hostil en 15 minutos! Pierdes 2 corazones."));
                 
                 // Resetear timer y advertencia
@@ -1052,6 +1039,10 @@ public class BloodAndIronWeek extends AbstractWeeklyEvent {
             deadPlayers.add(victimId);
             survivedPlayers.remove(victimId);
             
+            // CORRECCIÓN: Actualizar progreso del desafío de supervivencia
+            // El jugador ha muerto, por lo que no puede completar el desafío de supervivencia
+            updateChallengeProgress(victimId, "survivor", 0, 1);
+            
             // Resetear kills consecutivos
             consecutiveKills.put(victimId, 0);
             
@@ -1121,14 +1112,24 @@ public class BloodAndIronWeek extends AbstractWeeklyEvent {
             // Actualizar tiempo de último kill de jugador
             lastPlayerKillTime.put(killerId, System.currentTimeMillis());
             
-            // Verificar desafío de 3 kills
+            // CORRECCIÓN: Actualizar progreso de desafíos usando el sistema heredado
+            
+            // Actualizar progreso del desafío "player_killer" (requiere 3 kills)
+            updateChallengeProgress(killerId, "player_killer", currentKills, 3);
             if (currentKills >= 3 && !hasChallengeCompleted(killer, "player_killer")) {
                 completeChallengeForPlayer(killerId, "player_killer");
             }
             
-            // Verificar desafío de pentakill
+            // Actualizar progreso del desafío "pentakill" (requiere 5 kills consecutivos)
+            updateChallengeProgress(killerId, "pentakill", currentConsecutive, 5);
             if (currentConsecutive >= 5 && !hasChallengeCompleted(killer, "pentakill")) {
                 completeChallengeForPlayer(killerId, "pentakill");
+            }
+            
+            // Actualizar progreso del desafío "mass_killer" (requiere 10+ kills)
+            updateChallengeProgress(killerId, "mass_killer", currentKills, 10);
+            if (currentKills >= 10 && !hasChallengeCompleted(killer, "mass_killer")) {
+                completeChallengeForPlayer(killerId, "mass_killer");
             }
             
             // Lógica de kill con poción eliminada - ya no es un desafío válido
@@ -1166,10 +1167,21 @@ public class BloodAndIronWeek extends AbstractWeeklyEvent {
              
              UUID playerId = player.getUniqueId();
              
+             // CORRECCIÓN: Actualizar progreso del desafío de supervivencia
+             // Si el jugador no ha muerto, tiene progreso de supervivencia
+             if (!deadPlayers.contains(playerId)) {
+                 updateChallengeProgress(playerId, "survivor", 1, 1);
+             }
+             
              // Verificar si el jugador tiene más de 10 kills y no ha muerto
              int kills = playerKillCount.getOrDefault(playerId, 0);
              if (kills >= 10 && !deadPlayers.contains(playerId) && !hasChallengeCompleted(player, "survivor")) {
                  completeChallengeForPlayer(playerId, "survivor");
+             }
+             
+             // CORRECCIÓN: Actualizar progreso del desafío mass_killer
+             if (kills > 10) {
+                 updateChallengeProgress(playerId, "mass_killer", 1, 1);
              }
              
              // Verificar desafío de +1 corazón máximo por más de 10 kills
@@ -1196,40 +1208,7 @@ public class BloodAndIronWeek extends AbstractWeeklyEvent {
          }
      }
      
-     private void sendPlayerStatistics(Player player) {
-         try {
-             if (player == null) return;
-             
-             UUID playerId = player.getUniqueId();
-             
-             player.sendMessage(MM.toComponent("<gray><b>=== <gold>TUS ESTADÍSTICAS</gold> <gray><b>==="));
-             player.sendMessage(MM.toComponent("<yellow>Jugadores eliminados: <white>" + playerKillCount.getOrDefault(playerId, 0)));
-             player.sendMessage(MM.toComponent("<yellow>Kills consecutivos máximos: <white>" + consecutiveKills.getOrDefault(playerId, 0)));
-             
-             if (deadPlayers.contains(playerId)) {
-                 player.sendMessage(MM.toComponent("<red>Estado: Eliminado"));
-             } else {
-                 player.sendMessage(MM.toComponent("<green>Estado: Superviviente"));
-             }
-             
-             // Mostrar desafíos completados
-             player.sendMessage(MM.toComponent("<gray><b>=== <gold>DESAFÍOS COMPLETADOS</gold> <gray><b>==="));
-             
-             if (hasChallengeCompleted(player, "player_killer")) {
-                 player.sendMessage(MM.toComponent("<green>✓ Asesino de Jugadores"));
-             }
-             
-             if (hasChallengeCompleted(player, "pentakill")) {
-                 player.sendMessage(MM.toComponent("<green>✓ Pentakill"));
-             }
-             
-             if (hasChallengeCompleted(player, "survivor")) {
-                 player.sendMessage(MM.toComponent("<green>✓ Superviviente"));
-             }
-         } catch (Exception e) {
-             plugin.getLogger().log(Level.WARNING, "Error al enviar estadísticas a " + player.getName(), e);
-         }
-     }
+     
 
     // === IMPLEMENTACIÓN DE MÉTODOS ABSTRACTOS ===
     
@@ -1400,6 +1379,36 @@ public class BloodAndIronWeek extends AbstractWeeklyEvent {
             
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "[BloodAndIronWeek] Error al inicializar definiciones de desafíos", e);
+        }
+    }
+    
+    /**
+     * Aplica daño directo al jugador de forma segura
+     * @param player El jugador al que aplicar el daño
+     * @param damage La cantidad de daño a aplicar (en puntos de vida, no corazones)
+     */
+    private void applyDirectDamage(Player player, double damage) {
+        try {
+            if (player == null || !player.isOnline()) {
+                return;
+            }
+            
+            // Obtener la salud actual del jugador
+            double currentHealth = player.getHealth();
+            double newHealth = Math.max(0.5, currentHealth - damage); // Mínimo 0.5 para evitar muerte
+            
+            // Aplicar el daño
+            player.setHealth(newHealth);
+            
+            // Log para debugging
+            plugin.getLogger().info(String.format(
+                "[BloodAndIronWeek] Daño directo aplicado a %s: %.1f puntos (%.1f corazones). Salud: %.1f -> %.1f",
+                player.getName(), damage, damage / 2.0, currentHealth, newHealth
+            ));
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, 
+                "Error al aplicar daño directo a " + (player != null ? player.getName() : "jugador nulo"), e);
         }
     }            
 }

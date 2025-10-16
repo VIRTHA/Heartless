@@ -8,7 +8,6 @@ import com.darkbladedev.mechanics.AcidWeek;
 import com.darkbladedev.mechanics.ExplosiveWeek;
 import com.darkbladedev.mechanics.ToxicFog;
 import com.darkbladedev.mechanics.BloodAndIronWeek;
-import com.darkbladedev.persistence.EventDataPersistenceManager;
 import com.darkbladedev.utils.DayCycleUtils;
 import com.darkbladedev.utils.EmptyEvent;
 import com.darkbladedev.utils.EventType;
@@ -565,26 +564,28 @@ public class StorageManager {
             
             try (FileReader reader = new FileReader(eventDataFile)) {
                 JsonObject eventData = JsonParser.parseReader(reader).getAsJsonObject();
-                String eventType = eventData.has("eventType") ? eventData.get("eventType").getAsString() : "";
                 
-                // Validar coincidencia de tipo de evento
-                String expectedEventType = getExpectedEventType(event);
-                if (expectedEventType == null) {
-                    plugin.getLogger().warning("Tipo de evento no reconocido: " + event.getClass().getSimpleName());
-                    return;
-                }
-                
-                if (eventType.isEmpty()) {
-                    plugin.getLogger().warning("Archivo de datos no contiene tipo de evento válido");
-                    return;
-                }
-                
-                if (!expectedEventType.equals(eventType)) {
-                    plugin.getLogger().warning("Tipo de evento no coincide. Esperado: " + expectedEventType + ", Encontrado: " + eventType);
-                    return;
-                }
-                
-                plugin.getLogger().info("Validación de tipo de evento exitosa: " + eventType);
+                if (eventData != null) {
+                    String eventType = eventData.has("eventType") ? eventData.get("eventType").getAsString() : "";
+                    
+                    // Validar coincidencia de tipo de evento
+                    String expectedEventType = getExpectedEventType(event);
+                    if (expectedEventType == null) {
+                        plugin.getLogger().warning("Tipo de evento no reconocido: " + event.getClass().getSimpleName());
+                        return;
+                    }
+                    
+                    if (eventType.isEmpty()) {
+                        plugin.getLogger().warning("Archivo de datos no contiene tipo de evento válido");
+                        return;
+                    }
+                    
+                    if (!expectedEventType.equals(eventType)) {
+                        plugin.getLogger().warning("Tipo de evento no coincide. Esperado: " + expectedEventType + ", Encontrado: " + eventType);
+                        return;
+                    }
+                    
+                    plugin.getLogger().info("Validación de tipo de evento exitosa: " + eventType);
                 
                 // UndeadWeek
                 if (event instanceof UndeadWeek && "undead_week".equals(eventType)) {
@@ -678,52 +679,8 @@ public class StorageManager {
                         undeadWeek.loadWitherKilledInRedMoon(witherKilled);
                     }
                     
-                    // *** NUEVO: Cargar datos de desafíos ***
-                    // Cargar progreso de desafíos
-                    if (eventData.has("challengeProgress")) {
-                        JsonObject challengeProgressJson = eventData.getAsJsonObject("challengeProgress");
-                        Map<String, Map<String, Object>> challengeProgressData = new HashMap<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> playerEntry : challengeProgressJson.entrySet()) {
-                            String playerId = playerEntry.getKey();
-                            JsonObject playerProgressJson = playerEntry.getValue().getAsJsonObject();
-                            Map<String, Object> playerProgress = new HashMap<>();
-                            for (Map.Entry<String, com.google.gson.JsonElement> progressEntry : playerProgressJson.entrySet()) {
-                                String challengeId = progressEntry.getKey();
-                                com.google.gson.JsonElement progressValue = progressEntry.getValue();
-                                
-                                // Convertir el valor JSON al tipo apropiado
-                                if (progressValue.isJsonPrimitive()) {
-                                    if (progressValue.getAsJsonPrimitive().isNumber()) {
-                                        playerProgress.put(challengeId, progressValue.getAsInt());
-                                    } else if (progressValue.getAsJsonPrimitive().isBoolean()) {
-                                        playerProgress.put(challengeId, progressValue.getAsBoolean());
-                                    } else {
-                                        playerProgress.put(challengeId, progressValue.getAsString());
-                                    }
-                                } else {
-                                    playerProgress.put(challengeId, progressValue.toString());
-                                }
-                            }
-                            challengeProgressData.put(playerId, playerProgress);
-                        }
-                        undeadWeek.loadChallengeProgressFromString(challengeProgressData);
-                    }
-                    
-                    // Cargar desafíos completados
-                    if (eventData.has("completedChallenges")) {
-                        JsonObject completedChallengesJson = eventData.getAsJsonObject("completedChallenges");
-                        Map<String, Set<String>> completedChallengesData = new HashMap<>();
-                        for (Map.Entry<String, com.google.gson.JsonElement> playerEntry : completedChallengesJson.entrySet()) {
-                            String playerId = playerEntry.getKey();
-                            JsonArray challengesArray = playerEntry.getValue().getAsJsonArray();
-                            Set<String> playerCompletedChallenges = new HashSet<>();
-                            for (com.google.gson.JsonElement challengeElement : challengesArray) {
-                                playerCompletedChallenges.add(challengeElement.getAsString());
-                            }
-                            completedChallengesData.put(playerId, playerCompletedChallenges);
-                        }
-                        undeadWeek.loadCompletedChallengesFromString(completedChallengesData);
-                    }
+                    // Cargar datos de desafíos usando el método unificado
+                    loadChallengeDataForEvent(eventData, undeadWeek);
                     
                     plugin.getLogger().info("Datos específicos de UndeadWeek cargados correctamente");
                 }
@@ -750,72 +707,8 @@ public class StorageManager {
                         acidWeek.loadPlayersInRain(playersInRain);
                     }
                     
-                    // *** NUEVO: Cargar datos de desafíos ***
-                    // Cargar progreso de desafíos
-                    if (eventData.has("challengeProgress")) {
-                        JsonElement challengeProgressElement = eventData.get("challengeProgress");
-                        Map<String, Map<String, Object>> challengeProgressData = new HashMap<>();
-                        
-                        if (challengeProgressElement.isJsonObject()) {
-                            JsonObject challengeProgressJson = challengeProgressElement.getAsJsonObject();
-                            for (Map.Entry<String, JsonElement> playerEntry : challengeProgressJson.entrySet()) {
-                                String playerId = playerEntry.getKey();
-                                JsonElement playerProgressElement = playerEntry.getValue();
-                                
-                                if (playerProgressElement.isJsonObject()) {
-                                    JsonObject playerProgressJson = playerProgressElement.getAsJsonObject();
-                                    Map<String, Object> playerProgress = new HashMap<>();
-                                    
-                                    for (Map.Entry<String, JsonElement> progressEntry : playerProgressJson.entrySet()) {
-                                        String challengeId = progressEntry.getKey();
-                                        JsonElement progressValue = progressEntry.getValue();
-                                        
-                                        // Convertir diferentes tipos de JSON a Object
-                                        if (progressValue.isJsonPrimitive()) {
-                                            JsonPrimitive primitive = progressValue.getAsJsonPrimitive();
-                                            if (primitive.isNumber()) {
-                                                playerProgress.put(challengeId, primitive.getAsNumber());
-                                            } else if (primitive.isBoolean()) {
-                                                playerProgress.put(challengeId, primitive.getAsBoolean());
-                                            } else if (primitive.isString()) {
-                                                playerProgress.put(challengeId, primitive.getAsString());
-                                            }
-                                        } else {
-                                            playerProgress.put(challengeId, progressValue.toString());
-                                        }
-                                    }
-                                    challengeProgressData.put(playerId, playerProgress);
-                                }
-                            }
-                        }
-                        acidWeek.loadChallengeProgressFromString(challengeProgressData);
-                    }
-                    
-                    // Cargar desafíos completados
-                    if (eventData.has("completedChallenges")) {
-                        JsonElement completedChallengesElement = eventData.get("completedChallenges");
-                        Map<String, Set<String>> completedChallengesData = new HashMap<>();
-                        
-                        if (completedChallengesElement.isJsonObject()) {
-                            JsonObject completedChallengesJson = completedChallengesElement.getAsJsonObject();
-                            for (Map.Entry<String, JsonElement> playerEntry : completedChallengesJson.entrySet()) {
-                                String playerId = playerEntry.getKey();
-                                JsonElement playerChallengesElement = playerEntry.getValue();
-                                
-                                Set<String> playerCompletedChallenges = new HashSet<>();
-                                if (playerChallengesElement.isJsonArray()) {
-                                    JsonArray challengesArray = playerChallengesElement.getAsJsonArray();
-                                    for (JsonElement challengeElement : challengesArray) {
-                                        if (challengeElement.isJsonPrimitive()) {
-                                            playerCompletedChallenges.add(challengeElement.getAsString());
-                                        }
-                                    }
-                                }
-                                completedChallengesData.put(playerId, playerCompletedChallenges);
-                            }
-                        }
-                        acidWeek.loadCompletedChallengesFromString(completedChallengesData);
-                    }
+                    // Cargar datos de desafíos usando el método unificado
+                    loadChallengeDataForEvent(eventData, acidWeek);
                     
                     plugin.getLogger().info("Datos específicos de AcidWeek cargados correctamente (incluyendo progreso de desafíos)");
                 }
@@ -857,6 +750,9 @@ public class StorageManager {
                         explosiveWeek.loadPlayerExplosionKillers(playerExplosionKillers);
                     }
                     
+                    // Cargar datos de desafíos usando el método unificado
+                    loadChallengeDataForEvent(eventData, explosiveWeek);
+                    
                     plugin.getLogger().info("Datos específicos de ExplosiveWeek cargados correctamente");
                 }
                 
@@ -872,6 +768,9 @@ public class StorageManager {
                         }
                         toxicFog.loadAffectedPlayers(affectedPlayers);
                     }
+                    
+                    // Cargar datos de desafíos usando el método unificado
+                    loadChallengeDataForEvent(eventData, toxicFog);
                     
                     plugin.getLogger().info("Datos específicos de ToxicFog cargados correctamente");
                 }
@@ -1094,119 +993,113 @@ public class StorageManager {
                             }
                         }
                     
-                    plugin.getLogger().info("Datos específicos de BloodAndIronWeek cargados correctamente");
+                    // Cargar datos de desafíos usando el método unificado
+                    loadChallengeDataForEvent(eventData, bloodAndIronWeek);
+                    
+                    plugin.getLogger().info("Datos específicos de BloodAndIronWeek cargados correctamente (incluyendo progreso de desafíos)");
+                }
+                plugin.getLogger().info("Datos específicos del evento cargados correctamente");
+                } else {
+                    plugin.getLogger().warning("No se encontraron datos específicos del evento en el archivo JSON");
+                }
+            } catch (Exception e) {
+                plugin.getLogger().severe("Error al cargar datos específicos del evento: " + e.getMessage());
+                e.printStackTrace();
+            }
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error general al procesar datos del evento: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Método unificado para cargar datos de desafíos de cualquier evento
+     * Reemplaza la lógica duplicada específica de cada evento
+     */
+    private void loadChallengeDataForEvent(JsonObject eventData, com.darkbladedev.mechanics.AbstractWeeklyEvent event) {
+        try {
+            // Cargar challengeProgress
+            if (eventData.has("challengeProgress")) {
+                JsonObject challengeProgressJson = eventData.getAsJsonObject("challengeProgress");
+                Map<UUID, Map<String, Object>> challengeProgressData = new HashMap<>();
+                
+                for (Map.Entry<String, JsonElement> playerEntry : challengeProgressJson.entrySet()) {
+                    try {
+                        UUID playerId = UUID.fromString(playerEntry.getKey());
+                        JsonObject playerProgressJson = playerEntry.getValue().getAsJsonObject();
+                        Map<String, Object> playerProgress = new HashMap<>();
+                        
+                        for (Map.Entry<String, JsonElement> challengeEntry : playerProgressJson.entrySet()) {
+                            String challengeId = challengeEntry.getKey();
+                            JsonElement progressElement = challengeEntry.getValue();
+                            
+                            // Convertir el progreso según su tipo
+                            Object progressValue;
+                            if (progressElement.isJsonPrimitive()) {
+                                JsonPrimitive primitive = progressElement.getAsJsonPrimitive();
+                                if (primitive.isNumber()) {
+                                    // Intentar mantener el tipo numérico original
+                                    if (primitive.getAsString().contains(".")) {
+                                        progressValue = primitive.getAsDouble();
+                                    } else {
+                                        progressValue = primitive.getAsInt();
+                                    }
+                                } else if (primitive.isBoolean()) {
+                                    progressValue = primitive.getAsBoolean();
+                                } else {
+                                    progressValue = primitive.getAsString();
+                                }
+                            } else {
+                                progressValue = progressElement.toString();
+                            }
+                            
+                            playerProgress.put(challengeId, progressValue);
+                        }
+                        challengeProgressData.put(playerId, playerProgress);
+                    } catch (IllegalArgumentException e) {
+                        plugin.getLogger().warning("UUID inválido en challengeProgress: " + playerEntry.getKey());
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Error cargando progreso de desafío para jugador " + playerEntry.getKey() + ": " + e.getMessage());
+                    }
                 }
                 
-                // Cargar challengeProgress y completedChallenges para todos los eventos que extienden AbstractWeeklyEvent
-                if (event instanceof com.darkbladedev.mechanics.AbstractWeeklyEvent) {
-                    com.darkbladedev.mechanics.AbstractWeeklyEvent abstractEvent = (com.darkbladedev.mechanics.AbstractWeeklyEvent) event;
-                    
-                    // CORRECCIÓN CRÍTICA: Implementar carga exclusiva para evitar conflictos de datos
-                    EventDataPersistenceManager persistenceManager = HeartlessMain.getEventDataPersistenceManager();
-                    boolean persistenceLoaded = false;
-                    
-                    if (persistenceManager != null) {
-                        try {
-                            persistenceLoaded = persistenceManager.loadEventData(abstractEvent);
-                            if (persistenceLoaded) {
-                                plugin.getLogger().info("Challenge data loaded successfully with EventDataPersistenceManager for event: " + abstractEvent.getId());
-                                plugin.getLogger().info("EXCLUSIVE LOADING: Skipping legacy StorageManager to prevent data conflicts");
-                                // RETORNAR INMEDIATAMENTE para evitar sobrescritura por el método legacy
-                                return;
-                            } else {
-                                plugin.getLogger().info("EventDataPersistenceManager returned false for event: " + abstractEvent.getId());
-                            }
-                        } catch (Exception e) {
-                            plugin.getLogger().warning("Failed to load challenge data with EventDataPersistenceManager: " + e.getMessage());
-                        }
-                    } else {
-                        plugin.getLogger().warning("EventDataPersistenceManager is null, falling back to legacy method");
-                    }
-                    
-                    // Solo usar el método legacy si EventDataPersistenceManager falló completamente
-                    plugin.getLogger().info("FALLBACK: Loading challenge data with legacy StorageManager method for event: " + abstractEvent.getId());
-                    
-                    // Cargar challengeProgress (método legacy)
-                    if (eventData.has("challengeProgress")) {
-                        JsonObject challengeProgressJson = eventData.getAsJsonObject("challengeProgress");
-                        Map<UUID, Map<String, Object>> challengeProgressData = new HashMap<>();
+                // Usar el método de carga centralizado de AbstractWeeklyEvent
+                event.loadChallengeProgress(challengeProgressData);
+                plugin.getLogger().info("Challenge progress cargado para " + challengeProgressData.size() + " jugadores en evento " + event.getId());
+            }
+            
+            // Cargar completedChallenges
+            if (eventData.has("completedChallenges")) {
+                JsonObject completedChallengesJson = eventData.getAsJsonObject("completedChallenges");
+                Map<UUID, Set<String>> completedChallengesData = new HashMap<>();
+                
+                for (Map.Entry<String, JsonElement> playerEntry : completedChallengesJson.entrySet()) {
+                    try {
+                        UUID playerId = UUID.fromString(playerEntry.getKey());
+                        JsonArray challengesArray = playerEntry.getValue().getAsJsonArray();
+                        Set<String> playerCompletedChallenges = new HashSet<>();
                         
-                        for (Map.Entry<String, JsonElement> playerEntry : challengeProgressJson.entrySet()) {
-                            try {
-                                UUID playerId = UUID.fromString(playerEntry.getKey());
-                                JsonObject playerProgressJson = playerEntry.getValue().getAsJsonObject();
-                                Map<String, Object> playerProgress = new HashMap<>();
-                                
-                                for (Map.Entry<String, JsonElement> challengeEntry : playerProgressJson.entrySet()) {
-                                    String challengeId = challengeEntry.getKey();
-                                    JsonElement progressElement = challengeEntry.getValue();
-                                    
-                                    // Convertir el progreso según su tipo
-                                    Object progressValue;
-                                    if (progressElement.isJsonPrimitive()) {
-                                        JsonPrimitive primitive = progressElement.getAsJsonPrimitive();
-                                        if (primitive.isNumber()) {
-                                            // Intentar mantener el tipo numérico original
-                                            if (primitive.getAsString().contains(".")) {
-                                                progressValue = primitive.getAsDouble();
-                                            } else {
-                                                progressValue = primitive.getAsInt();
-                                            }
-                                        } else if (primitive.isBoolean()) {
-                                            progressValue = primitive.getAsBoolean();
-                                        } else {
-                                            progressValue = primitive.getAsString();
-                                        }
-                                    } else {
-                                        progressValue = progressElement.toString();
-                                    }
-                                    
-                                    playerProgress.put(challengeId, progressValue);
-                                }
-                                challengeProgressData.put(playerId, playerProgress);
-                            } catch (IllegalArgumentException e) {
-                                plugin.getLogger().warning("UUID inválido en challengeProgress: " + playerEntry.getKey());
-                            } catch (Exception e) {
-                                plugin.getLogger().warning("Error cargando progreso de desafío para jugador " + playerEntry.getKey() + ": " + e.getMessage());
+                        for (JsonElement challengeElement : challengesArray) {
+                            if (challengeElement.isJsonPrimitive()) {
+                                playerCompletedChallenges.add(challengeElement.getAsString());
                             }
                         }
-                        
-                        // Usar el método de carga centralizado
-                        abstractEvent.loadChallengeProgress(challengeProgressData);
-                    }
-                    
-                    // Cargar completedChallenges (método legacy)
-                    if (eventData.has("completedChallenges")) {
-                        JsonObject completedChallengesJson = eventData.getAsJsonObject("completedChallenges");
-                        Map<UUID, Set<String>> completedChallengesData = new HashMap<>();
-                        
-                        for (Map.Entry<String, JsonElement> playerEntry : completedChallengesJson.entrySet()) {
-                            try {
-                                UUID playerId = UUID.fromString(playerEntry.getKey());
-                                JsonArray challengesArray = playerEntry.getValue().getAsJsonArray();
-                                Set<String> playerCompletedChallenges = new HashSet<>();
-                                
-                                for (JsonElement challengeElement : challengesArray) {
-                                    if (challengeElement.isJsonPrimitive()) {
-                                        playerCompletedChallenges.add(challengeElement.getAsString());
-                                    }
-                                }
-                                completedChallengesData.put(playerId, playerCompletedChallenges);
-                            } catch (IllegalArgumentException e) {
-                                plugin.getLogger().warning("UUID inválido en completedChallenges: " + playerEntry.getKey());
-                            } catch (Exception e) {
-                                plugin.getLogger().warning("Error cargando desafíos completados para jugador " + playerEntry.getKey() + ": " + e.getMessage());
-                            }
-                        }
-                        
-                        // Usar el método de carga centralizado
-                        abstractEvent.loadCompletedChallenges(completedChallengesData);
+                        completedChallengesData.put(playerId, playerCompletedChallenges);
+                    } catch (IllegalArgumentException e) {
+                        plugin.getLogger().warning("UUID inválido en completedChallenges: " + playerEntry.getKey());
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Error cargando desafíos completados para jugador " + playerEntry.getKey() + ": " + e.getMessage());
                     }
                 }
+                
+                // Usar el método de carga centralizado de AbstractWeeklyEvent
+                event.loadCompletedChallenges(completedChallengesData);
+                plugin.getLogger().info("Completed challenges cargados para " + completedChallengesData.size() + " jugadores en evento " + event.getId());
             }
             
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Error cargando datos específicos del evento", e);
+            plugin.getLogger().severe("Error en loadChallengeDataForEvent para evento " + event.getId() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
     

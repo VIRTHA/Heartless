@@ -1,7 +1,7 @@
 package com.darkbladedev.mechanics;
 
 import com.darkbladedev.HeartlessMain;
-import com.darkbladedev.utils.TimeExpression;
+import com.darkbladedev.models.TimeExpression;
 import com.darkbladedev.utils.MM;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;

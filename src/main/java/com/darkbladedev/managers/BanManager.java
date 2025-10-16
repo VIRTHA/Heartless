@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+
 public class BanManager implements Listener {
     private final Map<UUID, Integer> banCountMap = new HashMap<>();
     private final static Set<UUID> banList = new HashSet<>();

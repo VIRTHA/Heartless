@@ -13,6 +13,7 @@ import com.darkbladedev.mechanics.ExplosiveWeek;
 import com.darkbladedev.mechanics.ToxicFog;
 import com.darkbladedev.mechanics.UndeadWeek;
 import com.darkbladedev.mechanics.WeeklyEvent;
+import com.darkbladedev.models.TimeExpression;
 
 /**
  * Enum representing the different types of events that can be created.
@@ -20,9 +21,7 @@ import com.darkbladedev.mechanics.WeeklyEvent;
  */
 public enum EventType {
     TOXIC_FOG_WEEK("toxic_fog", "Creates a toxic fog that damages players"),
-    PARANOIA_EFFECT("paranoia_effect", "Players experience a paranoia effect"),
     ACID_WEEK("acid_week", "The atmosphere and water are contaminated with acid"),
-    MOB_RAIN("mob_rain", "Mobs rain from the sky periodically"),
     UNDEAD_WEEK("undead_week", "Undead hordes dominate the world with Red Moon nights"),
     EXPLOSIVE_WEEK("explosive_week", "Everything becomes more explosive and dangerous"),
     BLOOD_AND_IRON_WEEK("blood_and_iron_week", "The coliseum of chaos is open. Eliminate or be eliminated"),
@@ -98,7 +97,7 @@ public enum EventType {
      * @return Una nueva instancia de WeeklyEvent correspondiente a este tipo, o null si no está implementado
      */
     public WeeklyEvent toEvent(HeartlessMain plugin, long duration) {
-        // Crear TimeExpression desde la duración en segundos
+        // Create TimeExpression from duration in seconds
         TimeExpression durationExpression = TimeExpression.fromSeconds(duration);
         
         switch (this.getEventName()) {

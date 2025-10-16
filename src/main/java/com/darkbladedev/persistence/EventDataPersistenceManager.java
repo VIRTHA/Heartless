@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import com.darkbladedev.models.EventDataContainer;
 
 /**
  * Gestor de persistencia de datos para eventos semanales.
@@ -534,25 +535,4 @@ public class EventDataPersistenceManager {
         }
     }
     
-    /**
-     * Contenedor para los datos de un evento.
-     */
-    private static class EventDataContainer {
-        @SuppressWarnings("unused")
-        String eventId;
-        @SuppressWarnings("unused")
-        long timestamp;
-        @SuppressWarnings("unused")
-        String version;
-        
-        Map<UUID, Map<String, Object>> challengeProgress;
-        Map<UUID, Set<String>> completedChallenges;
-        Map<UUID, Map<String, Object>> playerStatistics;
-        Map<String, Long> globalStatistics;
-        
-        @SuppressWarnings("unused")
-        long totalParticipants;
-        @SuppressWarnings("unused")
-        long totalChallengesCompleted;
-    }
 }

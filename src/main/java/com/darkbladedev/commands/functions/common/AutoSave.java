@@ -13,6 +13,7 @@ import com.darkbladedev.commands.SubcommandExecutor;
 import com.darkbladedev.commands.TabCompletable;
 import com.darkbladedev.managers.AutoSaveManager;
 import com.darkbladedev.managers.BackupManager;
+import com.darkbladedev.models.BackupInfo;
 import com.darkbladedev.utils.MM;
 
 /**
@@ -458,7 +459,7 @@ public class AutoSave implements SubcommandExecutor, TabCompletable {
         
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                List<BackupManager.BackupInfo> backups = backupManager.listAvailableBackups();
+                List<BackupInfo> backups = backupManager.listAvailableBackups();
                 
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
                     if (backups.isEmpty()) {
@@ -468,7 +469,7 @@ public class AutoSave implements SubcommandExecutor, TabCompletable {
                     
                     sender.sendMessage(MM.toComponent("<gold>=== Respaldos Disponibles ==="));
                     for (int i = 0; i < Math.min(backups.size(), 10); i++) {
-                        BackupManager.BackupInfo backup = backups.get(i);
+                        BackupInfo backup = backups.get(i);
                         String timeStr = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss")
                             .format(new java.util.Date(backup.getCreationTime()));
                         sender.sendMessage(MM.toComponent(String.format("<white>%d. %s <gray>(%s)", 

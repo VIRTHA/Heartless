@@ -65,7 +65,7 @@ public class PlayerStatisticsValidator {
             }
             
             // Validar valor de estadística
-            ValidationResult valueValidation = validateStatisticValue(value);
+            ValidationResult valueValidation = validateStatisticValue(key, value);
             if (!valueValidation.isValid()) {
                 errors.add("Valor de estadística inválido para '" + key + "': " + valueValidation.getErrorMessage());
                 continue;
@@ -270,6 +270,26 @@ public class PlayerStatisticsValidator {
     }
     
     /**
+     * Valida el valor de una estadística con su nombre para verificaciones adicionales.
+     */
+    private ValidationResult validateStatisticValue(String name, Object value) {
+        ValidationResult basicValidation = validateStatisticValue(value);
+        if (!basicValidation.isValid()) {
+            return basicValidation;
+        }
+        
+        // Verificar valores negativos en estadísticas que deben ser positivas
+        if (value instanceof Number) {
+            Number numValue = (Number) value;
+            if (numValue.longValue() < 0 && isPositiveOnlyStatistic(name)) {
+                return ValidationResult.failure("Valor negativo en estadística que debe ser positiva");
+            }
+        }
+        
+        return ValidationResult.success();
+    }
+    
+    /**
      * Valida un ID de desafío.
      */
     private ValidationResult validateChallengeId(String challengeId) {
@@ -308,7 +328,49 @@ public class PlayerStatisticsValidator {
             return ValidationResult.success();
         }
         
-        return ValidationResult.failure("El progreso debe ser un valor numérico");
+        // Validar formato de string como "X/Y" (formato inválido)
+        if (progress instanceof String) {
+            return ValidationResult.failure("El progreso no puede ser un string. Use un número o un mapa con 'current' y 'max'");
+        }
+        
+        // Validar formato de mapa {current: X, max: Y}
+        if (progress instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> progressMap = (Map<String, Object>) progress;
+            
+            // Verificar que tenga las claves requeridas
+            if (!progressMap.containsKey("current") || !progressMap.containsKey("max")) {
+                return ValidationResult.failure("El mapa de progreso debe contener 'current' y 'max'");
+            }
+            
+            // Validar valor 'current'
+            Object current = progressMap.get("current");
+            if (!(current instanceof Number)) {
+                return ValidationResult.failure("El valor 'current' debe ser numérico");
+            }
+            if (((Number) current).longValue() < 0) {
+                return ValidationResult.failure("El valor 'current' no puede ser negativo");
+            }
+            if (((Number) current).longValue() > MAX_NUMERIC_VALUE) {
+                return ValidationResult.failure("El valor 'current' es demasiado grande");
+            }
+            
+            // Validar valor 'max'
+            Object max = progressMap.get("max");
+            if (!(max instanceof Number)) {
+                return ValidationResult.failure("El valor 'max' debe ser numérico");
+            }
+            if (((Number) max).longValue() <= 0) {
+                return ValidationResult.failure("El valor 'max' debe ser positivo");
+            }
+            if (((Number) max).longValue() > MAX_NUMERIC_VALUE) {
+                return ValidationResult.failure("El valor 'max' es demasiado grande");
+            }
+            
+            return ValidationResult.success();
+        }
+        
+        return ValidationResult.failure("El progreso debe ser un valor numérico o un mapa con 'current' y 'max'");
     }
     
     /**
@@ -330,6 +392,31 @@ public class PlayerStatisticsValidator {
             long longValue = ((Number) progress).longValue();
             return Math.max(0, longValue);
         }
+        
+        // Limpiar formato de mapa {current: X, max: Y}
+        if (progress instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> progressMap = (Map<String, Object>) progress;
+            
+            Map<String, Object> cleanedMap = new HashMap<>();
+            
+            // Limpiar valor 'current'
+            Object current = progressMap.get("current");
+            if (current instanceof Number) {
+                long currentValue = ((Number) current).longValue();
+                cleanedMap.put("current", Math.max(0, currentValue));
+            }
+            
+            // Limpiar valor 'max'
+            Object max = progressMap.get("max");
+            if (max instanceof Number) {
+                long maxValue = ((Number) max).longValue();
+                cleanedMap.put("max", Math.max(1, maxValue)); // Mínimo 1 para evitar división por cero
+            }
+            
+            return cleanedMap;
+        }
+        
         return progress;
     }
     
@@ -341,7 +428,9 @@ public class PlayerStatisticsValidator {
                statisticName.contains("deaths") || 
                statisticName.contains("score") ||
                statisticName.contains("count") ||
-               statisticName.contains("total");
+               statisticName.contains("total") ||
+               statisticName.contains("collected") ||
+               statisticName.contains("heads");
     }
     
     /**

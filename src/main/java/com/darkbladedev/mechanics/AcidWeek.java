@@ -38,7 +38,7 @@ import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.challenges.Reward;
 import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.utils.MM;
-import com.darkbladedev.utils.TimeExpression;
+import com.darkbladedev.models.TimeExpression;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -159,67 +159,10 @@ public class AcidWeek extends AbstractWeeklyEvent {
     @Override
     protected void announceEventEnd() {
         try {
+            // Solo anuncio general - las estadísticas se manejan por el sistema unificado
             Bukkit.broadcast(MM.toComponent(prefix + " <green>¡La Semana Ácida ha terminado!"));
-            
-            // Mostrar estadísticas finales
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player != null && player.isOnline()) {
-                    try {
-                        sendPlayerStatistics(player);
-                    } catch (Exception e) {
-                        plugin.getLogger().log(Level.WARNING, 
-                            "[AcidWeek] Error al enviar estadísticas a " + player.getName(), e);
-                    }
-                }
-            }
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al anunciar fin del evento", e);
-        }
-    }
-    
-    /**
-     * Envía las estadísticas personales del jugador al final del evento
-     */
-    private void sendPlayerStatistics(Player player) {
-        try {
-            UUID playerId = player.getUniqueId();
-            
-            // Separador visual
-            player.sendMessage(MM.toComponent("<gray><b>═══════════════════════════════════</b></gray>"));
-            player.sendMessage(MM.toComponent("<green><b>TUS ESTADÍSTICAS - SEMANA ÁCIDA</b></green>"));
-            player.sendMessage(MM.toComponent("<gray><b>═══════════════════════════════════</b></gray>"));
-            
-            // Daño ácido recibido
-            AtomicInteger damage = playerAcidDamage.get(playerId);
-            int totalDamage = damage != null ? damage.get() : 0;
-            player.sendMessage(MM.toComponent("<yellow>Daño ácido recibido: <white>" + totalDamage));
-            
-            // Desafíos completados
-            int completedChallenges = 0;
-            String[] challengeIds = {"acid_rain_survivor", "chemical_killer", "fish_collector", "blue_axolotl"};
-            String[] challengeNames = {"Superviviente de Lluvia", "Asesino Quimico", "Coleccionista de Pescados", "Domador de Ajolotes"};
-            
-            for (int i = 0; i < challengeIds.length; i++) {
-                if (hasChallengeCompleted(playerId, challengeIds[i])) {
-                    completedChallenges++;
-                    player.sendMessage(MM.toComponent("<green>✓ " + challengeNames[i]));
-                } else {
-                    player.sendMessage(MM.toComponent("<red>✗ " + challengeNames[i]));
-                }
-            }
-            
-            player.sendMessage(MM.toComponent("<gold>Desafíos completados: <white>" + completedChallenges + "/5"));
-            
-            // Pescados recolectados
-            Set<Material> playerFish = fishCollected.get(playerId);
-            int fishCount = playerFish != null ? playerFish.size() : 0;
-            player.sendMessage(MM.toComponent(prefix + " <blue>Tipos de pescado recolectados: <white>" + fishCount + "/4"));
-            
-            player.sendMessage(MM.toComponent("<gold>═══════════════════════════════════"));
-            
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, 
-                "[AcidWeek] Error al generar estadísticas para " + player.getName(), e);
         }
     }
     
@@ -1331,8 +1274,7 @@ public class AcidWeek extends AbstractWeeklyEvent {
              // Limpiar efectos de jugadores
              cleanupPlayerEffects();
              
-             // Mostrar resumen del evento
-             showEventSummary();
+             // Las estadísticas del evento ahora se manejan a través del sistema unificado
              
              plugin.getLogger().info("[AcidWeek] Semana Ácida finalizada correctamente");
          } catch (Exception e) {
@@ -1362,18 +1304,6 @@ public class AcidWeek extends AbstractWeeklyEvent {
                  plugin.getLogger().log(Level.WARNING, 
                      "[AcidWeek] Error al limpiar efectos de " + player.getName(), e);
              }
-         }
-     }
-     
-     private void showEventSummary() {
-         try {
-             Bukkit.broadcast(MM.toComponent(prefix + " <gold>═══ Resumen de Semana Ácida ═══"));
-             Bukkit.broadcast(MM.toComponent(prefix + " <yellow>Daño ácido total causado: <white>" + totalAcidDamageDealt.get()));
-             Bukkit.broadcast(MM.toComponent(prefix + " <yellow>Jugadores que nadaron en ácido: <white>" + playersInWater.size()));
-             Bukkit.broadcast(MM.toComponent(prefix + " <yellow>Supervivientes de lluvia ácida: <white>" + acidRainSurvivors.size()));
-             Bukkit.broadcast(MM.toComponent(prefix + " <gold>¡Gracias por participar!"));
-         } catch (Exception e) {
-             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al mostrar resumen del evento", e);
          }
      }
      
@@ -1786,6 +1716,10 @@ public class AcidWeek extends AbstractWeeklyEvent {
             UUID playerId = player.getUniqueId();
             Set<Material> playerFish = fishCollected.get(playerId);
             
+            // Actualizar progreso del desafío
+            int currentProgress = playerFish != null ? playerFish.size() : 0;
+            updateChallengeProgress(playerId, "fish_collector", currentProgress, 4);
+            
             if (playerFish != null && playerFish.size() >= 4 && 
                 !hasChallengeCompleted(playerId, "fish_collector")) {
                 
@@ -1856,6 +1790,8 @@ public class AcidWeek extends AbstractWeeklyEvent {
                     if (attacker != null && attacker.isOnline()) {
                         // Verificar que el atacante no haya completado ya el desafío
                         if (!hasChallengeCompleted(attackerId, "chemical_killer")) {
+                            // Actualizar progreso del desafío antes de completarlo
+                            updateChallengeProgress(attackerId, "chemical_killer", 1, 1);
                             completeChallengeForPlayer(attackerId, "chemical_killer");
                             waterBottleKillers.add(attackerId);
                             

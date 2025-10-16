@@ -1,10 +1,17 @@
-package com.darkbladedev.utils;
+package com.darkbladedev.models;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Modelo de datos para eventos semanales.
+ * Contiene toda la información de estado y configuración de un evento semanal.
+ * 
+ * @author DarkBladeDev
+ * @version 1.0
+ */
 public class WeeklyEventData {
     public boolean isPaused;
     public boolean isActive;

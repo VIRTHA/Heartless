@@ -33,7 +33,7 @@ import com.darkbladedev.mechanics.ToxicFog;
 import com.darkbladedev.mechanics.UndeadWeek;
 import com.darkbladedev.persistence.EventDataPersistenceManager;
 import com.darkbladedev.utils.TimeConverter;
-import com.darkbladedev.utils.TimeExpression;
+import com.darkbladedev.models.TimeExpression;
 
 /**
  * Thread-safe manager for weekly events with improved synchronization and error handling.
@@ -94,6 +94,63 @@ public class WeeklyEventManager {
         // Ensure data directory exists
         if (!plugin.getDataFolder().exists()) {
             plugin.getDataFolder().mkdirs();
+        }
+    }
+    
+    /**
+     * Starts an event only in worlds that are not in the blacklist
+     */
+    private void startEventInNonExcludedWorlds(EventType eventType, long duration) {
+        if (eventType == null) {
+            plugin.getLogger().severe("Cannot start event: eventType is null");
+            return;
+        }
+        
+        if (duration <= 0) {
+            plugin.getLogger().severe("Cannot start event: invalid duration " + duration);
+            return;
+        }
+        
+        if (isEventActive.get()) {
+            plugin.getLogger().warning("Cannot start event: another event is already active");
+            return;
+        }
+        
+        try {
+            // Fire system event before starting
+            eventDispatcher.fireEventStart(eventType, duration, System.currentTimeMillis());
+            
+            // Set event information atomically
+            currentEventType = eventType;
+            long startTime = System.currentTimeMillis();
+            eventStartTime.set(startTime);
+            eventEndTime.set(startTime + duration);
+            
+            // Create event instance
+            AbstractWeeklyEvent event = createEventInstance(eventType, duration);
+            if (event == null) {
+                plugin.getLogger().severe("Failed to create event instance for: " + eventType.getEventName());
+                return;
+            }
+            
+            currentEvent = event;
+            isEventActive.set(true);
+            
+            // Iniciar seguimiento de estadísticas
+            try {
+                statisticsManager.startTracking(eventType.getEventName(), eventType.getEventName());
+                plugin.getLogger().info("Seguimiento de estadísticas iniciado para: " + eventType.getEventName());
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error al iniciar seguimiento de estadísticas: " + e.getMessage());
+            }
+            
+            // Start the event only in non-excluded worlds
+            currentEvent.startInNonExcludedWorlds();
+            saveEventData();
+            
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error starting event " + eventType.getEventName() + ": " + e.getMessage());
+            resetEventState();
         }
     }
     
@@ -246,8 +303,8 @@ public class WeeklyEventManager {
             // Cancel scheduled tasks safely
             cancelWeeklyTask();
             
-            // Start the event
-            startEvent(eventType, duration);
+            // Start the event only in non-excluded worlds
+            startEventInNonExcludedWorlds(eventType, duration);
             scheduleNextEvent(duration);
             
             return true;

@@ -44,7 +44,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.utils.MM;
-import com.darkbladedev.utils.TimeExpression;
+import com.darkbladedev.models.TimeExpression;
 
 public class ExplosiveWeek extends AbstractWeeklyEvent {
     
@@ -693,6 +693,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
                  return;
              }
             
+            // Actualizar progreso del desafío antes de completarlo
+            updateChallengeProgress(killerUUID, "storm_killer", 1, 1);
+            
             // Agregar al conjunto de asesinos en tormenta
             stormPvpKillers.add(killerUUID);
             plugin.getLogger().info("[DEBUG] Agregado " + killer.getName() + " a stormPvpKillers. Total: " + stormPvpKillers.size());
@@ -731,6 +734,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
             entity.getWorld().hasStorm()) {
             
             if (!ghastKillers.contains(killer.getUniqueId())) {
+                // Actualizar progreso del desafío antes de completarlo
+                updateChallengeProgress(killer.getUniqueId(), "ghast_killer", 1, 1);
+                
                 ghastKillers.add(killer.getUniqueId());
                 
                 // Award the challenge reward
@@ -744,6 +750,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
             entity.getWorld().hasStorm()) {
             
             if (!wardenKillers.contains(killer.getUniqueId())) {
+                // Actualizar progreso del desafío antes de completarlo
+                updateChallengeProgress(killer.getUniqueId(), "warden_storm_killer", 1, 1);
+                
                 wardenKillers.add(killer.getUniqueId());
                 
                 // Award the challenge reward
@@ -763,8 +772,11 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
                     mobHeadCollectors.computeIfAbsent(killer.getUniqueId(), k -> new HashSet<>())
                                     .add(entity.getType());
                     
-                    // Check if they've collected all heads
+                    // Actualizar progreso del desafío incrementalmente
                     Set<EntityType> collectedHeads = mobHeadCollectors.get(killer.getUniqueId());
+                    updateChallengeProgress(killer.getUniqueId(), "mob_head_collector", collectedHeads.size(), 3);
+                    
+                    // Check if they've collected all heads
                     if (collectedHeads.size() >= classicHostileMobs.size()) {
                         // Award the challenge reward
                         awardMobHeadCollectionChallenge(killer);
@@ -852,6 +864,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
             return;
         }
         
+        // Actualizar progreso del desafío antes de completarlo
+        updateChallengeProgress(player.getUniqueId(), "ghast_killer", 1, 1);
+        
         // Usar el sistema oficial de desafíos
         completeChallengeForPlayer(player.getUniqueId(), "ghast_killer");
         
@@ -868,6 +883,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
                 return;
             }
             
+            // Actualizar progreso del desafío antes de completarlo
+            updateChallengeProgress(player.getUniqueId(), "mob_head_collector", collectedHeads.size(), 3);
+            
             // Usar el sistema oficial de desafíos
             completeChallengeForPlayer(player.getUniqueId(), "mob_head_collector");
             
@@ -879,6 +897,10 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
             // Already awarded
             return;
         }
+        
+        // Actualizar progreso del desafío antes de completarlo
+        updateChallengeProgress(player.getUniqueId(), "storm_killer", 1, 1);
+        
         // Usar el sistema oficial de desafíos
         completeChallengeForPlayer(player.getUniqueId(), "storm_killer");
     }
@@ -1028,6 +1050,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
             // Already awarded
             return;
         }
+        
+        // Actualizar progreso del desafío antes de completarlo
+        updateChallengeProgress(player.getUniqueId(), "warden_storm_killer", 1, 1);
         
         // Usar el sistema oficial de desafíos
         completeChallengeForPlayer(player.getUniqueId(), "warden_storm_killer");

@@ -4,7 +4,7 @@ import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.challenges.Reward;
 import com.darkbladedev.managers.CustomEffectsManager;
 import com.darkbladedev.content.semi_custom.effects.ZombieInfection;
-import com.darkbladedev.utils.TimeExpression;
+import com.darkbladedev.models.TimeExpression;
 
 import net.kyori.adventure.sound.Sound;
 
@@ -134,7 +134,6 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     protected void announceEventEnd() {
         try {
             Bukkit.broadcast(MM.toComponent("<green><bold>¡La Semana de No-Muertos ha terminado!</bold></green>"));
-            showEventSummary();
             
             logger.info("[UndeadWeek] Anuncios de fin del evento enviados");
         } catch (Exception e) {
@@ -705,6 +704,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         UUID playerId = player.getUniqueId();
         int kills = getPlayerZombieKills(playerId);
         
+        // Actualizar progreso del desafío zombie_slayer (50 kills)
+        updateChallengeProgress(playerId, "zombie_slayer", kills, 50);
+        
         // Verificar desafío de asesino de zombies
         if (kills >= 50 && !hasChallengeCompleted(playerId, "zombie_slayer")) {
             completeChallenge(player, "zombie_slayer");
@@ -713,6 +715,10 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         // Verificar desafío de cazador de luna roja
         if (redMoonActive.get()) {
             int redMoonKills = redMoonKillsCount.getOrDefault(playerId, 0);
+            
+            // Actualizar progreso del desafío red_moon_hunter (15 kills durante Red Moon)
+            updateChallengeProgress(playerId, "red_moon_hunter", redMoonKills, 15);
+            
             if (redMoonKills >= 15 && !hasChallengeCompleted(playerId, "red_moon_hunter")) {
                 completeChallenge(player, "red_moon_hunter");
             }
@@ -720,6 +726,10 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         
         // Verificar desafío Dr.Zomboss - Curar 25 infecciones
         int curedInfections = curedInfectionsCountMap.getOrDefault(playerId, 0);
+        
+        // Actualizar progreso del desafío dr_zomboss (10 cured infections)
+        updateChallengeProgress(playerId, "dr_zomboss", curedInfections, 10);
+        
         if (curedInfections >= 10 && !hasChallengeCompleted(playerId, "dr_zomboss")) {
             completeChallenge(player, "dr_zomboss");
         }
@@ -740,6 +750,8 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         // Verificar si tiene tiempo de infección registrado
         Long infectionStartTime = infectedPlayersTime.get(playerId);
         if (infectionStartTime == null) {
+            // Si no está infectado, progreso es 0
+            updateChallengeProgress(playerId, "infection_survivor", 0, 30);
             return;
         }
         
@@ -747,6 +759,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         long currentTime = System.currentTimeMillis();
         long infectedTimeMs = currentTime - infectionStartTime;
         long infectedTimeMinutes = infectedTimeMs / (1000 * 60); // Convertir a minutos
+        
+        // Actualizar progreso del desafío infection_survivor (30 minutos infectado)
+        updateChallengeProgress(playerId, "infection_survivor", (int) Math.min(infectedTimeMinutes, 30), 30);
         
         // Verificar si ha sobrevivido 30 minutos infectado
         if (infectedTimeMinutes >= 30) {
@@ -835,37 +850,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         player.removePotionEffect(PotionEffectType.HUNGER);
     }
     
-    private void showEventSummary() {
-        Bukkit.broadcast(MM.toComponent("<gold>========== RESUMEN DEL EVENTO ==========</gold>"));
-        
-        // Obtener estadísticas de forma segura con valores por defecto
-        long zombiesKilled = getGlobalStatisticSafely("total_zombies_killed");
-        long totalInfections = getGlobalStatisticSafely("total_infections");
-        long totalCures = getGlobalStatisticSafely("total_cures");
-        long redMoonActivations = getGlobalStatisticSafely("red_moon_activations");
-        
-        Bukkit.broadcast(MM.toComponent("<yellow>Zombies eliminados: " + zombiesKilled + "</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>Jugadores infectados: " + totalInfections + "</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>Infecciones curadas: " + totalCures + "</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<yellow>Lunas rojas activadas: " + redMoonActivations + "</yellow>"));
-        Bukkit.broadcast(MM.toComponent("<gold>=======================================</gold>"));
-    }
     
-    /**
-     * Obtiene una estadística global de forma segura, retornando 0 si no existe o es null.
-     * 
-     * @param statisticName Nombre de la estadística
-     * @return Valor de la estadística o 0 si no existe
-     */
-    private long getGlobalStatisticSafely(String statisticName) {
-        try {
-            AtomicLong statistic = globalStatistics.get(statisticName);
-            return statistic != null ? statistic.get() : 0L;
-        } catch (Exception e) {
-            logger.warning("[UndeadWeek] Error al obtener estadística '" + statisticName + "': " + e.getMessage());
-            return 0L;
-        }
-    }
     
     // === GETTERS Y SETTERS PÚBLICOS ===
     
@@ -1098,6 +1083,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             // Verificar si el jugador no murió durante esta Noche Roja
             AtomicInteger deaths = redMoonDeaths.get(playerId);
             boolean survivedRedMoon = (deaths == null || deaths.get() == 0);
+            
+            // Actualizar progreso del desafío dr_zomboss (1 = sobrevivió, 0 = murió)
+            updateChallengeProgress(playerId, "dr_zomboss", survivedRedMoon ? 1 : 0, 1);
             
             // Si sobrevivió y no ha completado el desafío, completarlo
             if (survivedRedMoon && !hasChallengeCompleted(playerId, "dr_zomboss")) {

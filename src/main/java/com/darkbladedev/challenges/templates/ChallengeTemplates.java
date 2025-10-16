@@ -233,8 +233,8 @@ public class ChallengeTemplates {
                 .withDifficulty(difficulty)
                 .withType(ChallengeType.TRADING)
                 .withRequiredProgress(trades)
-                .addTechnicalRequirement("villagerOnly", true)
-                .addTechnicalRequirement("uniqueVillagers", true)
+                .addTechnicalRequirement("villagerType", "any")
+                .addTechnicalRequirement("tradeType", "any")
                 .addReward("money:" + (int)(trades * 20 * difficulty.getRewardMultiplier()))
                 .addReward("item:emerald:" + trades);
     }

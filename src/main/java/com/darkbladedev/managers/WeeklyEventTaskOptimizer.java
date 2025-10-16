@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import com.darkbladedev.models.TaskMetrics;
+import com.darkbladedev.models.TaskPriority;
 
 /**
  * Optimizador de tareas para eventos semanales.
@@ -610,81 +612,6 @@ public class WeeklyEventTaskOptimizer {
         @SuppressWarnings("unused")
         public String getTaskId() {
             return taskId;
-        }
-    }
-    
-    /**
-     * Métricas de rendimiento de tareas.
-     */
-    private static class TaskMetrics {
-        private final String taskId;
-        private final TaskPriority priority;
-        private final AtomicLong executionCount;
-        private final AtomicLong totalExecutionTime;
-        private volatile long lastExecutionTime;
-        private volatile long minExecutionTime;
-        private volatile long maxExecutionTime;
-        
-        public TaskMetrics(String taskId, TaskPriority priority) {
-            this.taskId = taskId;
-            this.priority = priority;
-            this.executionCount = new AtomicLong(0);
-            this.totalExecutionTime = new AtomicLong(0);
-            this.lastExecutionTime = System.currentTimeMillis();
-            this.minExecutionTime = Long.MAX_VALUE;
-            this.maxExecutionTime = 0L;
-        }
-        
-        public void recordExecution(long executionTime) {
-            executionCount.incrementAndGet();
-            totalExecutionTime.addAndGet(executionTime);
-            lastExecutionTime = System.currentTimeMillis();
-            
-            // Actualizar min/max
-            if (executionTime < minExecutionTime) {
-                minExecutionTime = executionTime;
-            }
-            if (executionTime > maxExecutionTime) {
-                maxExecutionTime = executionTime;
-            }
-        }
-        
-        @SuppressWarnings("unused")
-        public double getAverageExecutionTime() {
-            long count = executionCount.get();
-            return count > 0 ? (double) totalExecutionTime.get() / count : 0.0;
-        }
-        
-        // Getters
-        @SuppressWarnings("unused")
-        public String getTaskId() { return taskId; }
-        public TaskPriority getPriority() { return priority; }
-        @SuppressWarnings("unused")
-        public long getExecutionCount() { return executionCount.get(); }
-        public long getLastExecutionTime() { return lastExecutionTime; }
-        @SuppressWarnings("unused")
-        public long getMinExecutionTime() { return minExecutionTime == Long.MAX_VALUE ? 0 : minExecutionTime; }
-        @SuppressWarnings("unused")
-        public long getMaxExecutionTime() { return maxExecutionTime; }
-    }
-    
-    /**
-     * Enumeración de prioridades de tareas.
-     */
-    public enum TaskPriority {
-        LOW(1),
-        NORMAL(5),
-        HIGH(10),
-        CRITICAL(15);
-        
-        private final int value;
-        
-        TaskPriority(int value) {
-            this.value = value;
-        }
-        
-        public int getValue() {
-            return value;
         }
     }
     

@@ -8,13 +8,10 @@ import org.bukkit.entity.Player;
 import com.darkbladedev.HeartlessMain;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
+import com.darkbladedev.models.EventStatistics;
 
 /**
  * Gestor de estadísticas de eventos que recopila, formatea y publica
@@ -232,79 +229,4 @@ public class EventStatisticsManager {
         return messages;
     }
     
-    /**
-     * Clase interna para almacenar estadísticas de un evento específico.
-     */
-    private static class EventStatistics {
-        private final String eventName;
-        private final String eventType;
-        private final LocalDateTime startTime;
-        private LocalDateTime endTime;
-        
-        private final Map<UUID, String> participants = new ConcurrentHashMap<>();
-        private final Map<UUID, AtomicInteger> playerDeaths = new ConcurrentHashMap<>();
-        private final Map<UUID, AtomicLong> playerDamage = new ConcurrentHashMap<>();
-        private final Map<String, AtomicInteger> actionCounts = new ConcurrentHashMap<>();
-        
-        public EventStatistics(String eventName, String eventType) {
-            this.eventName = eventName;
-            this.eventType = eventType;
-            this.startTime = LocalDateTime.now();
-        }
-        
-        public void endEvent() {
-            this.endTime = LocalDateTime.now();
-        }
-        
-        public void addParticipant(UUID playerId, String playerName) {
-            participants.put(playerId, playerName);
-            playerDeaths.putIfAbsent(playerId, new AtomicInteger(0));
-            playerDamage.putIfAbsent(playerId, new AtomicLong(0));
-        }
-        
-        public void recordDeath(UUID playerId, String cause) {
-            playerDeaths.computeIfAbsent(playerId, k -> new AtomicInteger(0)).incrementAndGet();
-            recordAction("death_" + cause);
-        }
-        
-        public void recordDamage(UUID playerId, double damage) {
-            playerDamage.computeIfAbsent(playerId, k -> new AtomicLong(0))
-                    .addAndGet((long) (damage * 100)); // Almacenar como centésimas
-        }
-        
-        public void recordAction(String actionType, Object... details) {
-            actionCounts.computeIfAbsent(actionType, k -> new AtomicInteger(0)).incrementAndGet();
-        }
-        
-        // Getters
-        public String getEventName() { return eventName; }
-        public String getEventType() { return eventType; }
-        public Map<UUID, String> getParticipants() { return participants; }
-        
-        public Duration getDuration() {
-            LocalDateTime end = endTime != null ? endTime : LocalDateTime.now();
-            return Duration.between(startTime, end);
-        }
-        
-        public int getTotalDeaths() {
-            return playerDeaths.values().stream().mapToInt(AtomicInteger::get).sum();
-        }
-        
-        public double getTotalDamage() {
-            return playerDamage.values().stream().mapToLong(AtomicLong::get).sum() / 100.0;
-        }
-        
-        public int getTotalActions() {
-            return actionCounts.values().stream().mapToInt(AtomicInteger::get).sum();
-        }
-        
-        public List<Map.Entry<UUID, Double>> getTopDamageReceivers(int limit) {
-            return playerDamage.entrySet().stream()
-                    .sorted(Map.Entry.<UUID, AtomicLong>comparingByValue(
-                            (a, b) -> Long.compare(a.get(), b.get()))) // Menor daño primero
-                    .limit(limit)
-                    .map(entry -> new AbstractMap.SimpleEntry<>(entry.getKey(), entry.getValue().get() / 100.0))
-                    .collect(Collectors.toList());
-        }
-    }
 }

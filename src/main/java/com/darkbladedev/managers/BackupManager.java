@@ -14,6 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import com.darkbladedev.models.BackupInfo;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -620,44 +621,6 @@ public class BackupManager {
     }
     
     // Clases internas
-    
-    /**
-     * Información sobre un respaldo
-     */
-    public static class BackupInfo {
-        private final String id;
-        private final String reason;
-        private final long creationTime;
-        private final Map<String, Path> files = new HashMap<>();
-        private Path backupPath;
-        private long duration;
-        private boolean completed = false;
-        
-        public BackupInfo(String id, String reason, long creationTime) {
-            this.id = id;
-            this.reason = reason;
-            this.creationTime = creationTime;
-        }
-        
-        public void addFile(String type, Path path) {
-            files.put(type, path);
-        }
-        
-        public void setCompleted(Path backupPath, long duration) {
-            this.backupPath = backupPath;
-            this.duration = duration;
-            this.completed = true;
-        }
-        
-        // Getters
-        public String getId() { return id; }
-        public String getReason() { return reason; }
-        public long getCreationTime() { return creationTime; }
-        public Map<String, Path> getFiles() { return files; }
-        public Path getBackupPath() { return backupPath; }
-        public long getDuration() { return duration; }
-        public boolean isCompleted() { return completed; }
-    }
     
     /**
      * Resultado de una operación de respaldo
