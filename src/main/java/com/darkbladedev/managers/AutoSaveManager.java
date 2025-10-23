@@ -12,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -37,9 +38,10 @@ import com.google.gson.JsonObject;
  * - Sistema de respaldo automático
  * - Logs detallados para rastrear operaciones
  * - Comprobación post-reinicio para validar datos recuperados
+ * - Thread-safety mejorado con ReentrantReadWriteLock
  * 
  * @author DarkBladeDev
- * @version 1.0
+ * @version 1.1 - Correcciones de concurrencia
  */
 public class AutoSaveManager {
     
@@ -57,17 +59,22 @@ public class AutoSaveManager {
     private final File backupDir;
     private final File integrityFile;
     
-    // Estado del sistema
+    // Estado del sistema con thread-safety mejorado
     private final AtomicBoolean isEnabled = new AtomicBoolean(true);
     private final AtomicBoolean isShuttingDown = new AtomicBoolean(false);
+    private final AtomicBoolean isSaveInProgress = new AtomicBoolean(false);
     private final AtomicLong lastSaveTime = new AtomicLong(0);
     private final AtomicLong saveCount = new AtomicLong(0);
     private final AtomicLong errorCount = new AtomicLong(0);
     
-    // Tareas programadas
-    private BukkitTask autoSaveTask;
+    // Sincronización para operaciones críticas
+    private final ReentrantReadWriteLock saveLock = new ReentrantReadWriteLock(true); // fair lock
+    private final Object shutdownLock = new Object();
     
-    // Datos de integridad
+    // Tareas programadas
+    private volatile BukkitTask autoSaveTask;
+    
+    // Datos de integridad con thread-safety
     private final Map<String, String> lastDataHashes = new ConcurrentHashMap<>();
     private final Map<String, Long> lastDataSizes = new ConcurrentHashMap<>();
     
@@ -83,7 +90,7 @@ public class AutoSaveManager {
         startAutoSaveTask();
         loadIntegrityData();
         
-        logger.info("AutoSaveManager inicializado correctamente");
+        logger.info("AutoSaveManager inicializado correctamente con thread-safety mejorado");
     }
     
     /**
@@ -107,25 +114,39 @@ public class AutoSaveManager {
      * Inicia la tarea de guardado automático
      */
     private void startAutoSaveTask() {
-        if (autoSaveTask != null) {
-            autoSaveTask.cancel();
-        }
-        
-        autoSaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
-            if (isEnabled.get() && !isShuttingDown.get()) {
-                performAutoSave();
+        synchronized (shutdownLock) {
+            if (autoSaveTask != null) {
+                autoSaveTask.cancel();
             }
-        }, AUTO_SAVE_INTERVAL, AUTO_SAVE_INTERVAL);
-        
-        logger.info("Tarea de guardado automático iniciada (cada 5 minutos)");
+            
+            autoSaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+                if (isEnabled.get() && !isShuttingDown.get()) {
+                    performAutoSave();
+                }
+            }, AUTO_SAVE_INTERVAL, AUTO_SAVE_INTERVAL);
+            
+            logger.info("Tarea de guardado automático iniciada (cada 5 minutos)");
+        }
     }
     
     /**
-     * Realiza el guardado automático de todos los datos
+     * Realiza el guardado automático de todos los datos con thread-safety
      */
     public CompletableFuture<Boolean> performAutoSave() {
         return CompletableFuture.supplyAsync(() -> {
+            // Verificar si ya hay un guardado en progreso
+            if (!isSaveInProgress.compareAndSet(false, true)) {
+                logger.warning("Guardado automático omitido: ya hay un guardado en progreso");
+                return false;
+            }
+            
+            saveLock.writeLock().lock();
             try {
+                if (isShuttingDown.get()) {
+                    logger.info("Guardado automático cancelado: sistema en shutdown");
+                    return false;
+                }
+                
                 logger.info("Iniciando guardado automático...");
                 long startTime = System.currentTimeMillis();
                 
@@ -168,17 +189,40 @@ public class AutoSaveManager {
                 logger.log(Level.SEVERE, "Error durante el guardado automático", e);
                 errorCount.incrementAndGet();
                 return false;
+            } finally {
+                saveLock.writeLock().unlock();
+                isSaveInProgress.set(false);
             }
         });
     }
     
     /**
-     * Realiza un guardado de emergencia antes del shutdown del servidor
+     * Realiza un guardado de emergencia antes del shutdown del servidor con thread-safety
      */
     public CompletableFuture<Boolean> performEmergencySave() {
-        isShuttingDown.set(true);
-        
         return CompletableFuture.supplyAsync(() -> {
+            synchronized (shutdownLock) {
+                isShuttingDown.set(true);
+                
+                // Cancelar tarea de guardado automático
+                if (autoSaveTask != null) {
+                    autoSaveTask.cancel();
+                    autoSaveTask = null;
+                }
+            }
+            
+            // Esperar a que termine cualquier guardado en progreso
+            while (isSaveInProgress.get()) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    logger.warning("Interrupción durante espera de guardado en progreso");
+                    break;
+                }
+            }
+            
+            saveLock.writeLock().lock();
             try {
                 logger.info("=== INICIANDO GUARDADO DE EMERGENCIA ===");
                 long startTime = System.currentTimeMillis();
@@ -216,12 +260,14 @@ public class AutoSaveManager {
             } catch (Exception e) {
                 logger.log(Level.SEVERE, "Error crítico durante el guardado de emergencia", e);
                 return false;
+            } finally {
+                saveLock.writeLock().unlock();
             }
         });
     }
     
     /**
-     * Guarda los datos del evento semanal actual
+     * Guarda los datos del evento semanal actual con thread-safety
      */
     private boolean saveWeeklyEventData() {
         try {
@@ -474,30 +520,35 @@ public class AutoSaveManager {
         try {
             DatabaseManager dbManager = HeartlessMain.getDatabaseManager();
             
-            // Usar el nuevo sistema de verificación de integridad
-            CompletableFuture<DatabaseManager.DataIntegrityResult> integrityCheck = 
-                dbManager.verifyDataIntegrity();
-            
-            DatabaseManager.DataIntegrityResult result = integrityCheck.get(30, java.util.concurrent.TimeUnit.SECONDS);
-            
-            if (!result.isValid()) {
-                logger.warning("Verificación de integridad falló:");
-                logger.warning(result.getStatusReport());
+            if (dbManager != null && dbManager.isDatabaseEnabled()) {
+                // Usar el nuevo sistema de verificación de integridad
+                CompletableFuture<DatabaseManager.DataIntegrityResult> integrityCheck = 
+                    dbManager.verifyDataIntegrity();
                 
-                // Intentar reparación automática si hay problemas
-                logger.info("Intentando reparación automática de datos...");
-                CompletableFuture<Boolean> repairResult = dbManager.repairCorruptedData();
-                boolean repaired = repairResult.get(60, java.util.concurrent.TimeUnit.SECONDS);
+                DatabaseManager.DataIntegrityResult result = integrityCheck.get(30, java.util.concurrent.TimeUnit.SECONDS);
                 
-                if (repaired) {
-                    logger.info("Reparación completada, re-verificando integridad...");
-                    DatabaseManager.DataIntegrityResult recheck = 
-                        dbManager.verifyDataIntegrity().get(30, java.util.concurrent.TimeUnit.SECONDS);
-                    return recheck.isValid();
-                } else {
-                    logger.severe("No se pudo reparar la integridad de los datos");
-                    return false;
+                if (!result.isValid()) {
+                    logger.warning("Verificación de integridad falló:");
+                    logger.warning(result.getStatusReport());
+                    
+                    // Intentar reparación automática si hay problemas
+                    logger.info("Intentando reparación automática de datos...");
+                    CompletableFuture<Boolean> repairResult = dbManager.repairCorruptedData();
+                    boolean repaired = repairResult.get(60, java.util.concurrent.TimeUnit.SECONDS);
+                    
+                    if (repaired) {
+                        logger.info("Reparación completada, re-verificando integridad...");
+                        DatabaseManager.DataIntegrityResult recheck = 
+                            dbManager.verifyDataIntegrity().get(30, java.util.concurrent.TimeUnit.SECONDS);
+                        return recheck.isValid();
+                    } else {
+                        logger.severe("No se pudo reparar la integridad de los datos");
+                        return false;
+                    }
                 }
+                
+                logger.info("Verificación de integridad completada exitosamente");
+                logger.info(result.getStatusReport());
             }
             
             // También verificar archivos locales como respaldo
@@ -551,8 +602,6 @@ public class AutoSaveManager {
                 gson.toJson(integrityData, writer);
             }
             
-            logger.info("Verificación de integridad completada exitosamente");
-            logger.info(result.getStatusReport());
             return true;
             
         } catch (Exception e) {
@@ -833,9 +882,11 @@ public class AutoSaveManager {
     public void shutdown() {
         logger.info("Deteniendo AutoSaveManager...");
         
-        if (autoSaveTask != null) {
-            autoSaveTask.cancel();
-            autoSaveTask = null;
+        synchronized (shutdownLock) {
+            if (autoSaveTask != null) {
+                autoSaveTask.cancel();
+                autoSaveTask = null;
+            }
         }
         
         // Realizar guardado de emergencia si no se está cerrando ya
@@ -856,4 +907,5 @@ public class AutoSaveManager {
     public long getSaveCount() { return saveCount.get(); }
     public long getErrorCount() { return errorCount.get(); }
     public boolean isShuttingDown() { return isShuttingDown.get(); }
+    public boolean isSaveInProgress() { return isSaveInProgress.get(); }
 }

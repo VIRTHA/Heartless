@@ -113,40 +113,44 @@ public class Stats implements SubcommandExecutor {
         
         player.sendMessage(MM.toComponent(""));
 
-        // === DESAFÍOS COMPLETADOS ===
-        player.sendMessage(MM.toComponent("<gold><b>🏆 DESAFÍOS COMPLETADOS:</b></gold>"));
+        // === PROGRESO DE DESAFÍOS ===
+        player.sendMessage(MM.toComponent("<gold><b>🏆 PROGRESO DE DESAFÍOS:</b></gold>"));
         
-        if (completedChallenges == null || completedChallenges.isEmpty()) {
-            player.sendMessage(MM.toComponent("<gray>• <red>✗</red> <white>Ningún desafío completado aún</white></gray>"));
+        // Obtener el progreso actual de todos los desafíos
+        Map<String, Object> challengeProgress = event.getChallengeProgress(playerId);
+        
+        if (availableChallenges == null || availableChallenges.isEmpty()) {
+            player.sendMessage(MM.toComponent("<gray>No hay desafíos disponibles para este evento.</gray>"));
         } else {
-            for (String challengeId : completedChallenges) {
-                AbstractWeeklyEvent.ChallengeDefinition challenge = availableChallenges.get(challengeId);
-                String challengeName = challenge != null ? challenge.getDisplayName() : challengeId;
-                player.sendMessage(MM.toComponent("<gray>• <green>✓</green> <white>" + challengeName + "</white></gray>"));
-            }
-        }
-        
-        // === DESAFÍOS PENDIENTES ===
-        player.sendMessage(MM.toComponent(""));
-        player.sendMessage(MM.toComponent("<orange><b>⏳ DESAFÍOS PENDIENTES:</b></orange>"));
-        
-        List<String> pendingChallenges = new ArrayList<>();
-        if (availableChallenges != null) {
-            for (String challengeId : availableChallenges.keySet()) {
-                if (completedChallenges == null || !completedChallenges.contains(challengeId)) {
-                    pendingChallenges.add(challengeId);
+            for (Map.Entry<String, AbstractWeeklyEvent.ChallengeDefinition> entry : availableChallenges.entrySet()) {
+                String challengeId = entry.getKey();
+                AbstractWeeklyEvent.ChallengeDefinition challenge = entry.getValue();
+                
+                boolean isCompleted = completedChallenges != null && completedChallenges.contains(challengeId);
+                
+                // Obtener progreso actual manejando el tipo Object
+                int currentProgress = 0;
+                if (challengeProgress != null) {
+                    Object progressObj = challengeProgress.get(challengeId + "_current");
+                    if (progressObj instanceof Number) {
+                        currentProgress = ((Number) progressObj).intValue();
+                    }
                 }
+                
+                int targetProgress = challenge.getRequiredProgress();
+                
+                String status = isCompleted ? "<green>✓</green>" : "<red>✗</red>";
+                String challengeName = challenge.getDisplayName();
+                String progressText = "<yellow>" + currentProgress + "/" + targetProgress + "</yellow>";
+                
+                player.sendMessage(MM.toComponent("<gray>• " + status + " <white>" + challengeName + "</white> " + progressText + "</gray>"));
             }
-        }
-        
-        if (pendingChallenges.isEmpty()) {
-            player.sendMessage(MM.toComponent("<gray>• <green>¡Todos los desafíos completados!</green></gray>"));
-        } else {
-            for (String challengeId : pendingChallenges) {
-                AbstractWeeklyEvent.ChallengeDefinition challenge = availableChallenges.get(challengeId);
-                String challengeName = challenge != null ? challenge.getDisplayName() : challengeId;
-                player.sendMessage(MM.toComponent("<gray>• <red>✗</red> <white>" + challengeName + "</white></gray>"));
-            }
+            
+            // Mostrar resumen
+            int totalChallenges = availableChallenges.size();
+            int completedCount = completedChallenges != null ? completedChallenges.size() : 0;
+            player.sendMessage(MM.toComponent(""));
+            player.sendMessage(MM.toComponent("<gold>Total completados: <white>" + completedCount + "/" + totalChallenges + "</white></gold>"));
         }
         
         // === RESUMEN ===
@@ -310,27 +314,8 @@ public class Stats implements SubcommandExecutor {
      */
     private void displayChallengeProgress(Player player, Set<String> completedChallenges, 
                                         Map<String, AbstractWeeklyEvent.ChallengeDefinition> availableChallenges) {
-        if (availableChallenges == null || availableChallenges.isEmpty()) {
-            player.sendMessage(MM.toComponent("<gray>No hay desafíos disponibles para este evento.</gray>"));
-            return;
-        }
-
-        int totalChallenges = availableChallenges.size();
-        int completedCount = completedChallenges != null ? completedChallenges.size() : 0;
-
-        for (Map.Entry<String, AbstractWeeklyEvent.ChallengeDefinition> entry : availableChallenges.entrySet()) {
-            String challengeId = entry.getKey();
-            AbstractWeeklyEvent.ChallengeDefinition challenge = entry.getValue();
-            
-            boolean isCompleted = completedChallenges != null && completedChallenges.contains(challengeId);
-            String status = isCompleted ? "<green>✓</green>" : "<red>✗</red>";
-            String challengeName = challenge.getDisplayName();
-            
-            player.sendMessage(MM.toComponent("  " + status + " <white>" + challengeName + "</white>"));
-        }
-
-        player.sendMessage(MM.toComponent(""));
-        player.sendMessage(MM.toComponent("<gold>Total completados: <white>" + completedCount + "/" + totalChallenges + "</white></gold>"));
+        // Este método ya no se usa, el progreso se muestra directamente en showPlayerStatistics
+        // Se mantiene por compatibilidad pero no se llama
     }
 
     /**

@@ -179,6 +179,7 @@ public class UnifiedEventReportManager {
         
         Map<String, AbstractWeeklyEvent.ChallengeDefinition> availableChallenges = report.getAvailableChallenges();
         Set<String> completedChallenges = report.getCompletedChallenges();
+        Map<String, Object> challengeProgress = report.getChallengeProgress();
         
         int totalChallenges = availableChallenges.size();
         int completedCount = completedChallenges.size();
@@ -192,12 +193,18 @@ public class UnifiedEventReportManager {
             String status = isCompleted ? "<green>✓</green>" : "<red>✗</red>";
             String challengeName = challenge.getDisplayName();
             
-            // Crear mensaje con hover para mostrar descripción
+            // Obtener progreso real del jugador
+            Object currentProgress = challengeProgress.getOrDefault(challengeId + "_current", 0);
+            Object maxProgress = challengeProgress.getOrDefault(challengeId + "_max", challenge.getRequiredProgress());
+            
+            // Crear hover text con descripción y progreso
+            String hoverText = "<yellow>Descripción:</yellow>\n<gray>" + challenge.getDescription() + "</gray>\n\n" +
+                              "<yellow>Progreso:</yellow> <white>" + currentProgress + "/" + maxProgress + "</white>";
+            
+            // Crear mensaje con hover para mostrar descripción y progreso
             Component challengeComponent = MM.toComponent(
                 "  " + status + " <white>" + challengeName + "</white>"
-            ).hoverEvent(HoverEvent.showText(MM.toComponent(
-                "<yellow>Descripción:</yellow>\n<gray>" + challenge.getDescription() + "</gray>"
-            )));
+            ).hoverEvent(HoverEvent.showText(MM.toComponent(hoverText)));
             
             player.sendMessage(challengeComponent);
         }

@@ -589,17 +589,21 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
         
         // Verificar si el desafío ya está completado para evitar duplicados
         Set<String> playerChallenges = completedChallenges.get(playerId);
-        if (playerChallenges != null && playerChallenges.contains(challengeId)) {
+        boolean wasAlreadyCompleted = playerChallenges != null && playerChallenges.contains(challengeId);
+        
+        if (wasAlreadyCompleted) {
+            logger.fine("[" + getId() + "] Desafío " + challengeId + " ya estaba completado para " + playerId);
             return; // Ya completado, no hacer nada
         }
         
+        // Agregar el desafío a la lista de completados
         completedChallenges.computeIfAbsent(playerId, k -> ConcurrentHashMap.newKeySet())
                           .add(challengeId);
         
         totalChallengesCompleted.incrementAndGet();
         dataDirty.set(true);
         
-        // Notificar al jugador
+        // Solo notificar y otorgar recompensas si no estaba completado previamente
         Player player = Bukkit.getPlayer(playerId);
         if (player != null && player.isOnline()) {
             ChallengeDefinition challenge = availableChallenges.get(challengeId);
@@ -1349,6 +1353,15 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
 
 
     /**
+     * Obtiene los datos específicos del evento.
+     * 
+     * @return Mapa con los datos específicos del evento
+     */
+    public final Map<String, Object> getEventSpecificData() {
+        return new HashMap<>(eventSpecificData);
+    }
+
+    /**
      * Obtiene todos los desafíos completados de todos los jugadores.
      * 
      * @return Mapa con todos los desafíos completados (UUID -> Set<String>)
@@ -1522,6 +1535,35 @@ public abstract class AbstractWeeklyEvent extends WeeklyEvent {
                 "[" + getId() + "] Error durante la carga de desafíos completados", e);
         } finally {
             dataLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Método llamado cuando un jugador se conecta al servidor.
+     * Carga el progreso de desafíos del jugador desde la base de datos.
+     * 
+     * @param player El jugador que se conectó
+     */
+    @Override
+    protected void onPlayerJoinEvent(Player player) {
+        if (!isActive()) {
+            return;
+        }
+        UUID playerId = player.getUniqueId();
+        try {
+            
+            // Cargar progreso de desafíos del jugador desde la base de datos
+            plugin.getStorageManager().loadPlayerChallengeProgress(this, playerId);
+            
+            plugin.getLogger().info(String.format(
+                "[%s] Progreso de desafíos cargado para jugador: %s", 
+                getId(), playerId.toString()
+            ));
+            
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, 
+                String.format("[%s] Error al cargar progreso de desafíos para jugador %s", 
+                    getId(), playerId.toString()), e);
         }
     }
 }

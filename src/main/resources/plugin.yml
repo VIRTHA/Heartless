@@ -7,7 +7,6 @@ prefix: Heartless
 api-version: 1.21
 load: STARTUP
 depend: [PlaceholderAPI]
-softdepend: [UltimateAdvancementAPI]
 
 # Plugin Commands
 commands:

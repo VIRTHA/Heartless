@@ -964,16 +964,17 @@ public class AcidWeek extends AbstractWeeklyEvent {
                 return;
             }
             
-            // Verificar si el jugador se movió a agua
-            Block block = to.getBlock();
-            if (block != null && block.getType() == Material.WATER) {
-                UUID playerId = player.getUniqueId();
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
+            Block block = player.getLocation().getBlock();
+            UUID playerId = player.getUniqueId();
+            if (block.getType() == Material.WATER) {
                 if (!playersInWater.contains(playerId)) {
                     playersInWater.add(playerId);
                     player.sendActionBar(MM.toComponent(prefix + " <yellow>¡Has entrado en agua ácida! ¡Ten cuidado!"));
-                }
-            }
-            
+                        }
+                    }
+                }, 1L);
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error en evento de movimiento de jugador", e);
         }

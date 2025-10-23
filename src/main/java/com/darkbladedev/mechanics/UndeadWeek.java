@@ -47,7 +47,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     
     // === CONSTANTES DEL EVENTO ===
     private static final String EVENT_ID = "undead_week";
-    private static final int POISON_DURATION = 30 * 20; // 30 segundos en ticks
+    private static final int POISON_DURATION = 15 * 20; // 15 segundos en ticks
     private static final int RED_MOON_DURATION = 7 * 60 * 1000; // 7 minutos en ms
     private static final int RED_MOON_DURATION_TICKS = 8400; // 7 minutos en ticks
     private static final double INFECTION_CHANCE = 0.3; // 30% de probabilidad
@@ -420,7 +420,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         }
         
         // Manejo específico para Wither
-        if (event.getEntity() instanceof Wither) {
+        if (event.getEntity() instanceof Wither && isRedMoonActive()) {
             logger.info("[UndeadWeek] Wither eliminado por jugador: " + killer.getName() + " (UUID: " + killerId + ")");
             
             // Verificar desafío del Wither
@@ -446,7 +446,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
                 if (healthAttribute != null) {
                     double currentMaxHealth = healthAttribute.getBaseValue();
                     healthAttribute.setBaseValue(currentMaxHealth + 2.0); // +1 corazón = +2 HP
-                    killer.setHealth(killer.getHealth() + 2.0); // Curar también
+
                     logger.info("[UndeadWeek] Vida máxima incrementada para " + killer.getName() + 
                                " de " + currentMaxHealth + " a " + (currentMaxHealth + 2.0));
                 }
@@ -676,7 +676,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         registerChallenge("infection_survivor", AbstractWeeklyEvent.ChallengeDefinition.fromStringRewards(
             "infection_survivor",
             "Superviviente de Infección",
-            "Curarse de la infección zombie 10 veces",
+            "Sobrevive 30 minutos estando infectado",
             10,
             Arrays.asList("enchant:first_strike:1")
         ));
@@ -702,36 +702,17 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     
     private void checkZombieKillChallenges(Player player) {
         UUID playerId = player.getUniqueId();
-        int kills = getPlayerZombieKills(playerId);
-        
-        // Actualizar progreso del desafío zombie_slayer (50 kills)
-        updateChallengeProgress(playerId, "zombie_slayer", kills, 50);
-        
-        // Verificar desafío de asesino de zombies
-        if (kills >= 50 && !hasChallengeCompleted(playerId, "zombie_slayer")) {
-            completeChallenge(player, "zombie_slayer");
-        }
-        
+                
         // Verificar desafío de cazador de luna roja
         if (redMoonActive.get()) {
             int redMoonKills = redMoonKillsCount.getOrDefault(playerId, 0);
             
-            // Actualizar progreso del desafío red_moon_hunter (15 kills durante Red Moon)
-            updateChallengeProgress(playerId, "red_moon_hunter", redMoonKills, 15);
+            // Actualizar progreso del desafío red_moon_hunter (50 kills durante Red Moon)
+            updateChallengeProgress(playerId, "red_moon_hunter", redMoonKills, 50);
             
-            if (redMoonKills >= 15 && !hasChallengeCompleted(playerId, "red_moon_hunter")) {
+            if (redMoonKills >= 50 && !hasChallengeCompleted(playerId, "red_moon_hunter")) {
                 completeChallenge(player, "red_moon_hunter");
             }
-        }
-        
-        // Verificar desafío Dr.Zomboss - Curar 25 infecciones
-        int curedInfections = curedInfectionsCountMap.getOrDefault(playerId, 0);
-        
-        // Actualizar progreso del desafío dr_zomboss (10 cured infections)
-        updateChallengeProgress(playerId, "dr_zomboss", curedInfections, 10);
-        
-        if (curedInfections >= 10 && !hasChallengeCompleted(playerId, "dr_zomboss")) {
-            completeChallenge(player, "dr_zomboss");
         }
     }
     
@@ -784,17 +765,21 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         
         logger.info("[UndeadWeek] DEBUG - Desafíos completados actuales para " + player.getName() + ": " + completed);
         
-        if (!completed.contains(challengeId)) {
+        // Verificar si el desafío ya estaba completado ANTES de agregarlo
+        boolean wasAlreadyCompleted = completed.contains(challengeId);
+        
+        if (!wasAlreadyCompleted) {
             logger.info("[UndeadWeek] DEBUG - Desafío " + challengeId + " no estaba completado, agregándolo...");
             completed.add(challengeId);
             
-            // Otorgar recompensas
+            // Otorgar recompensas solo cuando se completa por primera vez
             for (String reward : challenge.getRewards()) {
                 logger.info("[UndeadWeek] DEBUG - Otorgando recompensa: " + reward + " a " + player.getName());
                 Reward rewardObj = new Reward(reward);
                 rewardObj.grantTo(player, prefix);
             }
             
+            // Mostrar mensaje de completado solo cuando se completa por primera vez
             player.sendMessage(MM.toComponent("<green>¡Has completado el desafío: <gold>" + 
                              challenge.getDisplayName() + "</gold>!</green>"));
             

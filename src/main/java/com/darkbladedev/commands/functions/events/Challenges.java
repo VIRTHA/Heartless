@@ -302,21 +302,20 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
         if (event instanceof AbstractWeeklyEvent) {
             AbstractWeeklyEvent weeklyEvent = (AbstractWeeklyEvent) event;
             
-            // Primero verificar si el desafío está completado
+            // Verificar si el desafío está completado
             isCompleted = weeklyEvent.hasChallengeCompleted(playerId, challengeId);
             
-            // Si está completado, mostrar progreso completo
-            if (isCompleted) {
+            // SIEMPRE buscar el progreso real almacenado, independientemente del estado de completado
+            Map<String, Object> playerProgress = weeklyEvent.getChallengeProgress(playerId);
+            Object progressObj = playerProgress.get(challengeId + "_current");
+            
+            if (progressObj instanceof Integer) {
+                currentProgress = (Integer) progressObj;
+            } else if (progressObj instanceof Number) {
+                currentProgress = ((Number) progressObj).intValue();
+            } else if (isCompleted && currentProgress == 0) {
+                // Solo como fallback si está completado pero no hay progreso registrado
                 currentProgress = targetProgress;
-            } else {
-                // Si no está completado, buscar el progreso actual
-                Map<String, Object> playerProgress = weeklyEvent.getChallengeProgress(playerId);
-                Object progressObj = playerProgress.get(challengeId + "_current");
-                if (progressObj instanceof Integer) {
-                    currentProgress = (Integer) progressObj;
-                } else if (progressObj instanceof Number) {
-                    currentProgress = ((Number) progressObj).intValue();
-                }
             }
         }
         
@@ -328,9 +327,9 @@ public class Challenges implements SubcommandExecutor, TabCompletable {
             progressColor = "<yellow>";
         }
         
-        // Formatear el texto de hover
+        // Formatear el texto de hover con el color apropiado
         String status = isCompleted ? "<green>✓ Completado</green>" : "<yellow>En progreso</yellow>";
-        return "<white>Progreso: " + currentProgress + "/" + targetProgress + "</white>\n" + status;
+        return progressColor + "Progreso: " + currentProgress + "/" + targetProgress + "</white>\n" + status;
     }
     
     /**
