@@ -176,8 +176,8 @@ public class ZombieInfection extends CustomEffectsBase {
                 player.setFireTicks(0);
                 
                 if (!player.hasPotionEffect(PotionEffectType.NAUSEA)) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 30, 0, false, true, true));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 30, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 60, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 80, 0, false, true, true));
                     player.sendActionBar(MM.toComponent("<gray>La infección zombie te debilita durante este momento del día..."));
                 }
                 break;
@@ -208,8 +208,8 @@ public class ZombieInfection extends CustomEffectsBase {
                     player.setFireTicks(0);
                     player.removePotionEffect(PotionEffectType.WITHER);
                     player.sendActionBar(MM.toComponent("<yellow>La infección te debilita, pero estás a salvo de la luz solar directa."));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 30, 0, false, true, true));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 30, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 60, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 80, 0, false, true, true));
                 }
                 break;
                 
@@ -235,10 +235,10 @@ public class ZombieInfection extends CustomEffectsBase {
                 
                 // Aplicar efectos leves de transición
                 if (!player.hasPotionEffect(PotionEffectType.NAUSEA)) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 25, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 60, 0, false, true, true));
                 }
                 if (!player.hasPotionEffect(PotionEffectType.HUNGER)) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 25, 0, false, true, true));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 80, 0, false, true, true));
                 }
                 
                 player.sendActionBar(MM.toComponent("<gray>La infección fluctúa durante este período de transición..."));

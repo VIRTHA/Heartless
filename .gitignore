@@ -22,3 +22,4 @@ src/main/resources/heartless_datapack.zip
 .tests/
 plugins/
 test-server/
+bin/

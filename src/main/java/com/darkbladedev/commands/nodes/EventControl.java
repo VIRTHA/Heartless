@@ -25,6 +25,7 @@ public class EventControl implements CommandFunction {
         subcommands.put("complete-challenge", new CompleteChallenge());
         subcommands.put("stats", new Stats()); // Comando para ver estadísticas personales
         subcommands.put("debug-redmoon", new DebugRedMoon()); // Comando temporal de debug
+        subcommands.put("debug-nightcycle", new DebugNightCycle()); // Comando de debug para sistema de noches
     }
 
 	@Override

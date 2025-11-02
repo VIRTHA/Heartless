@@ -7,6 +7,7 @@ import com.darkbladedev.content.semi_custom.effects.ZombieInfection;
 import com.darkbladedev.models.TimeExpression;
 
 import net.kyori.adventure.sound.Sound;
+import net.kyori.adventure.text.Component;
 
 import com.darkbladedev.utils.MM;
 import org.bukkit.Bukkit;
@@ -18,6 +19,7 @@ import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -74,11 +76,19 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     private final Map<UUID, Integer> curedVillagersCount = new ConcurrentHashMap<>();
     private final Set<UUID> witherKilledInRedMoon = ConcurrentHashMap.newKeySet();
     
+    // === SISTEMA DE CONTEO DE NOCHES CÍCLICO ===
+    private final AtomicInteger nightCounter = new AtomicInteger(0);
+    private final AtomicLong lastNightTime = new AtomicLong(0);
+    private final AtomicBoolean isNightEventScheduled = new AtomicBoolean(false);
+    private final AtomicLong lastWorldTime = new AtomicLong(0);
+    private final AtomicBoolean nightTransitionDetected = new AtomicBoolean(false);
+    
     // === TAREAS DEL EVENTO ===
     private BukkitTask redMoonTask;
     private BukkitTask zombieSpawnTask;
     private BukkitTask infectionTask;
     private BukkitTask netheriteArmorTask;
+    private BukkitTask nightCycleTask;
     
     // === MANAGERS ===
     private CustomEffectsManager effectsManager;
@@ -227,6 +237,14 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             }
         }.runTaskTimer(plugin, 20L * 5, 20L * 5); // Cada 5 segundos
         
+        // Tarea de monitoreo del ciclo nocturno
+        nightCycleTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                checkNightCycle();
+            }
+        }.runTaskTimer(plugin, 20L, 20L * 10); // Cada 10 segundos
+        
         logger.info("[UndeadWeek] Tareas del evento iniciadas");
     }
     
@@ -244,6 +262,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         if (netheriteArmorTask != null && !netheriteArmorTask.isCancelled()) {
             netheriteArmorTask.cancel();
         }
+        if (nightCycleTask != null && !nightCycleTask.isCancelled()) {
+            nightCycleTask.cancel();
+        }
         
         logger.info("[UndeadWeek] Tareas del evento detenidas");
     }
@@ -254,7 +275,10 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         globalStatistics.put("total_zombies_killed", new AtomicLong(0));
         globalStatistics.put("total_infections", new AtomicLong(0));
         globalStatistics.put("total_cures", new AtomicLong(0));
-        globalStatistics.put("red_moon_activations", new AtomicLong(0));
+        //globalStatistics.put("red_moon_activations", new AtomicLong(0));
+        
+        // Inicializar sistema de conteo de noches
+        initializeNightCycleSystem();
         
         // Configurar desafíos específicos del evento
         setupUndeadWeekChallenges();
@@ -302,6 +326,12 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             });
             eventSpecificData.put("completedChallenges", completedChallengesSerialized);
             
+            // *** NUEVO: Guardar datos del ciclo nocturno ***
+            eventSpecificData.put("nightCounter", nightCounter.get());
+            eventSpecificData.put("lastNightTime", lastNightTime.get());
+            eventSpecificData.put("isNightEventScheduled", isNightEventScheduled.get());
+            eventSpecificData.put("lastWorldTime", lastWorldTime.get());
+            
             dataDirty.set(true);
             lastDataSave.set(System.currentTimeMillis());
             
@@ -310,6 +340,224 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             logger.severe("[UndeadWeek] Error al guardar datos específicos: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+    
+    // === SISTEMA DE CONTEO DE NOCHES CÍCLICO ===
+    
+    /**
+     * Inicializa el sistema de conteo de noches cíclico.
+     * Carga datos persistentes si existen o inicializa valores por defecto.
+     */
+    private void initializeNightCycleSystem() {
+        try {
+            // Cargar datos persistentes si existen
+            if (eventSpecificData.containsKey("nightCounter")) {
+                nightCounter.set((Integer) eventSpecificData.get("nightCounter"));
+            }
+            if (eventSpecificData.containsKey("lastNightTime")) {
+                lastNightTime.set((Long) eventSpecificData.get("lastNightTime"));
+            }
+            if (eventSpecificData.containsKey("isNightEventScheduled")) {
+                isNightEventScheduled.set((Boolean) eventSpecificData.get("isNightEventScheduled"));
+            }
+            if (eventSpecificData.containsKey("lastWorldTime")) {
+                lastWorldTime.set((Long) eventSpecificData.get("lastWorldTime"));
+            }
+            
+            // Inicializar tiempo del mundo actual
+            World world = Bukkit.getWorlds().get(0); // Mundo principal
+            if (world != null) {
+                lastWorldTime.set(world.getTime());
+            }
+            
+            logger.info("[UndeadWeek] Sistema de conteo de noches inicializado - Contador: " + 
+                       nightCounter.get() + ", Última noche: " + lastNightTime.get());
+        } catch (Exception e) {
+            logger.warning("[UndeadWeek] Error al inicializar sistema de conteo de noches: " + e.getMessage());
+            // Valores por defecto en caso de error
+            nightCounter.set(0);
+            lastNightTime.set(0);
+            isNightEventScheduled.set(false);
+            lastWorldTime.set(0);
+        }
+    }
+    
+    /**
+     * Verifica el ciclo nocturno y detecta transiciones día/noche.
+     * Este método se ejecuta periódicamente para monitorear el tiempo del mundo.
+     */
+    private void checkNightCycle() {
+        try {
+            World world = Bukkit.getWorlds().get(0); // Mundo principal
+            if (world == null) return;
+            
+            long currentTime = world.getTime();
+            long previousTime = lastWorldTime.get();
+            
+            // Detectar transición de día a noche (tiempo 13000-23000 es noche)
+            boolean wasDay = isDay(previousTime);
+            boolean isNight = isNight(currentTime);
+            
+            // Si cambió de día a noche, incrementar contador
+            if (wasDay && isNight && !nightTransitionDetected.get()) {
+                nightTransitionDetected.set(true);
+                int currentNightCount = nightCounter.incrementAndGet();
+                lastNightTime.set(System.currentTimeMillis());
+                
+                logger.info("[UndeadWeek] Nueva noche detectada - Contador: " + currentNightCount);
+                
+                // Verificar si es la tercera noche (múltiplo de 3)
+                if (isThirdNight(currentNightCount)) {
+                    scheduleNightEvent();
+                }
+                
+                // Marcar datos como modificados para persistencia
+                dataDirty.set(true);
+            }
+            
+            // Resetear detección cuando vuelve a ser día
+            if (!isNight && nightTransitionDetected.get()) {
+                nightTransitionDetected.set(false);
+            }
+            
+            // Actualizar tiempo anterior
+            lastWorldTime.set(currentTime);
+            
+        } catch (Exception e) {
+            logger.warning("[UndeadWeek] Error en verificación de ciclo nocturno: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Verifica si el tiempo dado corresponde al día.
+     * @param time Tiempo del mundo (0-24000)
+     * @return true si es día
+     */
+    private boolean isDay(long time) {
+        return time >= 0 && time < 13000;
+    }
+    
+    /**
+     * Verifica si el tiempo dado corresponde a la noche.
+     * @param time Tiempo del mundo (0-24000)
+     * @return true si es noche
+     */
+    private boolean isNight(long time) {
+        return time >= 13000 && time <= 23000;
+    }
+    
+    /**
+     * Verifica si el contador de noches actual corresponde a la tercera noche.
+     * @param nightCount Contador actual de noches
+     * @return true si es múltiplo de 3 (tercera noche)
+     */
+    private boolean isThirdNight(int nightCount) {
+        return nightCount > 0 && nightCount % 3 == 0;
+    }
+    
+    /**
+     * Programa la activación del evento nocturno especial.
+     * Se ejecuta cuando se detecta la tercera noche del ciclo.
+     */
+    private void scheduleNightEvent() {
+        try {
+            // Evitar múltiples activaciones
+            if (isNightEventScheduled.get()) {
+                logger.info("[UndeadWeek] Evento nocturno ya programado, omitiendo...");
+                return;
+            }
+            
+            // Validaciones adicionales
+            if (redMoonActive.get()) {
+                logger.info("[UndeadWeek] Luna roja ya activa, omitiendo evento nocturno automático");
+                return;
+            }
+            
+            isNightEventScheduled.set(true);
+            
+            // Anunciar la tercera noche
+            announceThirdNight();
+            
+            // Activar la luna roja inmediatamente
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (isActive.get() && !redMoonActive.get()) {
+                        activateRedMoon();
+                        logger.info("[UndeadWeek] Evento nocturno activado automáticamente en la tercera noche");
+                        
+                        // Resetear el contador después de la activación
+                        resetNightCounter();
+                    }
+                }
+            }.runTaskLater(plugin, 20L * 5); // 5 segundos de retraso
+            
+        } catch (Exception e) {
+            logger.warning("[UndeadWeek] Error al programar evento nocturno: " + e.getMessage());
+            isNightEventScheduled.set(false);
+        }
+    }
+    
+    /**
+     * Anuncia la llegada de la tercera noche a todos los jugadores.
+     */
+    private void announceThirdNight() {
+        try {
+            Component message = MM.toComponent(
+                "<gradient:#8B0000:#FF0000:#8B0000><bold>¡LA NOCHE ROJA HA LLEGADO!</bold></gradient>\n" +
+                "<red>Los no-muertos despiertan con mayor furia...</red>\n" +
+                "<gray>La Luna Roja se alzará pronto...</gray>"
+            );
+            
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                player.sendMessage(message);
+                player.playSound(player.getLocation(), "minecraft:entity.wither.spawn", 0.7f, 0.8f);
+            }
+            
+            logger.info("[UndeadWeek] Anuncio de noche roja enviado a todos los jugadores");
+        } catch (Exception e) {
+            logger.warning("[UndeadWeek] Error al anunciar noche roja: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Resetea el contador de noches después de una activación exitosa.
+     * Esto permite que el ciclo se repita cada 3 noches.
+     */
+    private void resetNightCounter() {
+        try {
+            nightCounter.set(0);
+            isNightEventScheduled.set(false);
+            dataDirty.set(true);
+            
+            logger.info("[UndeadWeek] Contador de noches reseteado - Próximo evento en 3 noches");
+        } catch (Exception e) {
+            logger.warning("[UndeadWeek] Error al resetear contador de noches: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Obtiene el contador actual de noches.
+     * @return Número de noches transcurridas en el ciclo actual
+     */
+    public int getCurrentNightCount() {
+        return nightCounter.get();
+    }
+    
+    /**
+     * Obtiene el tiempo de la última noche detectada.
+     * @return Timestamp de la última transición a noche
+     */
+    public long getLastNightTime() {
+        return lastNightTime.get();
+    }
+    
+    /**
+     * Verifica si hay un evento nocturno programado.
+     * @return true si hay un evento programado
+     */
+    public boolean isNightEventScheduled() {
+        return isNightEventScheduled.get();
     }
     
     @Override
@@ -429,7 +677,13 @@ public class UndeadWeek extends AbstractWeeklyEvent {
                        (alreadyCompleted ? "YA COMPLETADO" : "NO COMPLETADO"));
             
             if (!alreadyCompleted) {
-                logger.info("[UndeadWeek] Completando desafío wither_slayer para " + killer.getName());
+                logger.info("[UndeadWeek] Actualizando progreso y completando desafío wither_slayer para " + killer.getName());
+                
+                // CRÍTICO: Actualizar el progreso ANTES de completar el desafío
+                // Esto asegura que el progreso sea 1/1 cuando se marque como completado
+                updateChallengeProgress(killerId, "wither_slayer", 1, 1);
+                
+                // Ahora completar el desafío
                 completeChallenge(killer, "wither_slayer");
                 
                 // Verificar si se completó correctamente
@@ -473,6 +727,26 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             player.sendMessage(MM.toComponent("<gray>El desafío 'Dr. Zomboss' ha fallado para esta Noche Roja.</gray>"));
             
             logger.info("[UndeadWeek] Jugador " + player.getName() + " murió durante la Noche Roja");
+        }
+    }
+    
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onCreatureSpawn(CreatureSpawnEvent event) {
+        // Solo procesar si el evento está activo
+        if (!isActive.get()) return;
+        
+        // Verificar si el spawn es en un mundo excluido
+        if (isWorldExcluded(event.getLocation().getWorld())) return;
+        
+        // Solo aplicar buffs a zombies durante la Luna Roja
+        if (event.getEntityType() == EntityType.ZOMBIE && redMoonActive.get()) {
+            Zombie zombie = (Zombie) event.getEntity();
+            
+            // Aplicar efectos de velocidad y fuerza
+            zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 1));
+            zombie.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1));
+            
+            logger.fine("[UndeadWeek] Buffs de Luna Roja aplicados a zombie en spawn natural");
         }
     }
     
@@ -677,7 +951,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
             "infection_survivor",
             "Superviviente de Infección",
             "Sobrevive 30 minutos estando infectado",
-            10,
+            30,
             Arrays.asList("enchant:first_strike:1")
         ));
         

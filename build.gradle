@@ -80,9 +80,7 @@ shadowJar {
     // Configuración de exclusiones
     exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
     exclude("META-INF/maven/**")
-    // Nota: HikariCP no se relocaliza para evitar problemas de ClassLoader
-    // con las clases proxy internas (HikariProxyPreparedStatement, etc.)
-    // Configuración de dependencias
+    
     configurations = [project.configurations.shadow]
 }
 
