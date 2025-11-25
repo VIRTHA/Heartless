@@ -68,6 +68,12 @@ public class HealthSteal implements Listener {
     @EventHandler
     public void onPlayerKill(PlayerDeathEvent event) {
         if (!enabled) return;
+        // Validación por mundo: ejecutar solo si el sistema está activo en el mundo de la muerte
+        org.bukkit.World deathWorld = event.getEntity().getWorld();
+        com.darkbladedev.managers.ConfigManager cfg = com.darkbladedev.HeartlessMain.getInstance().getConfigManager();
+        if (cfg == null || !cfg.isHealthStealEnabledInWorld(deathWorld.getName())) {
+            return;
+        }
         
         Player deadPlayer = event.getEntity();
         UUID deadPlayerId = deadPlayer.getUniqueId();
@@ -135,6 +141,12 @@ public class HealthSteal implements Listener {
     @EventHandler
     public void onPlayerReachMinimunHealth(PlayerDeathEvent event) {
         if (!enabled) return;
+        // Validación por mundo: ejecutar solo si el sistema está activo en el mundo de la muerte
+        org.bukkit.World deathWorld = event.getEntity().getWorld();
+        com.darkbladedev.managers.ConfigManager cfg = com.darkbladedev.HeartlessMain.getInstance().getConfigManager();
+        if (cfg == null || !cfg.isHealthStealEnabledInWorld(deathWorld.getName())) {
+            return;
+        }
         
         Player player = event.getEntity();
         double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();

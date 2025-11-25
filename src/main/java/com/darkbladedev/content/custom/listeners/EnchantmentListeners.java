@@ -2,6 +2,7 @@ package com.darkbladedev.content.custom.listeners;
 
 import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.utils.MM;
+import com.darkbladedev.utils.WorldGuardUtils;
 
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
@@ -27,6 +28,8 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 
 import net.kyori.adventure.text.Component;
+import com.darkbladedev.HeartlessMain;
+import com.darkbladedev.managers.PvPManager;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -152,22 +155,42 @@ public class EnchantmentListeners implements Listener {
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             // Check if the entity is still alive and valid
             if (target.isValid() && !target.isDead()) {
+                // If the target is a player and PvP is disabled in the world, skip damage entirely
+                if (target instanceof Player) {
+                    Player victim = (Player) target;
+                    boolean regionProtected = WorldGuardUtils.isPvPDeniedAt(victim.getLocation());
+                    if (regionProtected) {
+                        //logger.info(String.format("[TicTac] PvP está deshabilitado en el mundo %s. Daño cancelado para %s",
+                        //    victim.getWorld().getName(), victim.getName()));
+                        scheduledTasks.remove(targetUUID);
+                        return;
+                    }
+                }
+
+                // Ensure attacker is still valid/online to attribute damage properly
+                if (player == null || !player.isOnline() || player.isDead()) {
+                    //logger.info("[TicTac] Atacante no disponible (offline/muerto). Efecto cancelado para evitar bypassear anti-PvP.");
+                    scheduledTasks.remove(targetUUID);
+                    return;
+                }
+
                 // Calculate dynamic damage based on enchantment power and target resistance
                 double damage = calculateTictacDamage(enchantmentLevel, target);
-                
-                // Apply damage
-                target.damage(damage);
-                
+
+                // Apply damage attributed to the attacker to respect anti-PvP protections
+                // Using the EntityDamageByEntity pipeline ensures other plugins/guards can cancel it
+                target.damage(damage, player);
+
                 // Create enhanced explosion effects
                 createExplosionEffects(world, targetLocation, enchantmentLevel, damage);
-                
+
                 // Send feedback to player
                 Component message = MM.toComponent(String.format(
                     "<dark_red>¡TicTac activado! %.1f de daño</dark_red>", 
                     damage
                 ));
                 player.sendActionBar(message);
-                
+
                 logger.info(String.format("TicTac enchantment activated by %s on %s. Level: %d, Damage: %.1f", 
                     player.getName(), target.getType().name(), enchantmentLevel, damage));
             }
@@ -288,12 +311,46 @@ public class EnchantmentListeners implements Listener {
     private void handleAcidInfection(Player player, LivingEntity target) {
         UUID targetUUID = target.getUniqueId();
         World world = target.getWorld();
-        
+
         // Check if entity is already infected
         if (acidInfectedEntities.containsKey(targetUUID)) {
             return;
         }
-        
+
+        // === Anti-PvP verification layer ===
+        // Skip entirely if target is a player in protected context or attacker has restrictions
+        if (target instanceof Player) {
+            Player victim = (Player) target;
+
+            // World-level PvP disabled
+            if (!world.getPVP()) {
+                // logger.info(String.format("[AcidInfection] PvP deshabilitado en el mundo %s. Efecto cancelado para %s",
+                //         world.getName(), victim.getName()));
+                return;
+            }
+
+            // Region-level PvP denied at victim or attacker location
+            boolean victimRegionProtected = WorldGuardUtils.isPvPDeniedAt(victim.getLocation());
+            boolean attackerRegionProtected = WorldGuardUtils.isPvPDeniedAt(player.getLocation());
+            if (victimRegionProtected || attackerRegionProtected) {
+                //logger.info(String.format("[AcidInfection] PvP denegado por región (victimProtected=%s, attackerProtected=%s). Cancelado para %s",
+                //        victimRegionProtected, attackerRegionProtected, victim.getName()));
+                return;
+            }
+
+            // New player immunity checks via PvPManager
+            PvPManager pvpManager = HeartlessMain.getPvPManager();
+            if (pvpManager != null) {
+                boolean attackerImmune = pvpManager.hasNewPlayerImmunity(player.getUniqueId());
+                boolean victimImmune = pvpManager.hasNewPlayerImmunity(victim.getUniqueId());
+                if (attackerImmune || victimImmune) {
+                    //logger.info(String.format("[AcidInfection] Inmunidad PvP activa (attackerImmune=%s, victimImmune=%s). Cancelado",
+                    //        attackerImmune, victimImmune));
+                    return;
+                }
+            }
+        }
+
         // Apply acid infection effect
         target.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 100, 1)); // Poison II for 5 seconds
         
@@ -308,11 +365,11 @@ public class EnchantmentListeners implements Listener {
         BukkitTask acidTask = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             private int ticks = 0;
             private final int maxTicks = 10; // 10 seconds
-            
+
             @Override
             public void run() {
                 ticks++;
-                
+
                 // Check if entity is still valid and alive
                 if (!target.isValid() || target.isDead()) {
                     // Cancel task if entity is dead or invalid
@@ -323,14 +380,59 @@ public class EnchantmentListeners implements Listener {
                     }
                     return;
                 }
-                
-                // Apply acid damage
+
+                // Ensure attacker is valid to attribute damage properly
+                if (player == null || !player.isOnline() || player.isDead()) {
+                    // logger.info("[AcidInfection] Atacante no disponible (offline/muerto). Efecto cancelado para evitar bypassear anti-PvP.");
+                    acidInfectedEntities.remove(targetUUID);
+                    BukkitTask task = scheduledTasks.remove(targetUUID);
+                    if (task != null) {
+                        task.cancel();
+                    }
+                    return;
+                }
+
+                // Re-check anti-PvP protections dynamically (players may move into protected zones)
+                if (target instanceof Player) {
+                    Player victim = (Player) target;
+
+                    // Skip if world-level PvP disabled
+                    if (!victim.getWorld().getPVP()) {
+                        acidInfectedEntities.remove(targetUUID);
+                        BukkitTask task = scheduledTasks.remove(targetUUID);
+                        if (task != null) task.cancel();
+                        return;
+                    }
+
+                    boolean victimRegionProtected = WorldGuardUtils.isPvPDeniedAt(victim.getLocation());
+                    boolean attackerRegionProtected = WorldGuardUtils.isPvPDeniedAt(player.getLocation());
+                    if (victimRegionProtected || attackerRegionProtected) {
+                        acidInfectedEntities.remove(targetUUID);
+                        BukkitTask task = scheduledTasks.remove(targetUUID);
+                        if (task != null) task.cancel();
+                        return;
+                    }
+
+                    PvPManager pvpManager = HeartlessMain.getPvPManager();
+                    if (pvpManager != null) {
+                        boolean attackerImmune = pvpManager.hasNewPlayerImmunity(player.getUniqueId());
+                        boolean victimImmune = pvpManager.hasNewPlayerImmunity(victim.getUniqueId());
+                        if (attackerImmune || victimImmune) {
+                            acidInfectedEntities.remove(targetUUID);
+                            BukkitTask task = scheduledTasks.remove(targetUUID);
+                            if (task != null) task.cancel();
+                            return;
+                        }
+                    }
+                }
+
+                // Apply acid damage attributed to attacker so anti-PvP systems can intercept
                 double damage = 1.0; // 1 heart of damage per second
-                target.damage(damage);
-                
+                target.damage(damage, player);
+
                 // Visual effects
                 world.spawnParticle(Particle.LAVA, target.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.05);
-                
+
                 // End effect after max duration
                 if (ticks >= maxTicks) {
                     acidInfectedEntities.remove(targetUUID);

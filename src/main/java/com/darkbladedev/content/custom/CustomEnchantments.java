@@ -132,6 +132,7 @@ public class CustomEnchantments {
     public enum ENCHANTMENTS {
         ACID_RESISTANCE(ACID_RESISTANCE_KEY, "Proteccion contra el acido", 1),
         ACID_INFECTION(ACID_INFECTION_KEY, "Contagion", 1),
+        // TODO: Evitar que TicTac bypasse el anti-pvp del spawn
         TICTAC(TICTAC_KEY, "TicTac", 5),
         CONDIMENT(CONDIMENT_KEY, "Condimento", 3),
         ADRENALINE(ADRENALINE_KEY, "Adrenalina", 1),

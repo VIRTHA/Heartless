@@ -48,16 +48,56 @@ repositories {
     name = 'codemc'
     url = 'https://repo.codemc.io/repository/maven-public/'
   }
+
+  maven {
+    name = 'enginehub'
+    url = "https://maven.enginehub.org/repo/"
+    }
+
 }
 
 dependencies {
-  compileOnly 'io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT'
-  shadow("com.zaxxer:HikariCP:7.0.2")
+  compileOnly('io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT') {
+    // Excluir dependencias que Mojang/Paper proveen para evitar conflictos de versión
+    exclude group: 'com.google.guava', module: 'guava'
+    exclude group: 'com.google.code.gson', module: 'gson'
+    exclude group: 'it.unimi.dsi', module: 'fastutil'
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-bom'
+  }
+  compileOnly('com.sk89q.worldguard:worldguard-bukkit:7.0.15-SNAPSHOT') {
+    exclude group: 'com.google.guava', module: 'guava'
+    exclude group: 'com.google.code.gson', module: 'gson'
+    exclude group: 'it.unimi.dsi', module: 'fastutil'
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-bom'
+  }
   compileOnly "org.xerial:sqlite-jdbc:3.47.1.0"
   compileOnly "me.clip:placeholderapi:2.11.6"
+  compileOnly 'com.google.code.gson:gson:2.10.1'
+  
+  compileOnly('com.sk89q.worldedit:worldedit-bukkit:7.3.9') {
+    exclude group: 'com.google.guava', module: 'guava'
+    exclude group: 'com.google.code.gson', module: 'gson'
+    exclude group: 'it.unimi.dsi', module: 'fastutil'
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-bom'
+  }
+  compileOnly('com.sk89q.worldedit:worldedit-core:7.3.9') {
+    exclude group: 'com.google.guava', module: 'guava'
+    exclude group: 'com.google.code.gson', module: 'gson'
+    exclude group: 'it.unimi.dsi', module: 'fastutil'
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-bom'
+  }
+  compileOnly('com.sk89q.worldguard:worldguard-core:7.0.15-SNAPSHOT') {
+    exclude group: 'com.google.guava', module: 'guava'
+    exclude group: 'com.google.code.gson', module: 'gson'
+    exclude group: 'it.unimi.dsi', module: 'fastutil'
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-bom'
+  }
+
   implementation 'de.tr7zw:item-nbt-api:2.14.1'
   implementation 'com.googlecode.json-simple:json-simple:1.1.1'
   
+  shadow("com.zaxxer:HikariCP:7.0.2")
+
   // Testing dependencies
   testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.1'
@@ -65,7 +105,12 @@ dependencies {
   testImplementation 'org.mockito:mockito-core:5.8.0'
   testImplementation 'org.mockito:mockito-junit-jupiter:5.8.0'
   testImplementation 'org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.79.0'
-  testImplementation 'io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT'
+  testImplementation('io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT') {
+    exclude group: 'com.google.guava', module: 'guava'
+    exclude group: 'com.google.code.gson', module: 'gson'
+    exclude group: 'it.unimi.dsi', module: 'fastutil'
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-bom'
+  }
   testImplementation 'com.zaxxer:HikariCP:7.0.2'
   testImplementation 'org.xerial:sqlite-jdbc:3.47.1.0'
   testImplementation "me.clip:placeholderapi:2.11.6"

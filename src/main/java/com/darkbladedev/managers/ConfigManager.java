@@ -45,6 +45,9 @@ public class ConfigManager {
     private double healthMinimum;
     private boolean healthStealEnabled;
     private boolean healthRewardsEnabled;
+    // Health steal per-world configuration
+    private java.util.List<String> healthStealSelectedWorlds;
+    private java.util.Map<String, Boolean> healthStealEnabledByWorld;
     
     private boolean banSystemEnabled;
     private int banDefaultDuration;
@@ -164,6 +167,56 @@ public class ConfigManager {
         healthMinimum = config.getDouble("health.minimum-health", 2.0);
         healthStealEnabled = config.getBoolean("health.health-steal-enabled", true);
         healthRewardsEnabled = config.getBoolean("health.health-rewards-enabled", true);
+
+        // Health steal per-world configuration
+        healthStealSelectedWorlds = config.getStringList("health.health-steal-worlds.selected");
+        if (healthStealSelectedWorlds == null) {
+            healthStealSelectedWorlds = new java.util.ArrayList<>();
+        }
+        // Validación: asegurar que al menos un mundo esté seleccionado
+        boolean configUpdated = false;
+        if (healthStealSelectedWorlds.isEmpty()) {
+            // Inicializar automáticamente con los mundos disponibles actualmente
+            for (org.bukkit.World w : org.bukkit.Bukkit.getWorlds()) {
+                healthStealSelectedWorlds.add(w.getName());
+            }
+            if (healthStealSelectedWorlds.isEmpty()) {
+                plugin.getLogger().warning("No hay mundos cargados para inicializar 'health-steal-worlds.selected'. El sistema de robo de corazones permanecerá deshabilitado.");
+            } else {
+                config.set("health.health-steal-worlds.selected", healthStealSelectedWorlds);
+                plugin.getLogger().info("Inicializados mundos para HealthSteal: " + healthStealSelectedWorlds);
+                configUpdated = true;
+            }
+        }
+
+        // Cargar toggles por mundo
+        healthStealEnabledByWorld = new java.util.HashMap<>();
+        org.bukkit.configuration.ConfigurationSection section = config.getConfigurationSection("health.health-steal-worlds.enabled-by-world");
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
+                healthStealEnabledByWorld.put(key, section.getBoolean(key, true));
+            }
+        }
+        // Si no hay toggles definidos, habilitar por defecto los mundos seleccionados
+        if (healthStealEnabledByWorld.isEmpty() && !healthStealSelectedWorlds.isEmpty()) {
+            for (String w : healthStealSelectedWorlds) {
+                healthStealEnabledByWorld.put(w, true);
+            }
+            // Persistir en el config
+            for (java.util.Map.Entry<String, Boolean> e : healthStealEnabledByWorld.entrySet()) {
+                config.set("health.health-steal-worlds.enabled-by-world." + e.getKey(), e.getValue());
+            }
+            configUpdated = true;
+        }
+
+        // Guardar el config si fue actualizado automáticamente
+        if (configUpdated) {
+            try {
+                config.save(configFile);
+            } catch (java.io.IOException e) {
+                plugin.getLogger().log(java.util.logging.Level.SEVERE, "Error guardando configuración actualizada", e);
+            }
+        }
         
         // Ban system configuration
         banSystemEnabled = config.getBoolean("ban-system.enabled", true);
@@ -282,6 +335,16 @@ public class ConfigManager {
     public double getHealthMinimum() { return healthMinimum; }
     public boolean isHealthStealEnabled() { return healthStealEnabled; }
     public boolean isHealthRewardsEnabled() { return healthRewardsEnabled; }
+    public java.util.List<String> getHealthStealSelectedWorlds() { return healthStealSelectedWorlds; }
+    public java.util.Map<String, Boolean> getHealthStealEnabledByWorld() { return healthStealEnabledByWorld; }
+    public boolean isHealthStealEnabledInWorld(String worldName) {
+        if (!healthStealEnabled) return false;
+        if (worldName == null) return false;
+        Boolean enabled = healthStealEnabledByWorld.get(worldName);
+        if (enabled != null) return enabled.booleanValue();
+        // Si no hay toggle específico, considerar habilitado solo si el mundo está seleccionado
+        return healthStealSelectedWorlds != null && healthStealSelectedWorlds.contains(worldName);
+    }
     
     // Ban system getters
     public boolean isBanSystemEnabled() { return banSystemEnabled; }

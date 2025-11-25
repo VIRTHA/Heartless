@@ -47,6 +47,16 @@ health:
   minimum-health: 6.0
   health-steal-enabled: true
   health-rewards-enabled: true
+  # Configuración por mundos para el sistema de robo de corazones
+  health-steal-worlds:
+    # Selección múltiple de mundos donde estará activo el sistema
+    # Nota: En la primera carga, si esta lista está vacía, se inicializará automáticamente
+    # con los mundos disponibles actualmente y se guardará en el config.
+    selected:
+      - "world"
+    # Activación por mundo (toggle). Si no se especifica, por defecto se activa para los mundos seleccionados
+    enabled-by-world:
+      world: true
   
 # Configuración del sistema de baneo
 ban-system:
