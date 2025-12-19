@@ -385,14 +385,19 @@ public class ZombieInfection extends CustomEffectsBase {
         // Enviar mensaje específico según la fuente
         switch (source) {
             case "zombie_attack":
-                player.sendMessage(MM.toComponent("<red><bold>¡Has sido infectado por un zombie!</bold></red>"));
-                player.sendMessage(MM.toComponent("<gray>Busca una cura antes de que sea demasiado tarde..."));
+                if (!isAffected(player)) {
+                    player.sendMessage(MM.toComponent("<red><bold>¡Has sido infectado por un zombie!</bold></red>"));
+                    player.sendMessage(MM.toComponent("<gray>Busca una cura antes de que sea demasiado tarde..."));
+                }
                 break;
             case "red_moon":
-                player.sendMessage(MM.toComponent("<dark_red><bold>¡La Luna Roja ha intensificado tu infección!</bold></dark_red>"));
+                    player.sendMessage(MM.toComponent("<dark_red><bold>¡La Luna Roja ha intensificado tu infección!</bold></dark_red>"));
+                
                 break;
             default:
-                player.sendMessage(MM.toComponent("<red>¡Has contraído la infección zombie!"));
+                if (!isAffected(player)) {
+                    player.sendMessage(MM.toComponent("<red>¡Has contraído la infección zombie!"));
+                }
                 break;
         }
     }
