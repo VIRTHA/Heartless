@@ -25,6 +25,7 @@ import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.content.semi_custom.CustomEffectsBase;
 import com.darkbladedev.utils.EffectType;
 import com.darkbladedev.utils.MM;
+import com.darkbladedev.utils.WorldGuardUtils;
 
 /**
  * Efecto personalizado que simula una infección zombie.
@@ -302,7 +303,7 @@ public class ZombieInfection extends CustomEffectsBase {
             Player victim = (Player) event.getEntity();
             
             // Si el atacante está infectado y no tiene arma en la mano
-            if (isAffected(attacker) && !hasWeaponInHand(attacker)) {
+            if (isAffected(attacker) && !hasWeaponInHand(attacker) && !WorldGuardUtils.isLocationInRegion(attacker.getLocation(), "spawn")) {
                 // Probabilidad de infección (50% base, reducida si tiene resistencia)
                 double infectionChance = hasInfectionResistance(victim) ? 0.25 : 0.5;
                 

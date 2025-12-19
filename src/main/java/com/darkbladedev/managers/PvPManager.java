@@ -76,20 +76,7 @@ public class PvPManager implements Listener {
     
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        
-        // Verificar si es un jugador nuevo (5 corazones o menos)
-        AttributeInstance healthAttribute = player.getAttribute(Attribute.MAX_HEALTH);
-        if (healthAttribute != null && healthAttribute.getBaseValue() <= NEW_PLAYER_HEALTH_THRESHOLD) {
-            // Otorgar inmunidad PvP por 3 horas
-            newPlayerImmunity.put(player.getUniqueId(), System.currentTimeMillis());
-            
-            player.sendMessage(MM.toComponent("<green><bold>¡Protección de Nuevo Jugador Activada!</bold></green>"));
-            player.sendMessage(MM.toComponent("<yellow>Tienes inmunidad PvP durante 3 horas.</yellow>"));
-            player.sendMessage(MM.toComponent("<gray>No puedes atacar ni ser atacado por otros jugadores.</gray>"));
-            
-            logger.info("[PvPManager] Jugador nuevo {} recibió inmunidad PvP por 3 horas", player.getName());
-        }
+        // Protección de nuevos jugadores deshabilitada
     }
     
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -102,6 +89,8 @@ public class PvPManager implements Listener {
         Player attacker = (Player) event.getDamager();
         Player victim = (Player) event.getEntity();
         
+        // Protección de nuevos jugadores deshabilitada
+        /*
         // Verificar protección de nuevos jugadores
         if (isNewPlayerProtected(attacker) || isNewPlayerProtected(victim)) {
             event.setCancelled(true);
@@ -116,6 +105,7 @@ public class PvPManager implements Listener {
             
             return;
         }
+        */
     }
     
     @EventHandler(priority = EventPriority.HIGH)
@@ -143,22 +133,8 @@ public class PvPManager implements Listener {
      * Verifica si un jugador tiene protección de nuevo jugador activa.
      */
     private boolean isNewPlayerProtected(Player player) {
-        Long immunityStart = newPlayerImmunity.get(player.getUniqueId());
-        if (immunityStart == null) {
-            return false;
-        }
-        
-        long currentTime = System.currentTimeMillis();
-        boolean isProtected = (currentTime - immunityStart) < NEW_PLAYER_IMMUNITY_MS;
-        
-        // Remover inmunidad expirada
-        if (!isProtected) {
-            newPlayerImmunity.remove(player.getUniqueId());
-            player.sendMessage(MM.toComponent("<yellow>Tu protección de nuevo jugador ha expirado.</yellow>"));
-            logger.info("[PvPManager] Inmunidad PvP expirada para jugador {}", player.getName());
-        }
-        
-        return isProtected;
+        // Protección deshabilitada
+        return false;
     }
     
     /**

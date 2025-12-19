@@ -23,6 +23,32 @@ public class WorldGuardUtils {
     }
 
     /**
+     * Checks if a location is inside a specific region by ID.
+     * @param location The location to check
+     * @param regionId The ID of the region
+     * @return true if the location is inside the region, false otherwise
+     */
+    public static boolean isLocationInRegion(Location location, String regionId) {
+        try {
+            // If WorldGuard plugin is not loaded, return false
+            if (Bukkit.getPluginManager().getPlugin("WorldGuard") == null ||
+                !Bukkit.getPluginManager().isPluginEnabled("WorldGuard")) {
+                return false;
+            }
+
+            var regionManager = getWorldGuard().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(location.getWorld()));
+            if (regionManager == null) return false;
+
+            ProtectedRegion region = regionManager.getRegion(regionId);
+            if (region == null) return false;
+
+            return region.contains(BukkitAdapter.asBlockVector(location));
+        } catch (NoClassDefFoundError | Exception e) {
+            return false;
+        }
+    }
+
+    /**
      * Checks if PvP is denied at the given Bukkit location using WorldGuard flags.
      * Returns false if WorldGuard is not present or the region query cannot be performed.
      */
