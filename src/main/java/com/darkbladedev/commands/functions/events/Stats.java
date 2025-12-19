@@ -235,14 +235,6 @@ public class Stats implements SubcommandExecutor {
     }
 
     /**
-     * Formatea una clave de estadística para mostrar
-     */
-    private String formatStatKey(String key) {
-        return key.replace("_", " ")
-                 .substring(0, 1).toUpperCase() + key.replace("_", " ").substring(1);
-    }
-
-    /**
      * Formatea tiempo en milisegundos a formato legible
      */
     private String formatTime(long timeInMillis) {

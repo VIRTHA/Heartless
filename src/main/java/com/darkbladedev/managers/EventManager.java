@@ -25,8 +25,6 @@ public class EventManager {
         this.weeklyEventManager = plugin.getWeeklyEventManager();
         this.healthStealSystem = new HealthSteal(plugin);
         this.healthRewardsSystem = new HealthRewards(plugin);
-
-        Bukkit.getPluginManager().registerEvents(healthStealSystem, plugin);
     }
 
     // STARTERS

@@ -106,8 +106,8 @@ public class HeartlessMain extends JavaPlugin {
         migrationManager = new WeeklyEventMigrationManager(instance);
         
         // Inicializar PvPManager para características globales de PvP
-        pvpManager = new PvPManager(instance);
-        pvpManager.enable();
+        // pvpManager = new PvPManager(instance);
+        // pvpManager.enable();
         
         // Inicializar PermissionBonusManager para bonificaciones de recompensas
         permissionBonusManager = new PermissionBonusManager(instance);

@@ -1,7 +1,9 @@
 package com.darkbladedev.mechanics;
 
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -12,6 +14,9 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.projectiles.ProjectileSource;
 import com.darkbladedev.HeartlessMain;
 import com.darkbladedev.managers.BanManager;
@@ -36,14 +41,17 @@ public class HealthSteal implements Listener {
     
     private static final String BAN_REASON = "Has alcanzado el mínimo de corazones permitidos";
     private final Map<UUID, Integer> banCountMap = new HashMap<>();
+    private final Map<UUID, Double> pendingMaxHealthUpdates = new HashMap<>(); // Almacenar actualizaciones pendientes para respawn
     private final Set<UUID> processedDeaths = new HashSet<>(); // Prevenir doble procesamiento
     private final File banDataFile;
     private final HeartlessMain plugin;
+    private final NamespacedKey maxHealthKey;
     private boolean enabled = true;
     
     public HealthSteal(HeartlessMain plugin) {
         this.plugin = plugin;
         this.banDataFile = new File(plugin.getDataFolder(), "ban_data.json");
+        this.maxHealthKey = new NamespacedKey(plugin, "max_health");
         
         // Create data folder if it doesn't exist
         if (!plugin.getDataFolder().exists()) {
@@ -65,7 +73,7 @@ public class HealthSteal implements Listener {
         this.enabled = enabled;
     }
     
-    @EventHandler
+    @EventHandler(priority = org.bukkit.event.EventPriority.LOW)
     public void onPlayerKill(PlayerDeathEvent event) {
         if (!enabled) return;
         // Validación por mundo: ejecutar solo si el sistema está activo en el mundo de la muerte
@@ -110,38 +118,109 @@ public class HealthSteal implements Listener {
 
         // Ajustar salud (1 corazón = 2.0 puntos)
         double healthToSteal = 2.0;
-        double currentMaxHealth = killer.getAttribute(Attribute.MAX_HEALTH).getValue();
-        double newMaxHealth = currentMaxHealth + healthToSteal;
+        double minHealth = cfg.getHealthMinimum();
+        double maxHealthCap = 40.0; // Cap hardcodeado o podría venir de config si existiera
 
-        // Limitar salud máxima si es necesario
-        if (newMaxHealth > 40.0) newMaxHealth = 40.0;
-
-        // Aplicar el aumento de salud al asesino
-        killer.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
-        killer.setHealth(Math.min(killer.getHealth() + healthToSteal, newMaxHealth));
-
-        // Reducir la salud máxima de la víctima cuando reaparezca
-        double victimCurrentMaxHealth = deadPlayer.getAttribute(Attribute.MAX_HEALTH).getValue();
-        double victimNewMaxHealth = victimCurrentMaxHealth - healthToSteal;
+        // Obtener atributos actuales
+        AttributeInstance killerAttr = killer.getAttribute(Attribute.MAX_HEALTH);
+        AttributeInstance victimAttr = deadPlayer.getAttribute(Attribute.MAX_HEALTH);
         
-        // Evitar que la salud máxima baje de 6.0 (3 corazones)
-        if (victimNewMaxHealth < 6.0) victimNewMaxHealth = 6.0;
-        
-        // Guardar el nuevo valor de salud máxima para aplicarlo cuando el jugador reaparezca
-        deadPlayer.getAttribute(Attribute.MAX_HEALTH).setBaseValue(victimNewMaxHealth);
-        
-        // Mensaje al jugador víctima
-        deadPlayer.sendMessage(MM.toComponent("<gray>¡<red>" + (killer instanceof Player ? ((Player)killer).getName() : "Un mob") + " ha robado 1 corazón de tu salud máxima</red>!</gray>"));
-        if (killer instanceof Player) {
-            ((Player) killer).sendMessage(MM.toComponent("<green>¡Robaste 1 corazón de <dark_aqua>" + deadPlayer.getName() + "</dark_aqua>!</green>"));
+        if (killerAttr != null && victimAttr != null) {
+            double killerCurrentMax = killerAttr.getValue();
+            double victimCurrentMax = victimAttr.getValue();
+            
+            // Calcular cuánto puede ganar el asesino antes de llegar al cap
+            double gainable = Math.max(0, maxHealthCap - killerCurrentMax);
+            
+            // Calcular cuánto puede perder la víctima antes de llegar al mínimo
+            double losable = Math.max(0, victimCurrentMax - minHealth);
+            
+            // La transferencia real es el mínimo entre:
+            // 1. La cantidad estándar a robar (2.0)
+            // 2. Lo que el asesino puede recibir
+            // 3. Lo que la víctima puede dar
+            double actualTransfer = Math.min(healthToSteal, Math.min(gainable, losable));
+            
+            // Logs de depuración
+            plugin.getLogger().info("[HealthSteal Debug] Muerte procesada: " + deadPlayer.getName() + " -> " + killer.getName());
+            plugin.getLogger().info("[HealthSteal Debug] Asesino MaxHP: " + killerCurrentMax + " (Cap: " + maxHealthCap + ", Gainable: " + gainable + ")");
+            plugin.getLogger().info("[HealthSteal Debug] Víctima MaxHP: " + victimCurrentMax + " (Min: " + minHealth + ", Losable: " + losable + ")");
+            plugin.getLogger().info("[HealthSteal Debug] Transferencia calculada: " + actualTransfer);
+            
+            if (actualTransfer > 0) {
+                // Aplicar cambios al asesino
+                double killerNewMax = killerCurrentMax + actualTransfer;
+                killerAttr.setBaseValue(killerNewMax);
+                killer.setHealth(Math.min(killer.getHealth() + actualTransfer, killerNewMax));
+                
+                if (killer instanceof Player) {
+                    PersistentDataContainer pdc = ((Player) killer).getPersistentDataContainer();
+                    pdc.set(maxHealthKey, PersistentDataType.DOUBLE, killerNewMax);
+                    ((Player) killer).sendMessage(MM.toComponent("<green>¡Has robado " + (actualTransfer/2.0) + " corazones de <dark_aqua>" + deadPlayer.getName() + "</dark_aqua>!</green>"));
+                }
+                
+                // Aplicar cambios a la víctima
+                double victimNewMax = victimCurrentMax - actualTransfer;
+                victimAttr.setBaseValue(victimNewMax);
+                
+                // Persistencia y manejo de respawn para víctima
+                pendingMaxHealthUpdates.put(deadPlayerId, victimNewMax);
+                PersistentDataContainer pdc = deadPlayer.getPersistentDataContainer();
+                pdc.set(maxHealthKey, PersistentDataType.DOUBLE, victimNewMax);
+                
+                deadPlayer.sendMessage(MM.toComponent("<gray>¡<red>" + (killer instanceof Player ? ((Player)killer).getName() : "Un mob") + " ha robado " + (actualTransfer/2.0) + " corazones de tu salud máxima</red>!</gray>"));
+            } else {
+                plugin.getLogger().info("[HealthSteal Debug] No hubo transferencia de salud (Límites alcanzados).");
+                if (killer instanceof Player) {
+                    ((Player) killer).sendMessage(MM.toComponent("<yellow>No se pudieron robar corazones (Límite alcanzado por uno de los jugadores)."));
+                }
+                deadPlayer.sendMessage(MM.toComponent("<yellow>No perdiste corazones (Límite alcanzado)."));
+            }
         }
     }
 
-    
     @EventHandler
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        if (!enabled) return;
+        
+        Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
+        PersistentDataContainer pdc = player.getPersistentDataContainer();
+        AttributeInstance attr = player.getAttribute(Attribute.MAX_HEALTH);
+        
+        if (attr == null) return;
+        
+        double newMaxHealth = -1.0;
+        
+        // 1. Verificar mapa de actualizaciones pendientes (prioridad máxima para misma sesión)
+        if (pendingMaxHealthUpdates.containsKey(playerId)) {
+            newMaxHealth = pendingMaxHealthUpdates.remove(playerId);
+        } 
+        // 2. Verificar persistencia (PDC) si no hay pendiente en memoria
+        else if (pdc.has(maxHealthKey, PersistentDataType.DOUBLE)) {
+            Double savedMaxHealth = pdc.get(maxHealthKey, PersistentDataType.DOUBLE);
+            if (savedMaxHealth != null) {
+                newMaxHealth = savedMaxHealth;
+            }
+        }
+        
+        // Aplicar salud si se encontró un valor válido
+        if (newMaxHealth > 0) {
+            // Validar mínimo de nuevo por seguridad
+            double minHealth = HeartlessMain.getInstance().getConfigManager().getHealthMinimum();
+            if (newMaxHealth < minHealth) newMaxHealth = minHealth;
+            
+            attr.setBaseValue(newMaxHealth);
+            
+            // Asegurar que el PDC esté actualizado en la nueva entidad
+            pdc.set(maxHealthKey, PersistentDataType.DOUBLE, newMaxHealth);
+        }
+    }
+    
+    @EventHandler(priority = org.bukkit.event.EventPriority.HIGH)
     public void onPlayerReachMinimunHealth(PlayerDeathEvent event) {
         if (!enabled) return;
-        // Validación por mundo: ejecutar solo si el sistema está activo en el mundo de la muerte
+        // Validación por mundo
         org.bukkit.World deathWorld = event.getEntity().getWorld();
         com.darkbladedev.managers.ConfigManager cfg = com.darkbladedev.HeartlessMain.getInstance().getConfigManager();
         if (cfg == null || !cfg.isHealthStealEnabledInWorld(deathWorld.getName())) {
@@ -149,8 +228,11 @@ public class HealthSteal implements Listener {
         }
         
         Player player = event.getEntity();
-        double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
-        double minHealth = HeartlessMain.getInstance().getConfigManager().getHealthMinimum();
+        AttributeInstance attr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (attr == null) return;
+        
+        double currentMaxHealth = attr.getValue();
+        double minHealth = cfg.getHealthMinimum();
 
         if (currentMaxHealth <= minHealth) {
             PenalizePlayer(player);
@@ -167,20 +249,38 @@ public class HealthSteal implements Listener {
         
         Player player = event.getPlayer();
         UUID playerUUID = player.getUniqueId();
+        PersistentDataContainer pdc = player.getPersistentDataContainer();
+        AttributeInstance attr = player.getAttribute(Attribute.MAX_HEALTH);
         
-        // Verificar si este jugador ha sido baneado anteriormente por corazones mínimos
+        if (attr == null) return;
+        
+        // 1. Restaurar desde PDC si existe (prioridad a la persistencia)
+        if (pdc.has(maxHealthKey, PersistentDataType.DOUBLE)) {
+            Double savedMaxHealth = pdc.get(maxHealthKey, PersistentDataType.DOUBLE);
+            if (savedMaxHealth != null) {
+                 double minHealth = HeartlessMain.getInstance().getConfigManager().getHealthMinimum();
+                 if (savedMaxHealth < minHealth) savedMaxHealth = minHealth;
+                 attr.setBaseValue(savedMaxHealth);
+            }
+        }
+        
+        // 2. Verificar si este jugador ha sido baneado anteriormente por corazones mínimos
         if (banCountMap.containsKey(playerUUID)) {
-            double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double currentMaxHealth = attr.getValue();
             double resetHealth = 10.0; // 5 corazones
             
             // Solo restablecer si la salud máxima actual es menor a 5 corazones
+            // O si acaba de ser desbaneado y su PDC decía 6.0
             if (currentMaxHealth < resetHealth) {
-                player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(resetHealth);
+                attr.setBaseValue(resetHealth);
                 
                 // Ajustar la salud actual si es mayor que la nueva salud máxima
                 if (player.getHealth() > resetHealth) {
                     player.setHealth(resetHealth);
                 }
+                
+                // Actualizar PDC con el nuevo valor de reset
+                pdc.set(maxHealthKey, PersistentDataType.DOUBLE, resetHealth);
                 
                 // Mensaje informativo al jugador
                 player.sendMessage(MM.toComponent("<green>Tu salud máxima ha sido restablecida a 5 corazones.</green>"));

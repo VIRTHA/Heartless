@@ -30,39 +30,39 @@ public class HealthRewards implements Listener {
         this.enabled = enabled;
     }
     
-    @EventHandler
-    public void onPlayerEatGoldenApple(PlayerItemConsumeEvent event) {
-        if (!enabled) return;
+    // @EventHandler
+    // public void onPlayerEatGoldenApple(PlayerItemConsumeEvent event) {
+    //     if (!enabled) return;
         
-        ItemStack item = event.getItem();
-        Player player = event.getPlayer();
+    //     ItemStack item = event.getItem();
+    //     Player player = event.getPlayer();
         
-        // Check if the item is an enchanted golden apple
-        if (item.getType() == Material.ENCHANTED_GOLDEN_APPLE) {
+    //     // Check if the item is an enchanted golden apple
+    //     if (item.getType() == Material.ENCHANTED_GOLDEN_APPLE) {
 
-            // Add one heart (2 health points) to max health
-            double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+    //         // Add one heart (2 health points) to max health
+    //         double currentMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
             
-            // Check if player already has maximum health (20 hearts = 40.0 health points)
-            if (currentMaxHealth >= 40.0) {
-                return; // Don't show any message or effects if already at max
-            }
+    //         // Check if player already has maximum health (20 hearts = 40.0 health points)
+    //         if (currentMaxHealth >= 40.0) {
+    //             return; // Don't show any message or effects if already at max
+    //         }
             
-            double newMaxHealth = Math.min(currentMaxHealth + 2.0, 40.0); // Cap at 20 hearts (40 health)
-            double actualHealthGained = newMaxHealth - currentMaxHealth;
+    //         double newMaxHealth = Math.min(currentMaxHealth + 2.0, 40.0); // Cap at 20 hearts (40 health)
+    //         double actualHealthGained = newMaxHealth - currentMaxHealth;
             
-            player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
+    //         player.getAttribute(Attribute.MAX_HEALTH).setBaseValue(newMaxHealth);
             
-            // Only show message and effects if health was actually gained
-            if (actualHealthGained > 0) {
-                player.sendMessage(MM.toComponent("<gold>¡Has ganado un corazón extra de vida máxima!</gold>"));
+    //         // Only show message and effects if health was actually gained
+    //         if (actualHealthGained > 0) {
+    //             player.sendMessage(MM.toComponent("<gold>¡Has ganado un corazón extra de vida máxima!</gold>"));
                 
-                // Play a special effect
-                player.getWorld().spawnParticle(org.bukkit.Particle.HEART, player.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
-                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-            }
-        }
-    }
+    //             // Play a special effect
+    //             player.getWorld().spawnParticle(org.bukkit.Particle.HEART, player.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+    //             player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+    //         }
+    //     }
+    // }
     
     @EventHandler
     public void onEnderDragonDeath(EntityDeathEvent event) {
