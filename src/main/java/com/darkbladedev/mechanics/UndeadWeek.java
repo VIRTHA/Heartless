@@ -842,6 +842,9 @@ public class UndeadWeek extends AbstractWeeklyEvent {
     }
     
     private void spawnRandomZombies() {
+        // Usar MobSpawnManager para verificar límites
+        com.darkbladedev.managers.MobSpawnManager mobManager = HeartlessMain.getMobSpawnManager();
+        
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (currentZombieCount.get() >= MAX_ZOMBIES_PER_PLAYER * Bukkit.getOnlinePlayers().size()) {
                 break;
@@ -857,8 +860,18 @@ public class UndeadWeek extends AbstractWeeklyEvent {
                 Location spawnLoc = getRandomLocationNear(playerLoc, ZOMBIE_SPAWN_RADIUS);
                 
                 if (spawnLoc != null && spawnLoc.getBlock().getType() == Material.AIR) {
+                    // Verificar con MobSpawnManager si se puede spawnear aquí
+                    if (mobManager != null && !mobManager.canSpawn(spawnLoc)) {
+                        continue;
+                    }
+                    
                     Zombie zombie = (Zombie) world.spawnEntity(spawnLoc, EntityType.ZOMBIE);
-                    zombie.setTarget(player);
+                    
+                    // Solo atacar si no está en creativo
+                    if (player.getGameMode() != org.bukkit.GameMode.CREATIVE) {
+                        zombie.setTarget(player);
+                    }
+                    
                     currentZombieCount.incrementAndGet();
                     
                     // Bonus durante luna roja

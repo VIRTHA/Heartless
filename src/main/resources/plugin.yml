@@ -1,5 +1,5 @@
 name: Heartless
-version: 1.0.0
+version: ${version}
 main: com.darkbladedev.HeartlessMain
 description: "Adds a customizable and funny events system to your Minecraft server."
 authors: [DarkBladeDev]

@@ -32,10 +32,11 @@ public class WeeklyEventDispatcher {
      * @param eventType Tipo de evento que está iniciando
      * @param duration Duración del evento en milisegundos
      * @param startTime Tiempo de inicio del evento
+     * @param world Mundo específico (null para global)
      * @return true si el evento no fue cancelado
      */
-    public boolean fireEventStart(EventType eventType, long duration, long startTime) {
-        WeeklyEventStartEvent event = new WeeklyEventStartEvent(eventType, duration, startTime);
+    public boolean fireEventStart(EventType eventType, long duration, long startTime, org.bukkit.World world) {
+        WeeklyEventStartEvent event = new WeeklyEventStartEvent(eventType, duration, startTime, world);
         pluginManager.callEvent(event);
         
         if (event.isCancelled()) {
@@ -43,8 +44,20 @@ public class WeeklyEventDispatcher {
             return false;
         }
         
-        plugin.getLogger().info("Evento de inicio disparado para: " + eventType + " con duración: " + duration + "ms");
+        String location = world != null ? "mundo: " + world.getName() : "global";
+        plugin.getLogger().info("Evento de inicio disparado para: " + eventType + " (" + location + ") con duración: " + duration + "ms");
         return true;
+    }
+
+    /**
+     * Dispara un evento de inicio de evento semanal (Global)
+     * @param eventType Tipo de evento que está iniciando
+     * @param duration Duración del evento en milisegundos
+     * @param startTime Tiempo de inicio del evento
+     * @return true si el evento no fue cancelado
+     */
+    public boolean fireEventStart(EventType eventType, long duration, long startTime) {
+        return fireEventStart(eventType, duration, startTime, null);
     }
     
     /**

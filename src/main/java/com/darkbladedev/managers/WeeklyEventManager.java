@@ -359,6 +359,16 @@ public class WeeklyEventManager {
                 plugin.getLogger().warning("Error al iniciar seguimiento de estadísticas: " + e.getMessage());
             }
             
+            // Disparar evento de inicio (con soporte para cancelación)
+            if (!eventDispatcher.fireEventStart(eventType, duration, System.currentTimeMillis(), world)) {
+                // Revertir cambios si es cancelado
+                this.isEventActive.set(false);
+                this.currentEvent = null;
+                this.currentEventType = null;
+                plugin.getLogger().info("Inicio de evento cancelado por listener externo.");
+                return false;
+            }
+
             // Iniciar el evento solo en el mundo específico
             event.startInSpecificWorld(world);
             

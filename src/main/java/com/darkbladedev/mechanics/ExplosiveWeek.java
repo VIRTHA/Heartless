@@ -394,6 +394,12 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
         
         // Ensure the location is in air
         if (spawnLoc.getBlock().getType() == Material.AIR) {
+            // Usar MobSpawnManager para verificar límites
+            com.darkbladedev.managers.MobSpawnManager mobManager = HeartlessMain.getMobSpawnManager();
+            if (mobManager != null && !mobManager.canSpawn(spawnLoc)) {
+                return;
+            }
+
             Ghast ghast = (Ghast) player.getWorld().spawnEntity(spawnLoc, EntityType.GHAST);
             
             // Make the ghast target the player
@@ -450,9 +456,9 @@ public class ExplosiveWeek extends AbstractWeeklyEvent {
                 ChallengeDefinition.fromStringRewards(
                     "mob_head_collector",
                     "Coleccionista de Cabezas", 
-                    "Colecciona cabezas de Zombie, Skeleton y Creeper", 
+                    "Colecciona cabezas de Zombie, Esqueleto y Creeper", 
                     3, 
-                    Arrays.asList("coins:20")
+                    Arrays.asList("coins:8")
                 )
             );
             

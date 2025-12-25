@@ -72,6 +72,35 @@ custom-effects:
     duration: 600  # segundos
     spread-chance: 0.15
     cure-villagers-required: 1
+
+# Configuración de control de mobs
+mob-control:
+  enabled: true
+  # Intervalo de chequeo para limpieza de mobs (en ticks)
+  check-interval: 600 # 30 segundos
+  
+  # Límites de spawn personalizados para eventos
+  spawn-limits:
+    # Máximo de mobs hostiles por jugador en radio de carga
+    hostile-per-player: 25
+    # Radio mínimo de spawn desde el jugador (bloques)
+    min-spawn-radius: 24
+    # Radio máximo de spawn desde el jugador (bloques)
+    max-spawn-radius: 48
+    # Distancia mínima entre mobs spawneados por el plugin
+    min-distance-between-mobs: 5
+    
+  # Configuración de limpieza
+  cleanup:
+    enabled: true
+    # Eliminar mobs hostiles que no tienen objetivo y están lejos
+    remove-inactive: true
+    # Tiempo de inactividad antes de eliminar (segundos)
+    inactive-time: 45
+    # Radio de limpieza (mobs más allá de este radio del jugador más cercano serán eliminados)
+    cleanup-radius: 64
+    # No eliminar mobs con nombre personalizado
+    protect-named-mobs: true
     
 # Configuración de mensajes
 messages:

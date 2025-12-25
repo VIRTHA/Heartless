@@ -325,6 +325,12 @@ public class ZombieInfection extends CustomEffectsBase {
         if (event.getEntity().getType() == EntityType.ZOMBIE && event.getTarget() instanceof Player) {
             Player player = (Player) event.getTarget();
             
+            // 1. Si el jugador está en modo creativo, el zombie debe ignorarlo completamente
+            if (player.getGameMode() == org.bukkit.GameMode.CREATIVE) {
+                event.setCancelled(true);
+                return;
+            }
+
             // Si el jugador está infectado, hay una probabilidad de que el zombie lo ignore
             if (isAffected(player) && Math.random() < 0.6) {
                 event.setCancelled(true);

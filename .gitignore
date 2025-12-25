@@ -23,3 +23,5 @@ src/main/resources/heartless_datapack.zip
 plugins/
 test-server/
 bin/
+.continue
+.gitignore

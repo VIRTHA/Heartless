@@ -23,6 +23,7 @@ import com.darkbladedev.managers.ContentManager;
 import com.darkbladedev.managers.CustomEffectsManager;
 import com.darkbladedev.managers.DatabaseManager;
 import com.darkbladedev.managers.EventManager;
+import com.darkbladedev.managers.MobSpawnManager;
 import com.darkbladedev.managers.PlaceholderApiManager;
 import com.darkbladedev.managers.StorageManager;
 import com.darkbladedev.managers.WeeklyEventManager;
@@ -57,6 +58,7 @@ public class HeartlessMain extends JavaPlugin {
     private static PvPManager pvpManager;
     private static PermissionBonusManager permissionBonusManager;
     private static EventDataPersistenceManager eventDataPersistenceManager;
+    private static MobSpawnManager mobSpawnManager;
     
     static {
         gson = new GsonBuilder().setPrettyPrinting().create();
@@ -297,6 +299,10 @@ public class HeartlessMain extends JavaPlugin {
     
     public PermissionBonusManager getPermissionBonusManager() {
         return permissionBonusManager;
+    }
+    
+    public static com.darkbladedev.managers.MobSpawnManager getMobSpawnManager() {
+        return mobSpawnManager;
     }
     
     public static AutoSaveManager getAutoSaveManager() {

@@ -40,6 +40,8 @@ import com.darkbladedev.content.custom.CustomEnchantments;
 import com.darkbladedev.utils.MM;
 import com.darkbladedev.models.TimeExpression;
 
+import com.darkbladedev.utils.WorldGuardUtils;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -124,8 +126,8 @@ public class AcidWeek extends AbstractWeeklyEvent {
     private static final int MAX_ROOF_CHECK_HEIGHT = 20;
     private static final double ACID_DAMAGE_AMOUNT = 3.0;
     private static final double RESISTANCE_DAMAGE_REDUCTION = 0.5;
-    private static final long RAIN_DAMAGE_INTERVAL_TICKS = 100L; // 5 segundos
-    private static final long WATER_DAMAGE_INTERVAL_TICKS = 60L; // 3 segundos
+    private static final long RAIN_DAMAGE_INTERVAL_TICKS = 60L; // 3 segundos
+    private static final long WATER_DAMAGE_INTERVAL_TICKS = 30L; // 1.5 segundos
 
     public AcidWeek(HeartlessMain plugin, TimeExpression duration) {
         super(plugin, duration);
@@ -565,7 +567,7 @@ public class AcidWeek extends AbstractWeeklyEvent {
             plugin.getLogger().log(Level.WARNING, "[AcidWeek] Error al procesar daño de lluvia", e);
         }
     }
-    
+
     /**
      * Verifica si un jugador está expuesto a la lluvia
      */
@@ -577,6 +579,11 @@ public class AcidWeek extends AbstractWeeklyEvent {
             }
             
             Location loc = player.getLocation();
+
+            // Verificar si el jugador está en la región 'spawn'
+            if (WorldGuardUtils.isLocationInRegion(loc, "spawn")) {
+                return false;
+            }
             
             // Verificar si el jugador está bajo el agua
             Block playerBlock = world.getBlockAt(loc);
@@ -1056,7 +1063,7 @@ public class AcidWeek extends AbstractWeeklyEvent {
                 "Superviviente de Lluvia Ácida",
                 "Sobrevive 90 segundos bajo la lluvia ácida sin pociones ni armadura especial",
                 90, // 90 segundos
-                Collections.singletonList("coins:20")
+                Collections.singletonList("coins:4")
             ));
             
             // Desafío 3: Matar a un jugador con botella de agua arrojadiza (Difícil)

@@ -13,18 +13,31 @@ public class WeeklyEventStartEvent extends Event {
     private final EventType eventType;
     private final long duration;
     private final long startTime;
+    private final org.bukkit.World world;
     private boolean cancelled = false;
     
     /**
-     * Constructor del evento de inicio de evento semanal
+     * Constructor del evento de inicio de evento semanal (Global)
      * @param eventType Tipo de evento que está iniciando
      * @param duration Duración del evento en milisegundos
      * @param startTime Tiempo de inicio del evento
      */
     public WeeklyEventStartEvent(EventType eventType, long duration, long startTime) {
+        this(eventType, duration, startTime, null);
+    }
+
+    /**
+     * Constructor del evento de inicio de evento semanal (Específico)
+     * @param eventType Tipo de evento que está iniciando
+     * @param duration Duración del evento en milisegundos
+     * @param startTime Tiempo de inicio del evento
+     * @param world Mundo específico donde inicia el evento (null para global)
+     */
+    public WeeklyEventStartEvent(EventType eventType, long duration, long startTime, org.bukkit.World world) {
         this.eventType = eventType;
         this.duration = duration;
         this.startTime = startTime;
+        this.world = world;
     }
     
     /**
@@ -49,6 +62,22 @@ public class WeeklyEventStartEvent extends Event {
      */
     public long getStartTime() {
         return startTime;
+    }
+    
+    /**
+     * Obtiene el mundo específico donde inicia el evento
+     * @return El mundo específico, o null si es global
+     */
+    public org.bukkit.World getWorld() {
+        return world;
+    }
+
+    /**
+     * Verifica si el evento es específico de un mundo
+     * @return true si el evento es específico de un mundo
+     */
+    public boolean isWorldSpecific() {
+        return world != null;
     }
     
     /**

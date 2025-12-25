@@ -843,7 +843,7 @@ public class BloodAndIronWeek extends AbstractWeeklyEvent {
                         survivors.add(playerId);
                         player.sendMessage(MM.toComponent("<green>¡Desafío completado: Superviviente!"));
                         // Otorgar +20 Thalos por sobrevivir toda la semana
-                        Reward reward = new Reward("coins:20");
+                        Reward reward = new Reward("coins:8");
                         reward.grantTo(player, prefix);
                     }
                     break;
@@ -1345,7 +1345,7 @@ public class BloodAndIronWeek extends AbstractWeeklyEvent {
                 "Asesino de Jugadores",
                 "Mata a un jugador durante el evento",
                 1,
-                Collections.singletonList("coins:10")
+                Collections.singletonList("coins:4")
             ));
             
             // Desafío 2: Conseguir pentakill (5 kills consecutivos) (Intermedio)
