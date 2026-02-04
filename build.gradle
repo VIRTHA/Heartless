@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.darkbladedev"
-version = "0.0.6-hotfix"
+version = "0.0.7-hotfix"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21

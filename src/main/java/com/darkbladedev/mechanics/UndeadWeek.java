@@ -207,6 +207,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         redMoonTask = new BukkitRunnable() {
             @Override
             public void run() {
+                if (!isActive.get()) return;
                 if (ThreadLocalRandom.current().nextDouble() < 0.3) { // 30% de probabilidad
                     activateRedMoon();
                 }
@@ -217,6 +218,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         zombieSpawnTask = new BukkitRunnable() {
             @Override
             public void run() {
+                if (!isActive.get()) return;
                 spawnRandomZombies();
             }
         }.runTaskTimer(plugin, 20L * 60, 20L * 60 * 5); // Cada 5 minutos
@@ -225,6 +227,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         infectionTask = new BukkitRunnable() {
             @Override
             public void run() {
+                if (!isActive.get()) return;
                 processInfections();
             }
         }.runTaskTimer(plugin, 20L * 10, 20L * 10); // Cada 10 segundos
@@ -233,6 +236,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         netheriteArmorTask = new BukkitRunnable() {
             @Override
             public void run() {
+                if (!isActive.get()) return;
                 processNetheriteArmorEffects();
             }
         }.runTaskTimer(plugin, 20L * 5, 20L * 5); // Cada 5 segundos
@@ -241,6 +245,7 @@ public class UndeadWeek extends AbstractWeeklyEvent {
         nightCycleTask = new BukkitRunnable() {
             @Override
             public void run() {
+                if (!isActive.get()) return;
                 checkNightCycle();
             }
         }.runTaskTimer(plugin, 20L, 20L * 10); // Cada 10 segundos
